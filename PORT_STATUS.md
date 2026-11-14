@@ -146,6 +146,13 @@ prototype does not satisfy that outcome. The goal remains active.
   pass initialization and supported-job execution checks; scene CPU differential
   fixtures, mesh preparation, dynamic execution and GPU integration remain open.
 
+- `src/prepared_mesh.rs` ports the CPU EngMesh buffers: packed color and
+  tangent-space vertices, part/material bounds, per-program job reuse, triangle
+  indices, shadow planes/silhouettes, sprite points and thick-line endpoints.
+  All fields match 512 original C++ preparation jobs (float tolerance 2e-6).
+  The batch path resolves original material programs and retains their bindings.
+  GPU upload, shader compilation and actual drawing are still pending.
+
 ## Remaining requirements
 
 1. Validate original text/font behavior against Windows GDI, including original

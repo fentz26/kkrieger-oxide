@@ -51,3 +51,10 @@ compilation stubbed. They verify CPU state, texture binding, pass ordering and
 shared inherited shader updates; they do not verify shader compilation or pixels.
 Regenerate with `python3 tools/verify_material.py` and
 `python3 tools/verify_material.py --development`; `--beta` stays reference-only.
+
+`prepared-mesh.bin` records 512 original EngMesh preparation jobs, covering
+static triangles, shadow planes/silhouettes, sprites and thick lines, plus
+vertex packing and part bounds. The source leaves final part endpoints
+unwritten and never reads them; the oracle initializes these unused entries
+to -1 and Rust represents them as None. Regenerate with
+`python3 tools/verify_prepared_mesh.py`.

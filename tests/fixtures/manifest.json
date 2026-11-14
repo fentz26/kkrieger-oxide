@@ -86,6 +86,10 @@
     "material-graph3383.bin": {
       "bytes": 114964,
       "sha256": "7bfc777ed26558f5b9b70d3e477b6ad194fbd3c96ab91f1f1194631da00953cf"
+    },
+    "prepared-mesh.bin": {
+      "bytes": 366976,
+      "sha256": "ff1b7a612bdcb836e7f9f7cd406aef64ba3cbb27f5799ad2a000825240e6fb30"
     }
   }
 }
