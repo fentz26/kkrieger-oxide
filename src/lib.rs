@@ -10,3 +10,5 @@ pub mod random;
 mod rounding;
 pub mod scene;
 pub mod texture;
+
+pub mod texture_upload;

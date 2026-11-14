@@ -94,6 +94,14 @@
     "lighting-lookup.bin": {
       "bytes": 229376,
       "sha256": "d49c896b3f3d3a3337cc7738da66d8c6f9391f5f94d043a131decf7a3ae70412"
+    },
+    "material-uniforms.bin": {
+      "bytes": 93828,
+      "sha256": "cac259baed0a134903bb283d8a8f74bcd17a3119fbdb3a9db7985e38fcbcd5b3"
+    },
+    "texture-upload.bin": {
+      "bytes": 126460,
+      "sha256": "c789c48e192a603b04214077cec7bcd2ff7098b8fc4dc96e22d4b9520cba7f1d"
     }
   }
 }

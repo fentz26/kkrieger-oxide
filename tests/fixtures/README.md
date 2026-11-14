@@ -62,3 +62,14 @@ to -1 and Rust represents them as None. Regenerate with
 `lighting-lookup.bin` records all 229,376 RGBA bytes from the original 64²
 cube normalizer and 32³ attenuation generators, with GPU allocations replaced
 by memory buffers. Regenerate with `python3 tools/verify_lighting_lookup.py`.
+
+`material-uniforms.bin` records 128 original Material11 Set calls and their
+active constant registers. Unwritten source registers are excluded from fidelity
+comparisons. The native matrix adapter replaces adjacent-member output indexing
+with explicit component access while retaining arithmetic order. Regenerate with
+`python3 tools/verify_material_uniforms.py`.
+
+`texture-upload.bin` records 256 original player UpdateTexture calls, including
+unsigned RGBA, signed Q8W8V8U8, mip limits, rectangular/NPOT inputs, threshold
+filtering and inverted mip filtering. D3D allocations and locks use memory-only
+stubs. Regenerate with `python3 tools/verify_texture_upload.py`.

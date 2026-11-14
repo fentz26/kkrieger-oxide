@@ -159,9 +159,19 @@ prototype does not satisfy that outcome. The goal remains active.
   development and 218 beta pass programs compile on the local OpenGL driver via
   `cargo run --bin shader-check` (add `-- --beta` for the release data).
   `material::pipeline` maps source depth, blend, stencil and culling settings.
-  Lighting lookup generators match every original C++ texel byte. Signed texture
-  upload, uniform setup, draw integration and original-vs-Rust pixel comparisons
+  Lighting lookup generators match every original C++ texel byte. GPU texture
+  upload, draw integration and original-vs-Rust pixel comparisons
   remain open; successful compilation is not visual fidelity evidence.
+
+- Material constant setup now matches 128 original C++ Set calls, preserving
+  original transpose-based model inverse, light attenuation, texture SRTs,
+  environment/projection transforms, fog and specular constants. Unwritten
+  source registers are zero-filled and excluded from comparisons.
+- `texture_upload` converts player RGBA and signed normal maps and generates
+  original 15-bit mips. All output bytes and mip limits match 256 native C++
+  UpdateTexture cases, including rectangular, NPOT and inverted-filter inputs.
+  The original unwritten tails of rectangular mip allocations remain explicit.
+  Native GPU upload and sampler validation are still pending.
 
 ## Remaining requirements
 

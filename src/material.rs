@@ -5,6 +5,7 @@ pub mod lookup;
 mod pipeline;
 pub mod shader;
 mod state;
+pub mod uniforms;
 pub use state::State;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
