@@ -7,4 +7,5 @@ pub mod mesh;
 pub mod mesh_graph;
 pub mod random;
 mod rounding;
+pub mod scene;
 pub mod texture;

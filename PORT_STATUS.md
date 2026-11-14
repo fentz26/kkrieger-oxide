@@ -138,6 +138,14 @@ prototype does not satisfy that outcome. The goal remains active.
   graphs (padding excluded in graph comparisons). GPU shader compilation and
   rendering remain unimplemented.
 
+- `src/scene.rs` constructs the original scene cache shapes for every scene
+  operator in both exports, retaining mesh/effect handles for preparation.
+  `scene::exec` evaluates the original animation VM while issuing transform,
+  multiply, camera, light, paint and deferred sector jobs. Unsupported dynamic
+  handlers fail explicitly and discard the incomplete job list. Both data sets
+  pass initialization and supported-job execution checks; scene CPU differential
+  fixtures, mesh preparation, dynamic execution and GPU integration remain open.
+
 ## Remaining requirements
 
 1. Validate original text/font behavior against Windows GDI, including original
