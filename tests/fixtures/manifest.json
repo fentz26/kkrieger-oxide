@@ -102,6 +102,10 @@
     "texture-upload.bin": {
       "bytes": 126460,
       "sha256": "c789c48e192a603b04214077cec7bcd2ff7098b8fc4dc96e22d4b9520cba7f1d"
+    },
+    "shadow.bin": {
+      "bytes": 161748,
+      "sha256": "e41fbd5c4fbec4c24f6ed44b83d17b31ac1c7c0f0b81552ce57a3f05077b6405"
     }
   }
 }

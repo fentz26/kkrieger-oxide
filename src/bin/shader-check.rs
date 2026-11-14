@@ -46,8 +46,15 @@ fn main() {
         },
         move || {
             let mut ctx = window::new_rendering_backend();
-            verify_uploads(&mut *ctx);
-            verify_draw(&mut *ctx);
+            let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                verify_uploads(&mut *ctx);
+                verify_draw(&mut *ctx);
+                verify_shadow(&mut *ctx);
+            }));
+            if checked.is_err() {
+                std::process::exit(1);
+            }
+
             let mut count = 0;
             for (id, state) in &states {
                 let source = state
@@ -219,7 +226,7 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         fog_end: 1.,
         fog_color: 0,
     };
-    ctx.begin_pass(Some(pass), PassAction::default());
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
     material.draw(ctx, &job, &[], &state, &environment).unwrap();
     ctx.end_render_pass();
     let mut pixels = vec![0; 64 * 64 * 4];
@@ -233,4 +240,191 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
     job.delete(ctx);
     ctx.delete_render_pass(pass);
     println!("Original static mesh draw and packed vertex colors read back correctly");
+}
+
+fn verify_shadow(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        gpu_mesh, gpu_texture,
+        material::{Program, State, uniforms::Environment},
+        mesh::{Mesh, identity},
+        prepared_mesh::PreparedMesh,
+        shadow,
+    };
+    use miniquad::native::gl::*;
+    let mut caster = Mesh::cube([1, 1, 1], 0, [1., 1., 1., 0., 0., 0., 0., 0., 2.]);
+    let caster = PreparedMesh::from_mesh(
+        &mut caster,
+        &[vec![], vec![Program::Static, Program::Shadow]],
+    )
+    .unwrap();
+    let mut receiver = Mesh::cube([1, 1, 1], 0, [8., 8., 0.25, 0., 0., 0., 0., 0., 5.]);
+    let receiver =
+        PreparedMesh::from_mesh(&mut receiver, &[vec![], vec![Program::Static]]).unwrap();
+    let receiver_gpu = gpu_mesh::StaticJob::upload(ctx, &receiver, 0).unwrap();
+    let caster_gpu = gpu_mesh::StaticJob::upload(ctx, &caster, 0).unwrap();
+    let light = [-1.5, 1.5, 0.5];
+    let mut classification = shadow::Context::default();
+    let job = &caster.jobs[1];
+    let volume = classification.build(&caster, job, light).unwrap();
+    let mut gpu =
+        gpu_mesh::ShadowJob::new(ctx, &volume, job.edges.len() * 6 + job.indices.len()).unwrap();
+    let mut depth_state = State::default();
+    depth_state.words[0] = 0x20322;
+    depth_state.words[9] = 0x10;
+    let depth_material = gpu_mesh::Material::compile(ctx, &depth_state, 24).unwrap();
+    let mut shadow_state = State::default();
+    shadow_state.words[0] = 0x70220;
+    shadow_state.words[9] = 0x10;
+    let (target, _) = gpu_texture::depth_stencil_pass(ctx, 64, 64).unwrap();
+    let env = Environment {
+        model: identity(),
+        view_projection: [
+            [1., 0., 0., 0.],
+            [0., 1., 0., 0.],
+            [0., 0., 1., 1.],
+            [0., 0., -0.1, 0.],
+        ],
+        world_to_camera: identity(),
+        camera: identity(),
+        light_position: [light[0], light[1], light[2], 1.],
+        light_color: [1.; 4],
+        light_amplify: 1.,
+        light_range: 16.,
+        fog_start: 0.,
+        fog_end: 100.,
+        fog_color: 0,
+    };
+    let mut results = Vec::new();
+    for zfail in [false, true] {
+        let material = gpu_mesh::Material::compile_shadow(ctx, &shadow_state, 24, zfail).unwrap();
+        gpu.update(ctx, &volume, zfail).unwrap();
+        gpu_texture::begin_pass(ctx, Some(target), PassAction::default());
+        // A previous stencil pass can leave a restricted write mask on clears.
+        gpu_texture::clear(ctx, None, None, Some(0));
+        depth_material
+            .draw(ctx, &receiver_gpu, &[], &depth_state, &env)
+            .unwrap();
+        depth_material
+            .draw(ctx, &caster_gpu, &[], &depth_state, &env)
+            .unwrap();
+        let mut depth_before = vec![0.0f32; 64 * 64];
+        unsafe {
+            glReadPixels(
+                0,
+                0,
+                64,
+                64,
+                0x1902,
+                GL_FLOAT,
+                depth_before.as_mut_ptr().cast(),
+            );
+        }
+        material
+            .draw_shadow(ctx, &gpu, &shadow_state, &env)
+            .unwrap();
+        let mut depth_after = vec![0.0f32; 64 * 64];
+        unsafe {
+            glReadPixels(
+                0,
+                0,
+                64,
+                64,
+                0x1902,
+                GL_FLOAT,
+                depth_after.as_mut_ptr().cast(),
+            );
+        }
+        assert_eq!(depth_before, depth_after, "shadow pass modified depth");
+        let mut stencil = vec![0u8; 64 * 64];
+        unsafe {
+            glReadPixels(
+                0,
+                0,
+                64,
+                64,
+                0x1901,
+                GL_UNSIGNED_BYTE,
+                stencil.as_mut_ptr().cast(),
+            );
+            assert_eq!(glGetError(), GL_NO_ERROR);
+        }
+        assert!(
+            stencil.iter().any(|&v| v != 0),
+            "shadow volume did not write stencil"
+        );
+        results.push(stencil.iter().map(|&v| v != 0).collect::<Vec<_>>());
+        ctx.end_render_pass();
+        material.delete(ctx);
+    }
+    assert_eq!(
+        results[0], results[1],
+        "z-pass and z-fail disagree outside the volume"
+    );
+    ctx.begin_pass(Some(target), PassAction::Nothing);
+    gpu_texture::clear(ctx, Some((0., 0., 0., 0.)), Some(1.), Some(0));
+    ctx.apply_scissor_rect(16, 16, 16, 16);
+    unsafe {
+        glEnable(GL_SCISSOR_TEST);
+        glDepthMask(0);
+        glColorMask(0, 0, 0, 0);
+        glStencilMaskSeparate(GL_FRONT, 0);
+        glStencilMaskSeparate(GL_BACK, 0);
+    }
+    gpu_texture::clear(ctx, Some((1., 0., 0., 1.)), Some(0.25), Some(7));
+    let mut colors = vec![0u8; 64 * 64 * 4];
+    let mut depths = vec![0.0f32; 64 * 64];
+    let mut stencils = vec![0u8; 64 * 64];
+    unsafe {
+        glReadPixels(
+            0,
+            0,
+            64,
+            64,
+            GL_RGBA,
+            GL_UNSIGNED_BYTE,
+            colors.as_mut_ptr().cast(),
+        );
+        glReadPixels(0, 0, 64, 64, 0x1902, GL_FLOAT, depths.as_mut_ptr().cast());
+        glReadPixels(
+            0,
+            0,
+            64,
+            64,
+            0x1901,
+            GL_UNSIGNED_BYTE,
+            stencils.as_mut_ptr().cast(),
+        );
+        let mut depth_mask = 1;
+        let mut color_mask = [1; 4];
+        let mut stencil_mask = 1;
+        glGetIntegerv(0x0b72, &mut depth_mask);
+        glGetIntegerv(0x0c23, color_mask.as_mut_ptr());
+        glGetIntegerv(0x0b98, &mut stencil_mask);
+        assert_eq!(depth_mask, 0);
+        assert_eq!(color_mask, [0; 4]);
+        assert_eq!(stencil_mask, 0);
+        glStencilMaskSeparate(GL_FRONT, u32::MAX);
+        glStencilMaskSeparate(GL_BACK, u32::MAX);
+        assert_eq!(glGetError(), GL_NO_ERROR);
+    }
+    for (x, y, inside) in [(20, 20, true), (8, 8, false)] {
+        let i = y * 64 + x;
+        assert_eq!(
+            &colors[i * 4..i * 4 + 4],
+            if inside {
+                &[255, 0, 0, 255]
+            } else {
+                &[0, 0, 0, 0]
+            }
+        );
+        assert_eq!(stencils[i], if inside { 7 } else { 0 });
+        assert!((depths[i] - if inside { 0.25 } else { 1. }).abs() < 1e-6);
+    }
+    ctx.end_render_pass();
+    gpu.delete(ctx);
+    receiver_gpu.delete(ctx);
+    caster_gpu.delete(ctx);
+    depth_material.delete(ctx);
+    ctx.delete_render_pass(target);
+    println!("Original shadow z-pass and z-fail produce matching nonempty stencil masks");
 }

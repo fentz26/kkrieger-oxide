@@ -90,6 +90,20 @@ impl State {
         let mut vertex = String::from(
             "#version 100\nprecision highp float;\nuniform vec4 vc[24];\nattribute vec4 position;\nattribute vec2 uv0;\nattribute vec2 uv1;\nattribute vec3 normal;\nattribute vec3 tangent;\nattribute vec4 color;\nvarying vec4 v_color;\nvarying float v_fog;\n",
         );
+        if w[0] & 0x40000 != 0 {
+            for declaration in [
+                "attribute vec2 uv0;\n",
+                "attribute vec2 uv1;\n",
+                "attribute vec3 normal;\n",
+                "attribute vec3 tangent;\n",
+                "attribute vec4 color;\n",
+            ] {
+                vertex = vertex.replace(declaration, "");
+            }
+            if textures.iter().any(Option::is_some) || lighting {
+                return Err("original shadow shader cannot consume ordinary vertex attributes");
+            }
+        }
         let mut fragment = String::from(
             "#version 100\nprecision highp float;\nuniform vec4 pc[8];\nuniform vec4 fog_color;\nvarying vec4 v_color;\nvarying float v_fog;\n",
         );
@@ -123,6 +137,14 @@ impl State {
         vertex.push_str("gl_Position=vec4(dot(modelPos,vc[0]),dot(modelPos,vc[1]),dot(modelPos,vc[2]),dot(modelPos,vc[3]));\n");
         // D3D clip depth [0,w] maps to OpenGL [-w,w].
         vertex.push_str("gl_Position.z=gl_Position.z*2.0-gl_Position.w;\nv_color=color.zyxw/255.0;\nv_fog=1.0;\nvec3 N=normal;vec3 T=tangent;vec3 B=cross(N,T);\n");
+        if w[0] & 0x40000 != 0 {
+            vertex = vertex
+                .replace("v_color=color.zyxw/255.0;", "v_color=vec4(0.0);")
+                .replace(
+                    "vec3 N=normal;vec3 T=tangent;vec3 B=cross(N,T);",
+                    "vec3 N=vec3(0.0);vec3 T=vec3(0.0);vec3 B=vec3(0.0);",
+                );
+        }
         if w[0] & 0x40 != 0 {
             vertex.push_str("v_fog=dot(modelPos,vc[20]);\n");
         }

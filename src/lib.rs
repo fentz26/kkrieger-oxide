@@ -11,6 +11,7 @@ pub mod prepared_mesh;
 pub mod random;
 mod rounding;
 pub mod scene;
+pub mod shadow;
 pub mod texture;
 
 pub mod texture_upload;

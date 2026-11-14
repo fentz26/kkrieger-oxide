@@ -57,9 +57,12 @@ int main(){word(64);for(int c=0;c<64;c++){
  delete m;
 }}
 '''
-with tempfile.TemporaryDirectory() as tmp:
- cpp=pathlib.Path(tmp)/'prepared.cpp';exe=pathlib.Path(tmp)/'prepared'
- cpp.write_text(support+functions+cube.cube+driver)
- subprocess.run(['clang++','-std=c++17','-Wno-register','-O2','-ffp-contract=off',str(cpp),'-o',str(exe)],check=True)
- data=subprocess.check_output([str(exe)])
-out=root/'tests/fixtures/prepared-mesh.bin';out.write_bytes(data);print(f'{out}: {len(data)} bytes / 512 original preparation jobs')
+def main():
+    with tempfile.TemporaryDirectory() as tmp:
+     cpp=pathlib.Path(tmp)/'prepared.cpp';exe=pathlib.Path(tmp)/'prepared'
+     cpp.write_text(support+functions+cube.cube+driver)
+     subprocess.run(['clang++','-std=c++17','-Wno-register','-O2','-ffp-contract=off',str(cpp),'-o',str(exe)],check=True)
+     data=subprocess.check_output([str(exe)])
+    out=root/'tests/fixtures/prepared-mesh.bin';out.write_bytes(data);print(f'{out}: {len(data)} bytes / 512 original preparation jobs')
+
+if __name__=="__main__":main()

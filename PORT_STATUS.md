@@ -184,6 +184,19 @@ prototype does not satisfy that outcome. The goal remains active.
   Dynamic finalizers, complete scene execution, shadows and full-game rendering
   still require integration. The playable executable remains the old prototype.
 
+- `shadow` matches 128 original C++ shadow volumes, including homogeneous
+  vertices, silhouette order, cap indices and retained face-classification state.
+  The GPU path now streams these indices into original two-sided stencil passes
+  on D24S8 targets. Z-pass and z-fail produce identical nonempty 64² stencil masks
+  in the offscreen integration test while leaving depth unchanged.
+- Miniquad 0.4.11 enables depth testing only when depth_write is true and does not
+  apply GL depth write masks. The renderer explicitly applies original read-only
+  depth tests and polygon bias. Clear wrappers temporarily open write masks and
+  restore them; scissor continues to clip Clear as specified by Direct3D 9.
+  Pixel readback checks color, depth and stencil clears under closed write masks.
+  Full-scene light/shadow scheduling and original-executable pixel parity remain
+  unverified; sprites, gameplay, audio and the playable runtime are still pending.
+
 ## Remaining requirements
 
 1. Validate original text/font behavior against Windows GDI, including original

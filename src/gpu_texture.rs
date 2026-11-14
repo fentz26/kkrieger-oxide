@@ -118,3 +118,116 @@ pub fn lighting_lookups(ctx: &mut dyn RenderingBackend) -> (TextureId, TextureId
     );
     (normalizer, attenuation)
 }
+
+/// Offscreen RGBA8 + D24S8 target for the original stencil lighting passes.
+/// The returned pass owns both attachments; delete it with delete_render_pass.
+pub fn depth_stencil_pass(
+    ctx: &mut dyn RenderingBackend,
+    width: u32,
+    height: u32,
+) -> Result<(RenderPass, TextureId), &'static str> {
+    if ctx.info().backend != Backend::OpenGl {
+        return Err("original stencil target requires OpenGL");
+    }
+    let color = ctx.new_render_texture(TextureParams {
+        width,
+        height,
+        format: TextureFormat::RGBA8,
+        ..Default::default()
+    });
+    let depth = ctx.new_render_texture(TextureParams {
+        width,
+        height,
+        format: TextureFormat::Depth,
+        ..Default::default()
+    });
+    unsafe {
+        let RawId::OpenGl(raw) = ctx.texture_raw_id(depth) else {
+            unreachable!()
+        };
+        let mut previous = 0;
+        glGetIntegerv(0x8069, &mut previous);
+        glBindTexture(GL_TEXTURE_2D, raw);
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0x88f0,
+            width as i32,
+            height as i32,
+            0,
+            0x84f9,
+            0x84fa,
+            std::ptr::null(),
+        );
+        glBindTexture(GL_TEXTURE_2D, previous as u32);
+    }
+    let pass = ctx.new_render_pass(color, Some(depth));
+    ctx.begin_pass(Some(pass), PassAction::Nothing);
+    let valid = unsafe {
+        let RawId::OpenGl(raw) = ctx.texture_raw_id(depth) else {
+            unreachable!()
+        };
+        glFramebufferTexture2D(GL_FRAMEBUFFER, 0x8d20, GL_TEXTURE_2D, raw, 0);
+        glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE
+            && glGetError() == GL_NO_ERROR
+    };
+    ctx.end_render_pass();
+    if !valid {
+        ctx.delete_render_pass(pass);
+        return Err("OpenGL rejected the original stencil target");
+    }
+    Ok((pass, color))
+}
+
+/// D3D Clear ignores draw write masks. Preserve that behavior while
+/// restoring GL draw state so Miniquad's state cache remains consistent.
+/// Scissor still clips Clear, as in Direct3D 9:
+/// https://learn.microsoft.com/en-us/windows/win32/direct3d9/scissor-test
+fn with_clear_state(
+    ctx: &mut dyn RenderingBackend,
+    operation: impl FnOnce(&mut dyn RenderingBackend),
+) {
+    if ctx.info().backend != Backend::OpenGl {
+        operation(ctx);
+        return;
+    }
+    unsafe {
+        let mut depth = 0;
+        let mut color = [0; 4];
+        let mut front = 0;
+        let mut back = 0;
+        glGetIntegerv(0x0b72, &mut depth);
+        glGetIntegerv(0x0c23, color.as_mut_ptr());
+        glGetIntegerv(0x0b98, &mut front);
+        glGetIntegerv(0x8ca5, &mut back);
+        glDepthMask(1);
+        glColorMask(1, 1, 1, 1);
+        glStencilMaskSeparate(GL_FRONT, u32::MAX);
+        glStencilMaskSeparate(GL_BACK, u32::MAX);
+        operation(ctx);
+        glDepthMask(depth as u8);
+        glColorMask(
+            color[0] as u8,
+            color[1] as u8,
+            color[2] as u8,
+            color[3] as u8,
+        );
+        glStencilMaskSeparate(GL_FRONT, front as u32);
+        glStencilMaskSeparate(GL_BACK, back as u32);
+    }
+}
+pub fn begin_pass(ctx: &mut dyn RenderingBackend, pass: Option<RenderPass>, action: PassAction) {
+    if matches!(action, PassAction::Nothing) {
+        ctx.begin_pass(pass, action);
+    } else {
+        with_clear_state(ctx, |ctx| ctx.begin_pass(pass, action));
+    }
+}
+pub fn clear(
+    ctx: &mut dyn RenderingBackend,
+    color: Option<(f32, f32, f32, f32)>,
+    depth: Option<f32>,
+    stencil: Option<i32>,
+) {
+    with_clear_state(ctx, |ctx| ctx.clear(color, depth, stencil));
+}

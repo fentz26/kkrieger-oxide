@@ -73,3 +73,8 @@ with explicit component access while retaining arithmetic order. Regenerate with
 unsigned RGBA, signed Q8W8V8U8, mip limits, rectangular/NPOT inputs, threshold
 filtering and inverted mip filtering. D3D allocations and locks use memory-only
 stubs. Regenerate with `python3 tools/verify_texture_upload.py`.
+
+`shadow.bin` records 128 original UpdateShadowCacheJob results and the paired
+homogeneous extrusion vertices. Classification retains the original global
+face table across cases, including entries beyond the current plane count.
+Regenerate with `python3 tools/verify_shadow.py`.
