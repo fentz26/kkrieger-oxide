@@ -128,3 +128,27 @@ fn beta_material_state_matches_original_cpp_graph() {
         &std::fs::read(".reference/material-graph-beta.bin").unwrap(),
     );
 }
+
+#[test]
+fn all_development_materials_generate_shader_sources() {
+    let document = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let roots: Vec<_> = document
+        .operators
+        .iter()
+        .enumerate()
+        .filter(|(_, op)| matches!(document.classes[op.class].id, 0xd0 | 0xd1))
+        .map(|(i, _)| i)
+        .collect();
+    for (&root, material) in roots
+        .iter()
+        .zip(material::generate_many(&document, &roots).unwrap())
+    {
+        for pass in &material.passes {
+            pass.shader
+                .state
+                .borrow()
+                .shader_sources()
+                .unwrap_or_else(|e| panic!("operator {root}: {e}"));
+        }
+    }
+}

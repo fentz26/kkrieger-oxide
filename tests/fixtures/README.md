@@ -58,3 +58,7 @@ vertex packing and part bounds. The source leaves final part endpoints
 unwritten and never reads them; the oracle initializes these unused entries
 to -1 and Rust represents them as None. Regenerate with
 `python3 tools/verify_prepared_mesh.py`.
+
+`lighting-lookup.bin` records all 229,376 RGBA bytes from the original 64²
+cube normalizer and 32³ attenuation generators, with GPU allocations replaced
+by memory buffers. Regenerate with `python3 tools/verify_lighting_lookup.py`.

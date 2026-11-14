@@ -1,6 +1,9 @@
 //! Original Material11 pass scheduling. Shader compilation is a separate stage.
 use crate::kx::Document;
 use std::{cell::RefCell, fmt, rc::Rc};
+pub mod lookup;
+mod pipeline;
+pub mod shader;
 mod state;
 pub use state::State;
 

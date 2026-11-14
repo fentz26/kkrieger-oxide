@@ -90,6 +90,10 @@
     "prepared-mesh.bin": {
       "bytes": 366976,
       "sha256": "ff1b7a612bdcb836e7f9f7cd406aef64ba3cbb27f5799ad2a000825240e6fb30"
+    },
+    "lighting-lookup.bin": {
+      "bytes": 229376,
+      "sha256": "d49c896b3f3d3a3337cc7738da66d8c6f9391f5f94d043a131decf7a3ae70412"
     }
   }
 }

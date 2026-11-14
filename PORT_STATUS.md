@@ -135,8 +135,8 @@ prototype does not satisfy that outcome. The goal remains active.
   links, shared shader identities, pass ordering, finalizer size/aspect and
   insert-pointer behavior. All 48 CPU state words, texture assignments and animated pass updates
   match original C++ across 256 synthetic cases and both complete material
-  graphs (padding excluded in graph comparisons). GPU shader compilation and
-  rendering remain unimplemented.
+  graphs (padding excluded in graph comparisons). GPU shader translation now compiles (see below);
+  rendered parity and full rendering integration remain unverified.
 
 - `src/scene.rs` constructs the original scene cache shapes for every scene
   operator in both exports, retaining mesh/effect handles for preparation.
@@ -152,6 +152,16 @@ prototype does not satisfy that outcome. The goal remains active.
   All fields match 512 original C++ preparation jobs (float tolerance 2e-6).
   The batch path resolves original material programs and retains their bindings.
   GPU upload, shader compilation and actual drawing are still pending.
+
+- `material::shader` translates the original Material11 vertex/pixel programs
+  to GLSL, including texture/environment transforms, combiners, bump lighting,
+  specular approximation, alpha test, fog and shadow extrusion. All 248 distinct
+  development and 218 beta pass programs compile on the local OpenGL driver via
+  `cargo run --bin shader-check` (add `-- --beta` for the release data).
+  `material::pipeline` maps source depth, blend, stencil and culling settings.
+  Lighting lookup generators match every original C++ texel byte. Signed texture
+  upload, uniform setup, draw integration and original-vs-Rust pixel comparisons
+  remain open; successful compilation is not visual fidelity evidence.
 
 ## Remaining requirements
 
