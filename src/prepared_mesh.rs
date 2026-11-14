@@ -1,6 +1,7 @@
 //! CPU half of original EngMesh::FromGenMesh and PrepareJob.
 use crate::{material::Program, mesh::Mesh};
 
+#[repr(C)]
 #[derive(Clone, Debug)]
 pub struct Vertex {
     pub position: [f32; 3],

@@ -1,6 +1,7 @@
 //! GLSL translation of the original Material11 vs.1.1/ps.1.1 programs.
 //! Register uniforms retain the original Set() layout. Lighting lookup textures
 //! are supplied by the renderer; attenuation is a lossless 32-slice 2D atlas.
+//! The color attribute consumes the source packed D3DCOLOR bytes (BGRA).
 use super::State;
 use std::fmt::Write;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -121,7 +122,7 @@ impl State {
         }
         vertex.push_str("gl_Position=vec4(dot(modelPos,vc[0]),dot(modelPos,vc[1]),dot(modelPos,vc[2]),dot(modelPos,vc[3]));\n");
         // D3D clip depth [0,w] maps to OpenGL [-w,w].
-        vertex.push_str("gl_Position.z=gl_Position.z*2.0-gl_Position.w;\nv_color=color;\nv_fog=1.0;\nvec3 N=normal;vec3 T=tangent;vec3 B=cross(N,T);\n");
+        vertex.push_str("gl_Position.z=gl_Position.z*2.0-gl_Position.w;\nv_color=color.zyxw/255.0;\nv_fog=1.0;\nvec3 N=normal;vec3 T=tangent;vec3 B=cross(N,T);\n");
         if w[0] & 0x40 != 0 {
             vertex.push_str("v_fog=dot(modelPos,vc[20]);\n");
         }
