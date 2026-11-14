@@ -1,0 +1,27 @@
+[package]
+name = "kkrieger-oxide"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT AND BSD-2-Clause"
+description = "A compact procedural FPS experiment in Rust, inspired by .kkrieger"
+default-run = "kkrieger-oxide"
+
+[dependencies]
+miniquad = "=0.4.11"
+ttf-parser = { version = "=0.25.1", default-features = false, features = ["std"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.speed]
+inherits = "release"
+opt-level = 3
+
+[profile.tiny]
+inherits = "release"
+opt-level = "z"

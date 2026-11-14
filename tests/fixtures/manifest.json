@@ -1,0 +1,91 @@
+{
+  "upstream_revision": "8c8f82c2ae01133370e649bbc05916e7aceecadd",
+  "fixtures": {
+    "animation3383.bin": {
+      "bytes": 29348,
+      "sha256": "d86843708a3a91362cc8a8b76077aa29043b3423203ecc5424de8929acc4b3fb"
+    },
+    "bitmap-bilinear.bin": {
+      "bytes": 20268,
+      "sha256": "b8b9bea4e9dd97db0df9d78f3a4c9e0cf6e9454c779e16c4e95b2c8a231e6836"
+    },
+    "bitmap-fade.bin": {
+      "bytes": 14340,
+      "sha256": "c001d442a89a89a55252be2648ffe6c9857aa68246c272bbac599cbe1781f930"
+    },
+    "bitmap-inner.bin": {
+      "bytes": 41284,
+      "sha256": "24056cafa683d58ecc65b1f5dce3eda34e36d533f3f75a2b80e4be437c4e9d8b"
+    },
+    "generators3383.bin": {
+      "bytes": 1927212,
+      "sha256": "74b2586137e57cc6ff047b88899514a0ee5d40b7d7a59c3bea3835f16dec8c30"
+    },
+    "mesh-assembly.bin": {
+      "bytes": 1119208,
+      "sha256": "b801c6d35e31bf0835be47c4a802144743e18a7ecadd924e0c05e64c1f6f5bb8"
+    },
+    "mesh-cube-normals.bin": {
+      "bytes": 1599140,
+      "sha256": "a4952b1e078189a48973067f2ec319b24db2754e9b42f7a68bf37920c3b15847"
+    },
+    "mesh-cube.bin": {
+      "bytes": 1599140,
+      "sha256": "9ff32f21143240529722d1a5ad7080e99901f74b398771c238ecb19d0b221960"
+    },
+    "mesh-cube3383.bin": {
+      "bytes": 4510820,
+      "sha256": "b51b9ab16681fec0341970342be902ae782429939a528c184857c191fbeefbe4"
+    },
+    "mesh-cylinder.bin": {
+      "bytes": 2487648,
+      "sha256": "c26695ae9adfe58abd07ad218abd1693d75e949d03f96d45219d2f77bdb1896e"
+    },
+    "mesh-cylinder3383.bin": {
+      "bytes": 891096,
+      "sha256": "ab74213dbc8457670362da39f12778545f96e222e284121868a43fc0afd176a2"
+    },
+    "mesh-deform.bin": {
+      "bytes": 664580,
+      "sha256": "bc3c7b32c4abe525ad28d26b29507e7d02b2b48eef740a48c162917cc2f770d6"
+    },
+    "mesh-graph3383.wz": {
+      "bytes": 31623612,
+      "sha256": "160478c84d758ed6aa09e81c523a06a74f18c3062fabecb276fcc6051bf32bda",
+      "decoded_bytes": 129806496,
+      "decoded_sha256": "c042eb96682f8a79832c9609b198be8693771b1341d71cb137bdeb42169cb10c"
+    },
+    "mesh-multiply.bin": {
+      "bytes": 1002100,
+      "sha256": "8ea43b8e35918d88100d02123f8f5dce36f6aa686ae5730f796967b61a3b957e"
+    },
+    "mesh-perlin3.bin": {
+      "bytes": 83972,
+      "sha256": "277ef7968850e7bbf4832e6aa535d95b59e129c14379fbb006cbd5d77561a693"
+    },
+    "mesh-ring.bin": {
+      "bytes": 1008708,
+      "sha256": "b28b570723638793ee158d2ab8b478d2f8a30a665787aa467dfe96fbd55fba3a"
+    },
+    "mesh-subdivision.bin": {
+      "bytes": 2892468,
+      "sha256": "80d99778e26ccc824bd0f88ceb592b0aa1cb888e3bd6b703a3e92f1c4e65325c"
+    },
+    "noise.bin": {
+      "bytes": 20004,
+      "sha256": "5dec04d18c674ef9b6cd8540e656f8622efa363bda29004b783f791593a7d06a"
+    },
+    "texture-graph3383.bin": {
+      "bytes": 3268,
+      "sha256": "99a29ed4bab062aa80a91e5a9ba52313b6e7a831e88214164accf5d032d4b20a"
+    },
+    "material.bin": {
+      "bytes": 493572,
+      "sha256": "1957587c2c7706c4bf3e55db8d9274a7525354a6d64a6b8f5322fe1db818a9c8"
+    },
+    "material-graph3383.bin": {
+      "bytes": 114964,
+      "sha256": "7bfc777ed26558f5b9b70d3e477b6ad194fbd3c96ab91f1f1194631da00953cf"
+    }
+  }
+}

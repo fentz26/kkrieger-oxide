@@ -1,0 +1,6 @@
+/target/
+/artifacts/
+.DS_Store
+._*
+/.reference/
+/tools/__pycache__/
