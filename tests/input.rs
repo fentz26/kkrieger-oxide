@@ -80,7 +80,7 @@ fn original_key_handling_preserves_release_cheats_weapon_mapping_and_sounds() {
             let result = input
                 .key(key, mouse, &mut game, &mut motion, &world)
                 .unwrap();
-            placements += result.sounds.iter().filter(|s| s.slot == 11).count();
+            placements += usize::from(result.placed);
             assert_eq!(result.handled, r.word() != 0, "{case}/{tick}");
             assert_eq!(input.last_key, r.word());
             assert_eq!(input.fly, r.word() != 0);

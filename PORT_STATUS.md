@@ -516,3 +516,14 @@ consumption and recursive actor/event cleanup when a parent event expires.
 KEvent::Init's lost-chain behavior is distinguished from DeleteChain cleanup.
 A collision-world context is required explicitly. Full simulation orchestration,
 remaining scene/effect handlers and the original rendered game remain pending.
+
+A simulation owner now assembles the original OnTick order: input and weapon
+prefixes, splash/fire, movement/physics/zones/camera/listener, magnet/monster AI,
+projectiles, collision endpoints and death continuation. It shares world, actor,
+event and random-stream state with scene execution and refreshes placement mouse
+counters. Audio/listener and option-update requests retain their original phase
+positions for later platform consumption. A whole-function native fixture checks
+144 player-only ticks; coupling tests check splash-before-AI and fire-before-move
+with same-slice projectile advancement. Mixed populated tick parity, frame-clock/
+menu orchestration, platform/audio/render consumption and the original main
+runtime still need completion.

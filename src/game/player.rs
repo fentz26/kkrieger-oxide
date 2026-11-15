@@ -177,6 +177,16 @@ impl Motion {
         slices: i32,
         dynamic: &[Rc<RefCell<DynamicCell>>],
     ) -> Result<Option<Sound>, &'static str> {
+        self.slice_with_velocity(parameters, world, slices, dynamic)
+            .map(|(sound, _)| sound)
+    }
+    pub fn slice_with_velocity(
+        &mut self,
+        parameters: &Parameters,
+        world: &mut World,
+        slices: i32,
+        dynamic: &[Rc<RefCell<DynamicCell>>],
+    ) -> Result<(Option<Sound>, [f32; 4]), &'static str> {
         if self.jump_timer > 0 {
             self.jump_timer -= 1;
         }
@@ -238,6 +248,6 @@ impl Motion {
         hit.matrix1[3] = self.collider.position;
         hit.matrix1[3][1] += 0.85;
         hit.matrix0[3] = hit.matrix1[3];
-        Ok(sound)
+        Ok((sound, speed))
     }
 }

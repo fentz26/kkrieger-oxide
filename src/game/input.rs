@@ -17,6 +17,7 @@ pub struct Input {
 }
 pub struct KeyResult {
     pub handled: bool,
+    pub placed: bool,
     pub sounds: Vec<Sound>,
 }
 impl Input {
@@ -70,6 +71,7 @@ impl Input {
         self.last_key = key & 0x8001ffff;
         let mut result = KeyResult {
             handled: false,
+            placed: false,
             sounds: Vec::new(),
         };
         match self.last_key {
@@ -145,6 +147,7 @@ impl Input {
                 if self.cheat {
                     if let Some(sound) = game.respawn_at((key & 15) as usize, motion, world)? {
                         self.placement_mouse(mouse);
+                        result.placed = true;
                         result.sounds.push(sound);
                     }
                     self.cheat = false;

@@ -242,6 +242,10 @@
     "monster-scene.bin": {
       "bytes": 233288,
       "sha256": "97f6da72758ae09f8983bac4ef60d22df07dc237ac229bd99ec53600ccb54e0c"
+    },
+    "tick-player.bin": {
+      "bytes": 65992,
+      "sha256": "6596bcd33f9b111a2daa299edca79fbe5fce7a0ae52c777a6464e52d55f394b6"
     }
   }
 }

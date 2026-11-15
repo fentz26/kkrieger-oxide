@@ -278,3 +278,12 @@ The input handler's animation is absent and its body is the original splash
 operator; rendering is not emulated. Regenerate with
 `python3 tools/verify_monster_scene.py`; imported actor/walk/collision fixtures
 are regenerated too.
+
+`tick-player.bin` records 144 complete original OnTick executions with empty
+monster/shot/zone lists. Player collision, dynamic physics, continuation and
+camera updates are original functions; empty AI/event hooks are inert and sound/
+listener IO is recorded. Checks cover pause/options gates, positive/zero/negative
+slice counts, mouse timing, movement, cooldowns, camera/listener data, sound
+positions and death continuation. This fixture does not prove a whole tick with
+populated actor/shot/zone lists. Regenerate with `python3 tools/verify_tick_player.py`;
+imported collision/player/checkpoint/camera fixtures are regenerated too.
