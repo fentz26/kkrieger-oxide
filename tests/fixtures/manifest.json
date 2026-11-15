@@ -146,6 +146,10 @@
     "collision-sphere.bin": {
       "bytes": 321496,
       "sha256": "60864eb74a464401ba9bd5fbadb2038bed351e4f76b36d163698349cce9621a9"
+    },
+    "collision-movement.bin": {
+      "bytes": 236040,
+      "sha256": "450bab5f9bd7a16bb3cb65d3b8f7aaf53d919a28691d8f06fdeada279ea5567c"
     }
   }
 }

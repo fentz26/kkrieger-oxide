@@ -2,6 +2,7 @@
 use crate::mesh::Matrix;
 pub mod connectivity;
 pub mod faces;
+pub mod movement;
 pub mod ray;
 pub mod sphere;
 pub mod world;

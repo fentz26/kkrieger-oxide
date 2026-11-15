@@ -142,7 +142,7 @@ fn original_level(data: &[u8], layout: kkrieger_oxide::kx::Layout, root: usize) 
     let doc = Document::parse_layout(data, layout).unwrap();
     let initialized = scene::initialize_with_sectors(&doc, &[root]).unwrap();
     assert_eq!(initialized.sectors.len(), 47);
-    let world = World::from_document(&doc, root).unwrap();
+    let mut world = World::from_document(&doc, root).unwrap();
     let parameter = &doc.operators[doc.operators[root].inputs[0]];
     assert_eq!(doc.classes[parameter.class].id, 0x10);
     let position = [
@@ -160,6 +160,23 @@ fn original_level(data: &[u8], layout: kkrieger_oxide::kx::Layout, root: usize) 
         "player start sector must be registered for portal execution"
     );
     assert!(!world.faces[cell].as_ref().unwrap().is_empty());
+    let mut collider = kkrieger_oxide::collision::movement::Collider {
+        position,
+        radius: 0.5,
+        cell,
+    };
+    for _ in 0..64 {
+        world
+            .move_collider(&mut collider, [0.01, -0.005, 0.01, 0.], 1, &[], None)
+            .unwrap();
+        assert!(collider.position.iter().all(|x| x.is_finite()));
+        assert_eq!(
+            world.entries[collider.cell]
+                .cell
+                .outside_mask(collider.position, 0.),
+            0
+        );
+    }
     for entry in &world.entries {
         assert!(entry.cell.vertices.iter().flatten().all(|x| x.is_finite()));
         assert!(entry.cell.planes.iter().flatten().all(|x| x.is_finite()));

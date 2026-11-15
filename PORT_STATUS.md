@@ -80,9 +80,14 @@ dynamic-cell identity match 1,280 original C++ queries. Source selective field
 copying at outer walls is preserved. Traversal uses a fixed stack buffer.
 Sphere/edge and sphere/face checks and per-face soft response are ported,
 including false-result nearest-point writes and coincident-contact arithmetic.
-The native regression fixture covers 4,096 cases. Connecting sphere traversal
-and complete collider movement, event scheduling, player simulation and the
-game loop remains pending.
+The native regression fixture covers 4,096 cases. Complete MoveCollider now
+traverses generated faces and dynamic cells with the original player/monster
+exclusions, updates zones and active cells, and retains the original return
+value and radius semantics. Another 1,280 complete C++ calls check movement
+outputs and zone masks. Integration checks run 64 small movement steps from
+each original level start and verify finite positions within additive cells.
+These are static-world checks; dynamic level execution, event scheduling, player
+simulation and the game loop remain pending.
 
 ## Implemented and checked
 
