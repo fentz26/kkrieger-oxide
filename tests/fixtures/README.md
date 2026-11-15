@@ -176,3 +176,9 @@ Regenerate with `python3 tools/verify_shot_ai.py`.
 `monster-damage.bin` records 1,024 original monster hits, including dead-monster
 guards, activation, unchanged armor, disabled kill switches and byte wrapping.
 Regenerate with `python3 tools/verify_monster_damage.py`.
+
+`splash.bin` records 64 complete original splash phases with real visibility rays
+and damage methods. `splash-trigger.bin` records 512 original per-instance trigger
+executions. Checks cover falloff, blocked/outside-volume origins, zero-damage
+activation, halved player damage, kill switches and rising-edge state. Regenerate
+with `python3 tools/verify_splash.py`; imported collision fixtures are regenerated.

@@ -395,3 +395,10 @@ armor, zero/negative switch disabling and overflow. Projectile outcomes now have
 a state consumer that applies player/monster damage before returning explosion
 metadata for event queuing. Monster registration/AI and the event scheduler remain
 pending.
+
+SplashCalc and the complete splash-damage phase now match 64 native C++ cases,
+including visibility rays, outside-volume bypass, monster activation on zero
+damage, player hit halving and kill switches. The splash scene operator (0x14)
+uses per-instance rising-edge state and world-space placement; another 512 native
+executions check triggering and retained pending payloads. Scheduling this phase
+within the complete game tick and consuming dynamic events remain pending.

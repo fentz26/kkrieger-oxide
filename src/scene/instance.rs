@@ -21,6 +21,7 @@ struct Slot {
 enum State {
     Delay(delay::State),
     Physic(Physic),
+    Splash(bool),
 }
 
 pub struct Physic {
@@ -42,6 +43,15 @@ pub struct Memory {
 }
 
 impl Memory {
+    pub fn splash(&mut self, operator: usize) -> Result<&mut bool, Error> {
+        match self.next(operator, || State::Splash(false))? {
+            State::Splash(previous) => Ok(previous),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
+    }
     /// Save the caller's list cursor and start at the selected list head.
     pub fn enter(&mut self, scope: Scope) -> Cursor {
         let saved = self.cursor;

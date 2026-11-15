@@ -2,6 +2,7 @@
 pub mod monster;
 pub mod player;
 pub mod shot;
+pub mod splash;
 pub mod weapon;
 
 #[derive(Clone, Debug, Default, PartialEq)]

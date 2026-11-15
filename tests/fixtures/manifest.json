@@ -182,6 +182,14 @@
     "monster-damage.bin": {
       "bytes": 26632,
       "sha256": "70402b70acf4e7ca19773053bdcab53e569b12e5e22313adaaf9fd47ddc88e72"
+    },
+    "splash.bin": {
+      "bytes": 59396,
+      "sha256": "30bbc535b0ef3b0d6ad4b2f6fceb87fe9531e2926911e5017ffdb42b8a712458"
+    },
+    "splash-trigger.bin": {
+      "bytes": 32776,
+      "sha256": "28234ebae23b91e6fd05b99ec681cdbf8ad8055c033527df13dd42735759913b"
     }
   }
 }

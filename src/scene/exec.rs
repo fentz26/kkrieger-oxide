@@ -51,6 +51,7 @@ pub struct Execution {
     pub event_monster: Option<usize>,
     pub switches: [u8; 256],
     pub game: crate::game::State,
+    pub splash: crate::game::splash::Splash,
     pub current_time: i32,
     pub last_time: i32,
     instances: Memory,
@@ -69,6 +70,7 @@ impl Execution {
             event_monster: None,
             switches: [0; 256],
             game: crate::game::State::default(),
+            splash: crate::game::splash::Splash::default(),
             current_time: 0,
             last_time: 0,
             instances: Memory::default(),
@@ -263,6 +265,14 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x14 => {
+                let hits = *p.first().ok_or_else(|| fail("missing splash hit amount"))? as i32;
+                let range = f(1)?;
+                let enable = f(2)?;
+                self.splash
+                    .trigger(self.instances.splash(root)?, hits, range, enable, parent[3]);
+                Ok(())
+            }
             0x10 => {
                 self.game.apply_parameters(&p).map_err(fail)?;
                 self.exec_inputs(doc, root, parent)
