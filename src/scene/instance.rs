@@ -24,6 +24,14 @@ enum State {
     Physic(Physic),
     Splash(bool),
     Trigger(super::trigger::State),
+    Monster(Option<Monster>),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Monster {
+    pub actor: usize,
+    pub live: super::event::Id,
+    pub death: super::event::Id,
 }
 
 pub struct Physic {
@@ -45,8 +53,32 @@ pub struct Memory {
 }
 
 impl Memory {
-    pub fn clear(&mut self, scope: Scope) {
+    pub fn contains(&self, scope: Scope) -> bool {
+        self.lists.get(&scope).is_some_and(|list| !list.is_empty())
+    }
+    pub fn clear(&mut self, scope: Scope) -> Vec<Monster> {
+        self.lists
+            .remove(&scope)
+            .into_iter()
+            .flatten()
+            .filter_map(|slot| match slot.state {
+                State::Monster(monster) => monster,
+                _ => None,
+            })
+            .collect()
+    }
+    /// KEvent::Init loses the old instance chain without DeleteChain.
+    pub fn forget(&mut self, scope: Scope) {
         self.lists.remove(&scope);
+    }
+    pub fn monster(&mut self, operator: usize) -> Result<&mut Option<Monster>, Error> {
+        match self.next(operator, || State::Monster(None))? {
+            State::Monster(monster) => Ok(monster),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
     }
     pub fn trigger(&mut self, operator: usize) -> Result<&mut super::trigger::State, Error> {
         match self.next(

@@ -181,9 +181,12 @@ fn original_game_event_registration_order_weapon_payload_and_shot_removal() {
                 assert_eq!(execution.events.active(op), ids, "{case}/{tick}");
             }
             for id in 0..6 {
-                assert_eq!(execution.events.events[&id].matrix[3][0], r.word() as f32);
+                assert_eq!(
+                    execution.events.events[&id].borrow().matrix[3][0],
+                    r.word() as f32
+                );
             }
-            let event = &execution.events.events[&runtime.weapon];
+            let event = execution.events.events[&runtime.weapon].borrow();
             assert_eq!(event.operator, r.operator());
             for v in [event.translate, event.rotate] {
                 for x in v {
@@ -193,6 +196,7 @@ fn original_game_event_registration_order_weapon_payload_and_shot_removal() {
             assert_eq!(event.velocity.to_bits(), r.word());
             assert_eq!(event.modulation.to_bits(), r.word());
             assert_eq!(has_instance, r.word() != 0);
+            drop(event);
             execution.finish_events();
         }
     }
@@ -230,7 +234,10 @@ fn projectile_lifecycle_queues_explosion_and_releases_shot_event() {
     assert!(!execution.events.events.contains_key(&event));
     assert_eq!(execution.events.dynamic.len(), 1);
     let explosion = execution.events.dynamic[0];
-    assert_eq!(execution.events.events[&explosion].operator, Some(1));
+    assert_eq!(
+        execution.events.events[&explosion].borrow().operator,
+        Some(1)
+    );
     assert!(execution.events.active(1).is_empty());
     execution.begin_events(100, false);
     assert_eq!(execution.events.active(1), [explosion]);
@@ -293,8 +300,11 @@ fn respawn_and_weapon_switch_clear_their_persistent_scene_instances() {
     let mut zones = zones::Runtime::new(&world);
     let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
     for id in runtime.zones[0].1.into_iter().flatten() {
-        assert_eq!(execution.events.events[&id].translate, [2., 3., 4., 0.]);
-        assert_eq!(execution.events.events[&id].cull_distance, 35);
+        assert_eq!(
+            execution.events.events[&id].borrow().translate,
+            [2., 3., 4., 0.]
+        );
+        assert_eq!(execution.events.events[&id].borrow().cull_distance, 35);
     }
     zones.respawn[0] = 100;
     for expected in [true, false] {

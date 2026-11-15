@@ -42,6 +42,14 @@ pub enum Job {
     },
 }
 
+#[derive(Clone)]
+pub struct ActorContext {
+    pub world: Rc<RefCell<crate::collision::world::World>>,
+    pub player_position: [f32; 4],
+    pub player_hit: Option<Rc<RefCell<DynamicCell>>>,
+    pub time_reset: bool,
+}
+
 pub struct Execution {
     pub vm: Vm,
     pub camera: Matrix,
@@ -55,6 +63,8 @@ pub struct Execution {
     pub switches: [u8; 256],
     pub game: crate::game::State,
     pub splash: crate::game::splash::Splash,
+    pub actors: Option<ActorContext>,
+    pub next_monster_override: Option<crate::game::monster_actor::Override>,
     pub current_time: i32,
     pub last_time: i32,
     instances: Memory,
@@ -77,6 +87,8 @@ impl Execution {
             switches: [0; 256],
             game: crate::game::State::default(),
             splash: crate::game::splash::Splash::default(),
+            actors: None,
+            next_monster_override: None,
             current_time: 0,
             last_time: 0,
             instances: Memory::default(),
@@ -94,8 +106,20 @@ impl Execution {
             self.reset_event_instances(id);
         }
     }
+    pub fn has_event_instances(&self, id: super::event::Id) -> bool {
+        self.instances.contains(Scope::Event(id))
+    }
     pub fn reset_event_instances(&mut self, id: super::event::Id) {
-        self.instances.clear(Scope::Event(id));
+        self.clear_scope(Scope::Event(id));
+    }
+    fn clear_scope(&mut self, scope: Scope) {
+        for monster in self.instances.clear(scope) {
+            self.clear_scope(Scope::Event(monster.live));
+            self.clear_scope(Scope::Event(monster.death));
+            self.events.events.remove(&monster.live);
+            self.events.events.remove(&monster.death);
+            self.game.monsters.remove(monster.actor);
+        }
     }
     pub fn finish_events(&mut self) {
         for id in self.events.finish() {
@@ -113,6 +137,7 @@ impl Execution {
             operator: input,
             reason: "event missing",
         })?;
+        let event = event.borrow().clone();
         let saved: [[f32; 4]; 8] = self.vm.variables[..8].try_into().unwrap();
         let old_monster = self.event_monster;
         let old_spline = self.event_spline;
@@ -136,6 +161,10 @@ impl Execution {
         self.jobs.clear();
         self.dynamic_cells.clear();
         self.game.monsters.begin_frame();
+        self.next_monster_override = None;
+        if let Some(hit) = self.actors.as_ref().and_then(|a| a.player_hit.as_ref()) {
+            self.dynamic_cells.push(Rc::clone(hit));
+        }
         self.current_clip = Rect::UNIT;
         self.visibility_history.clear();
         self.instances.enter(Scope::Default);
@@ -326,6 +355,112 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x15 => {
+                let values = p
+                    .get(..3)
+                    .ok_or_else(|| fail("truncated monster override"))?;
+                self.next_monster_override = Some(crate::game::monster_actor::Override {
+                    kill_switch: values[0] as i32,
+                    spawn_switch: values[1] as i32,
+                    flags: values[2] as i32,
+                });
+                let result = self.exec_inputs(doc, root, parent);
+                self.next_monster_override = None;
+                result
+            }
+            0x11 => {
+                let context = self
+                    .actors
+                    .clone()
+                    .ok_or_else(|| fail("monster scene execution requires collision world"))?;
+                let slot = self.instances.monster(root)?;
+                let instance = if let Some(instance) = *slot {
+                    instance
+                } else {
+                    let actor = self.game.monsters.allocate().map_err(fail)?;
+                    let actor = actor.borrow();
+                    let live = self.events.insert_shared(Rc::clone(&actor.event), false);
+                    let death = self.events.insert_shared(Rc::clone(&actor.death), false);
+                    let instance = super::instance::Monster {
+                        actor: actor.id,
+                        live,
+                        death,
+                    };
+                    *slot = Some(instance);
+                    instance
+                };
+                let actor = self
+                    .game
+                    .monsters
+                    .get(instance.actor)
+                    .ok_or_else(|| fail("monster instance identity missing"))?;
+                if actor.borrow().health.state == 0 {
+                    let spline = op
+                        .splines
+                        .first()
+                        .copied()
+                        .flatten()
+                        .map(|id| {
+                            doc.splines
+                                .get(id)
+                                .map(|s| (id, s))
+                                .ok_or_else(|| fail("monster spline out of range"))
+                        })
+                        .transpose()?;
+                    let initialized = actor.borrow_mut().initialize(
+                        &p,
+                        crate::game::monster_actor::Context {
+                            world: &mut context.world.borrow_mut(),
+                            dynamic: &self.dynamic_cells,
+                            player_position: context.player_position,
+                            parent,
+                            spline,
+                            time: self.current_time,
+                            time_reset: context.time_reset,
+                            flags: self.next_monster_override,
+                        },
+                    );
+                    if let Err(reason) = initialized {
+                        actor.borrow_mut().health.state = 0;
+                        return Err(fail(reason));
+                    }
+                    self.instances.forget(Scope::Event(instance.live));
+                    self.instances.forget(Scope::Event(instance.death));
+                    self.next_monster_override = None;
+                }
+                let input = *op
+                    .inputs
+                    .first()
+                    .ok_or_else(|| fail("monster has no living input"))?;
+                let (alive, state, hit, event_matrix, legs, leg_time) = {
+                    let actor = actor.borrow();
+                    (
+                        actor.health.life > 0,
+                        actor.health.state,
+                        Rc::clone(&actor.hit_cell),
+                        actor.event.borrow().matrix,
+                        actor.walk.legs,
+                        actor.walk.leg_time,
+                    )
+                };
+                if alive {
+                    hit.borrow_mut().matrix1 = event_matrix;
+                    self.game.monsters.register(instance.actor).map_err(fail)?;
+                    if state >= 3 {
+                        if self.dynamic_cells.len() >= 512 {
+                            return Err(fail("dynamic cell limit exceeded"));
+                        }
+                        self.dynamic_cells.push(hit);
+                        self.vm.variables[16..24].copy_from_slice(&legs);
+                        self.vm.variables[27][0] = leg_time;
+                        self.execute_event(doc, input, instance.live, identity())?;
+                    }
+                } else if let Some(&input) = op.inputs.get(1) {
+                    actor.borrow().death.borrow_mut().matrix = event_matrix;
+                    self.execute_event(doc, input, instance.death, identity())?;
+                }
+                Ok(())
+            }
             0x07 => {
                 if let Some(target) = op.links.first().copied().flatten() {
                     let target_op = doc
@@ -377,12 +512,14 @@ impl Execution {
                         .events
                         .get_mut(&event_id)
                         .ok_or_else(|| fail("active event missing"))?;
+                    let mut event = event.borrow_mut();
                     if id == 0x06 && event.start == event.end {
                         event.start = self.events.beat;
                         event.end = event
                             .start
                             .wrapping_add((f(0)? * 65536.).round_ties_even() as i32);
                     }
+                    drop(event);
                     self.execute_event(doc, input, event_id, parent)?;
                 }
                 Ok(())

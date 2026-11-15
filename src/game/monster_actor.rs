@@ -50,8 +50,8 @@ pub struct Actor {
     pub health: Health,
     pub parameters: Parameters,
     pub matrix: Matrix,
-    pub event: Event,
-    pub death: Event,
+    pub event: crate::scene::event::Handle,
+    pub death: crate::scene::event::Handle,
     pub melee_timer: f32,
     pub ranged_timer: f32,
     pub walk_style: usize,
@@ -76,8 +76,8 @@ impl Actor {
             },
             parameters: Parameters::default(),
             matrix: [[0.; 4]; 4],
-            event: Event::default(),
-            death: Event::default(),
+            event: Rc::new(RefCell::new(Event::default())),
+            death: Rc::new(RefCell::new(Event::default())),
             melee_timer: 0.,
             ranged_timer: 0.,
             walk_style: 0,
@@ -114,7 +114,7 @@ impl Actor {
         let definition = monster_walk::DEFINITIONS
             .get(style)
             .ok_or("monster walk style out of range")?;
-        self.event = Event::default();
+        *self.event.borrow_mut() = Event::default();
         self.parameters = Parameters {
             speed: f(6) / 1000.,
             notice_radius: f(7),
@@ -133,16 +133,16 @@ impl Actor {
         self.health.kill_switch = int(17);
         // The source copies 16 words into a 14-word parameter block. The final two
         // words overwrite Event.Matrix.i.x/y after Event.Init; preserve that layout.
-        self.event.matrix[0][0] = f(20);
-        self.event.matrix[0][1] = f(21);
+        self.event.borrow_mut().matrix[0][0] = f(20);
+        self.event.borrow_mut().matrix[0][1] = f(21);
         self.walk_style = style;
         self.weapon_kind = int(27);
         self.spline = context.spline.map(|(id, _)| id);
         self.health.life = self.parameters.life_max;
         self.health.state = 1;
         self.spawn_switch = int(28);
-        self.event.monster = Some(self.id);
-        self.death = Event::default();
+        self.event.borrow_mut().monster = Some(self.id);
+        *self.death.borrow_mut() = Event::default();
         self.position_offset = [f(23), f(24), f(25), 0.];
         self.matrix = context.parent;
         let mut delta = [

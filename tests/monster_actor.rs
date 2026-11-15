@@ -138,8 +138,8 @@ impl Reader<'_> {
         assert_eq!(a.health.kill_switch, self.int());
         self.check_float(a.parameters.wait_radius, label);
         self.check_float(a.parameters.min_radius, label);
-        self.check_event(&a.event, a.id, label);
-        self.check_event(&a.death, a.id, label);
+        self.check_event(&a.event.borrow(), a.id, label);
+        self.check_event(&a.death.borrow(), a.id, label);
         assert_eq!(a.health.life, self.int());
         self.check_float(a.melee_timer, label);
         self.check_float(a.ranged_timer, label);
@@ -269,8 +269,8 @@ fn original_monster_initialization_and_respawn_match_native() {
             let a = actor.as_ref().unwrap();
             r.check_actor(a, &format!("{case}/{step}"));
             assert_eq!(r.word(), 0);
-            assert_eq!(a.event.matrix[0][0], f32::from_bits(words[20]));
-            assert_eq!(a.event.matrix[0][1], f32::from_bits(words[21]));
+            assert_eq!(a.event.borrow().matrix[0][0], f32::from_bits(words[20]));
+            assert_eq!(a.event.borrow().matrix[0][1], f32::from_bits(words[21]));
         }
     }
     assert!(r.0.is_empty());

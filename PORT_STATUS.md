@@ -504,3 +504,15 @@ kills an actor whose persistent ID differs from its registration-list index and
 queues the correct explosion. Magnet handling now supports aliased references,
 with expanded native pointer-alias/RNG coverage. The monster scene handler and
 instance-owned cleanup still need to connect this registry to scene execution.
+
+Monster scene execution (0x11) and overrides (0x15) now use instance-owned actor
+IDs, the canonical registry and shared live/death event objects. Living actors
+register in source order; in-range actors register collision and leg variables
+before scoped execution with an identity parent. Event memory persists across
+frames and resets on respawn. A 120-call complete native-handler fixture checks
+actor state, dynamic registration, leg variables, event heads and splash effects.
+Integration tests cover independent repeated instances, one-shot override
+consumption and recursive actor/event cleanup when a parent event expires.
+KEvent::Init's lost-chain behavior is distinguished from DeleteChain cleanup.
+A collision-world context is required explicitly. Full simulation orchestration,
+remaining scene/effect handlers and the original rendered game remain pending.

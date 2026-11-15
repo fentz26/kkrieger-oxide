@@ -176,5 +176,5 @@ fn actual_projectile_hits_the_actor_object_and_queues_its_explosion() {
     assert_eq!(unused.borrow().health.life, 99);
     assert_eq!(execution.events.dynamic.len(), 1);
     let event = execution.events.dynamic[0];
-    assert_eq!(execution.events.events[&event].operator, Some(2));
+    assert_eq!(execution.events.events[&event].borrow().operator, Some(2));
 }

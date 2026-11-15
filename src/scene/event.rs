@@ -3,7 +3,8 @@ use crate::{
     kx::Document,
     mesh::{Matrix, identity},
 };
-use std::collections::BTreeMap;
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
+pub type Handle = Rc<RefCell<Event>>;
 pub type Id = u64;
 #[derive(Clone, Debug)]
 pub struct Event {
@@ -79,7 +80,7 @@ impl Event {
 pub struct Scheduler {
     pub beat: i32,
     next: Id,
-    pub events: BTreeMap<Id, Event>,
+    pub events: BTreeMap<Id, Handle>,
     pub document: Vec<Id>,
     pub dynamic: Vec<Id>,
     active: BTreeMap<usize, Vec<Id>>,
@@ -114,6 +115,9 @@ impl Scheduler {
         scheduler
     }
     pub fn insert(&mut self, event: Event, dynamic: bool) -> Id {
+        self.insert_shared(Rc::new(RefCell::new(event)), dynamic)
+    }
+    pub fn insert_shared(&mut self, event: Handle, dynamic: bool) -> Id {
         let id = self.next;
         self.next = self.next.checked_add(1).expect("event identity exhausted");
         self.events.insert(id, event);
@@ -142,6 +146,7 @@ impl Scheduler {
         let Some(event) = self.events.get(&id) else {
             return false;
         };
+        let event = event.borrow();
         if (event.start == event.end || (self.beat >= event.start && self.beat < event.end))
             && let Some(operator) = event.operator
         {
@@ -161,8 +166,11 @@ impl Scheduler {
         let mut i = 0;
         while i < self.dynamic.len() {
             let id = self.dynamic[i];
-            let event = &self.events[&id];
-            if event.end != event.start && self.beat >= event.end {
+            let expired_event = {
+                let event = self.events[&id].borrow();
+                event.end != event.start && self.beat >= event.end
+            };
+            if expired_event {
                 self.dynamic.swap_remove(i);
                 self.events.remove(&id);
                 expired.push(id);

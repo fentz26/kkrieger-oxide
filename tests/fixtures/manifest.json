@@ -238,6 +238,10 @@
     "monster-magnet.bin": {
       "bytes": 356612,
       "sha256": "14b1ff866b8121f26b070abb6a441f5b063d1f3cc31a5cab315eb367d53e166d"
+    },
+    "monster-scene.bin": {
+      "bytes": 233288,
+      "sha256": "97f6da72758ae09f8983bac4ef60d22df07dc237ac229bd99ec53600ccb54e0c"
     }
   }
 }

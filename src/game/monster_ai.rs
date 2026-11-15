@@ -51,7 +51,7 @@ impl Actor {
         if self.health.life <= 0 {
             self.health.state = 1;
             self.health.life = 0;
-            self.death.matrix = self.matrix;
+            self.death.borrow_mut().matrix = self.matrix;
             return Ok(actions);
         }
         let Some(player_cell) = c.player.cell else {
@@ -256,17 +256,18 @@ impl Actor {
                 self.health.hit(65536, c.switches)?;
             }
         }
-        self.event.matrix = self.matrix;
-        self.event.scale[0] = self.melee_timer - 0.5;
-        if self.event.scale[0] < 0. {
-            self.event.scale[0] += 1.;
+        let mut event = self.event.borrow_mut();
+        event.matrix = self.matrix;
+        event.scale[0] = self.melee_timer - 0.5;
+        if event.scale[0] < 0. {
+            event.scale[0] += 1.;
         }
-        self.event.scale[1] = self.ranged_timer - 0.5;
-        if self.event.scale[1] < 0. {
-            self.event.scale[1] += 1.;
+        event.scale[1] = self.ranged_timer - 0.5;
+        if event.scale[1] < 0. {
+            event.scale[1] += 1.;
         }
-        self.event.scale[2] = self.health.life as f32 / self.parameters.life_max as f32;
-        self.event.cull_distance = 35;
+        event.scale[2] = self.health.life as f32 / self.parameters.life_max as f32;
+        event.cull_distance = 35;
         Ok(actions)
     }
 }

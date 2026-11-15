@@ -81,12 +81,13 @@ impl Runtime {
                 .events
                 .get_mut(&shot.event)
                 .ok_or("shot event missing")?;
-            if event.select != 0 {
+            let selected = event.borrow().select != 0;
+            if selected {
                 // Source removes the shot record without calling Shot::Exit in this path.
                 self.shots.swap_remove(i);
             } else {
                 if shot.state.mode != 0 {
-                    event.matrix = shot.state.matrix;
+                    event.borrow_mut().matrix = shot.state.matrix;
                     execution.events.add(shot.event);
                 }
                 i += 1;
@@ -109,19 +110,22 @@ impl Runtime {
         }
         if execution.game.weapon.finish_switch() {
             execution.reset_event_instances(self.weapon);
-            execution.events.events.insert(
-                self.weapon,
-                Event {
-                    operator: execution.game.events.optics[execution.game.weapon.current],
-                    ..Event::default()
-                },
-            );
+            *execution
+                .events
+                .events
+                .get(&self.weapon)
+                .ok_or("weapon event missing")?
+                .borrow_mut() = Event {
+                operator: execution.game.events.optics[execution.game.weapon.current],
+                ..Event::default()
+            };
         }
         let event = execution
             .events
             .events
             .get_mut(&self.weapon)
             .ok_or("weapon event missing")?;
+        let mut event = event.borrow_mut();
         if event.operator.is_some() {
             event.translate = motion.collider.position;
             event.translate[1] = motion.last_camera_y + execution.game.parameters.camera_offset;
@@ -137,6 +141,7 @@ impl Runtime {
             if cooldown > 0.01 {
                 event.modulation = (cooldown - execution.game.weapon.cooldown) / cooldown;
             }
+            drop(event);
             execution.events.add(self.weapon);
         }
         Ok(())

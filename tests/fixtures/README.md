@@ -269,3 +269,12 @@ aliased registration pointers. It checks every force bit (including unregistered
 objects) and the subsequent RNG value, covering first-256 active selection,
 pair order and the original rejection-sampled random-ball fallback.
 Regenerate with `python3 tools/verify_monster_magnet.py`.
+
+`monster-scene.bin` records 120 complete original monster scene executions,
+including the flags, scoped event and splash handlers with native per-event
+instance heads. It checks full actor state, registration/dynamic counts, leg
+variables, live/death dispatch, respawn resets and retained instance heads.
+The input handler's animation is absent and its body is the original splash
+operator; rendering is not emulated. Regenerate with
+`python3 tools/verify_monster_scene.py`; imported actor/walk/collision fixtures
+are regenerated too.

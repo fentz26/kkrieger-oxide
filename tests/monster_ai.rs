@@ -137,8 +137,8 @@ impl Reader<'_> {
         assert_eq!(a.health.kill_switch, self.int());
         self.check_float(a.parameters.wait_radius, label);
         self.check_float(a.parameters.min_radius, label);
-        self.check_event(&a.event, a.id, label);
-        self.check_event(&a.death, a.id, label);
+        self.check_event(&a.event.borrow(), a.id, label);
+        self.check_event(&a.death.borrow(), a.id, label);
         assert_eq!(a.health.life, self.int());
         self.check_float(a.melee_timer, label);
         self.check_float(a.ranged_timer, label);

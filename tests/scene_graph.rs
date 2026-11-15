@@ -73,7 +73,13 @@ fn execute_supported(data: &[u8], layout: Layout) {
             }
             Err(e) => {
                 assert!(execution.jobs.is_empty());
-                assert_eq!(e.reason, "scene execution handler has not been ported");
+                match e.reason {
+                    "scene execution handler has not been ported" => {}
+                    "monster scene execution requires collision world" => {
+                        assert_eq!(doc.classes[doc.operators[e.operator].class].id, 0x11);
+                    }
+                    reason => panic!("unexpected scene execution error: {reason}"),
+                }
             }
         }
         assert_eq!(execution.vm.variables[3], [3., 4., 5., 6.]);

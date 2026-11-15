@@ -166,8 +166,8 @@ fn scene_events_isolate_instance_lists_restore_context_and_reset_expired_instanc
     execution.event_spline = Some(0);
     execution.begin_events(32768, false);
     execution.frame(&doc, 0).unwrap();
-    assert_eq!(execution.events.events[&first].start, 32768);
-    assert_eq!(execution.events.events[&first].end, 98304);
+    assert_eq!(execution.events.events[&first].borrow().start, 32768);
+    assert_eq!(execution.events.events[&first].borrow().end, 98304);
     // Last-added event executes first; both independent rising-edge slots fire.
     assert_eq!(execution.splash.position, [2., 3., 4., 1.]);
     assert!(execution.splash.enabled);
@@ -239,8 +239,8 @@ fn event_matrix_is_applied_before_parent_and_time_uses_only_newest_event() {
     execution.events.add(second);
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.splash.position, [2., 3., 4., 1.]);
-    assert_eq!(execution.events.events[&second].start, 0);
-    assert_eq!(execution.events.events[&second].end, 0);
+    assert_eq!(execution.events.events[&second].borrow().start, 0);
+    assert_eq!(execution.events.events[&second].borrow().end, 0);
     execution.reset_event_instances(second);
     let mut parent = identity();
     parent[0][0] = 2.;

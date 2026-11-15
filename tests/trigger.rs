@@ -151,6 +151,7 @@ fn scene_trigger_registers_for_next_frame_and_keeps_event_instances_separate() {
         assert_eq!(execution.events.dynamic.len(), count);
         assert_eq!(execution.splash.enabled, fired);
         for event in execution.events.events.values() {
+            let event = event.borrow();
             assert_eq!(event.translate, [2., 3., 4., 0.]);
             assert_eq!(event.color, 0);
             assert_eq!(event.spline, None);
