@@ -230,6 +230,10 @@
     "monster-actor.bin": {
       "bytes": 239208,
       "sha256": "c6630c0d7afe831997442fc8c217d89883738a87e6622290bed4260732f00af2"
+    },
+    "monster-ai.bin": {
+      "bytes": 2521288,
+      "sha256": "bd92428fa53dbfe7df1834a5fedded42b0672da7bc689a1807d318ea99019095"
     }
   }
 }

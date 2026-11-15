@@ -478,3 +478,11 @@ timers/magnet force and stable hit-cell ownership across respawns. The source's
 scale x/y overwrite Event.Matrix.i.x/y. This is source fidelity, not verification
 of released-binary behavior. Scene registration, shared actor health ownership
 and complete AI/tick integration remain pending.
+
+MonsterAI is ported against actual actor, collision and walking state. A native
+1,280-update fixture checks spawn gates, visibility/notice transitions, melee and
+ranged timers, movement, death/kill switches and painting-event values. Attack
+calls are returned as requests; ranged origins capture the pre-movement position
+so delayed consumption does not move the muzzle. Player-damage/projectile owner
+integration, magnet forces, scene registration and complete tick scheduling
+remain pending. This does not make the prototype runtime a faithful game yet.

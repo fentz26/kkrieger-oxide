@@ -254,3 +254,11 @@ asserts the original 14-word parameter-block layout: its 16-word copy overwrites
 the first two event-matrix floats. Scene registration/rendering after that branch
 is excluded. Regenerate with `python3 tools/verify_monster_actor.py`; imported
 collision/player/walking fixtures are regenerated too.
+
+`monster-ai.bin` records 1,280 unchanged MonsterAI calls with real collision,
+sphere movement, walking and monster damage. Player Hit and FireShot record
+requests, including the firing position before movement. Cases cover spawn
+switches/dependencies, visibility, melee/ranged attacks, immobility, missing
+player/monster cells, death, kill switches and render-event fields. Full actor,
+hit-cell and walk state is checked after each call. Regenerate with
+`python3 tools/verify_monster_ai.py`; imported actor/walk/collision fixtures also run.
