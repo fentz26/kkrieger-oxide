@@ -22,6 +22,19 @@ pub struct Runtime {
     pub shots: Vec<Shot>,
 }
 impl Runtime {
+    pub fn restart(
+        &self,
+        execution: &mut Execution,
+        motion: &mut Motion,
+        world: &World,
+        zones: &mut zones::Runtime,
+    ) -> Result<(), &'static str> {
+        let resets = execution
+            .game
+            .restart(motion, world, &mut execution.switches, zones)?;
+        self.reset_zone_events(execution, &resets)
+    }
+
     pub fn new(world: &World, execution: &mut Execution) -> Self {
         let zones = world
             .zones

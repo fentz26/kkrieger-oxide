@@ -445,3 +445,11 @@ with explosion registration on the next frame. FireShot and the ShotAI ownership
 loop now create/consume actual scheduler events and apply damage before queuing
 explosions. The source Select removal path preserves its distinct no-Exit behavior.
 Complete tick/input/monster integration remains pending.
+
+Restart now resets all monster states, all zone event-instance chains and
+switches 16..255 while preserving options, inventory and movement timers until
+the operator-reset phase. Unlike Continue, its camera starts at the resolved
+collision position. Native fixtures check 64 restarts and 256 per-slice camera
+updates, including height damping, normal and zoom-position camera spaces.
+The runtime restart consumer also clears persistent zone scene memory. Mouse
+counter refresh and placement within the complete tick/input loop remain pending.

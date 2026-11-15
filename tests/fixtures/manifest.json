@@ -210,6 +210,10 @@
     "game-event-registration.bin": {
       "bytes": 100660,
       "sha256": "c782b33643bacf0e842bc0575aaa0c537cf02c6026aaf5778ad75a7641635a9b"
+    },
+    "restart-camera.bin": {
+      "bytes": 183816,
+      "sha256": "611005363aa1e25e7b6fc6c9fb85dea8f70b34c5355f6520ae2e2892993d1cd8"
     }
   }
 }

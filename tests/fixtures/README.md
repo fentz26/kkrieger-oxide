@@ -218,3 +218,11 @@ matrix copying, zone event selection, weapon switching and optics variables.
 Native matrix tokens test assignment rather than matrix arithmetic; scene tests
 cover transforms separately. Regenerate with `python3 tools/verify_game_events.py`;
 `events.bin` is also regenerated.
+
+`restart-camera.bin` records 64 native Restart calls and 256 camera updates.
+Restart/GetCamera/DoRespawn use unchanged source functions; the camera update
+uses the unchanged four-statement OnTick fragment. Checks cover collision
+fallback, gameplay-switch clearing, preserved inventory/timers, dead-monster
+reset, zone cleanup, height damping and both camera-space branches. Regenerate
+with `python3 tools/verify_restart_camera.py`; imported collision/player/checkpoint
+fixtures are also regenerated.

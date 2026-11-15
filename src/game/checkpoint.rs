@@ -13,6 +13,30 @@ pub struct Checkpoint {
     pub direction: f32,
 }
 impl State {
+    /// Original Restart: operator reset, resolved camera position, all monster
+    /// states and zone instance chains, then gameplay switches (options survive).
+    pub fn restart(
+        &mut self,
+        motion: &mut Motion,
+        world: &World,
+        switches: &mut [u8; 256],
+        zones: &mut super::zones::Runtime,
+    ) -> Result<Vec<usize>, &'static str> {
+        if zones.respawn.len() != world.zones.len() {
+            return Err("zone runtime does not match world");
+        }
+        self.reset_by_operator = true;
+        motion.place(world, self.parameters.start_position, 0., 0.)?;
+        motion.last_camera_y = motion.collider.position[1];
+        motion.camera_position = motion.collider.position;
+        for monster in &mut self.monsters {
+            monster.state = 0;
+        }
+        zones.respawn.fill(0);
+        switches[16..].fill(0);
+        Ok(world.zones.clone())
+    }
+
     pub fn register_checkpoint(
         &mut self,
         index: usize,

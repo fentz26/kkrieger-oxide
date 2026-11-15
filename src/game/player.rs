@@ -133,7 +133,37 @@ impl Motion {
         Ok(())
     }
 
+    /// Camera smoothing runs after Physic and Zones for every movement slice.
+    pub fn update_camera(&mut self, parameters: &Parameters) {
+        self.last_camera_y +=
+            (self.collider.position[1] - self.last_camera_y) * parameters.damp_camera;
+        self.camera_position = self.collider.position;
+        self.camera_position[1] = self.last_camera_y;
+        self.camera_position[1] += parameters.camera_offset;
+    }
+    /// Original GetCamera space; projection zoom is one on both axes.
+    pub fn camera(&self, zoom_position: bool) -> Matrix {
+        let mut matrix = orientation([
+            if zoom_position { 0. } else { self.look },
+            self.direction,
+            0.,
+        ]);
+        matrix[3] = if zoom_position {
+            self.collider.position
+        } else {
+            self.camera_position
+        };
+        matrix[3][3] = 1.;
+        if zoom_position {
+            for axis in 0..3 {
+                matrix[3][axis] += matrix[2][axis] * -2.;
+            }
+        }
+        matrix
+    }
+
     pub fn set_orientation(&mut self, look: f32, fly: bool) {
+        self.look = look;
         self.matrix = orientation([if fly { look } else { 0. }, self.direction, 0.]);
     }
 

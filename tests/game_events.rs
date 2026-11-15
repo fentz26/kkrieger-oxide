@@ -324,6 +324,17 @@ fn respawn_and_weapon_switch_clear_their_persistent_scene_instances() {
     execution.frame(&doc, 0).unwrap();
     assert!(execution.splash.enabled);
     execution.finish_events();
+    runtime
+        .restart(&mut execution, &mut motion, &world, &mut zones)
+        .unwrap();
+    assert_eq!(zones.respawn, [0]);
+    zones.respawn[0] = 100;
+    execution.splash.enabled = false;
+    execution.begin_events(0, false);
+    runtime.add_events(&mut execution, &motion, &zones).unwrap();
+    execution.frame(&doc, 0).unwrap();
+    assert!(execution.splash.enabled);
+    execution.finish_events();
     // Remove zone registration so only the persistent weapon event can trigger.
     runtime.zones.clear();
     zones.respawn.clear();

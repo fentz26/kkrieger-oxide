@@ -180,3 +180,114 @@ fn scene_checkpoint_retains_authored_coordinates_and_active_state() {
     assert_eq!(checkpoint.direction, std::f32::consts::FRAC_PI_2);
     assert!(execution.game.register_checkpoint(16, [0.; 3], 0.).is_err());
 }
+
+#[test]
+fn original_restart_resets_gameplay_state_and_camera_uses_resolved_position() {
+    use kkrieger_oxide::game::zones;
+    let mut r = Reader(include_bytes!("fixtures/restart-camera.bin"));
+    assert_eq!(r.word(), 64);
+    assert_eq!(r.word(), 4);
+    for case in 0..64 {
+        let cell = Cell::new(identity(), [20.; 3], 0);
+        let mut world = World {
+            connectivity: connectivity::connect(std::slice::from_ref(&cell)),
+            entries: vec![Entry {
+                cell,
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0,
+                    condition: 0,
+                    value: 0,
+                    output: 0,
+                    events: [None, None],
+                },
+            }],
+            adds: vec![0],
+            subs: vec![],
+            zones: vec![],
+            faces: vec![Some(vec![])],
+        };
+        // Restart traverses zones in registration order, independent of geometry.
+        for _ in 0..3 {
+            world.zones.push(world.entries.len());
+            world.entries.push(Entry {
+                cell: Cell::new(identity(), [1.; 3], 2),
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0,
+                    condition: 0,
+                    value: 0,
+                    output: 0,
+                    events: [None, None],
+                },
+            });
+            world.faces.push(None);
+        }
+        let mut game = State {
+            reset_by_operator: false,
+            ..State::default()
+        };
+        game.parameters.start_position = r.vector();
+        let mut switches = std::array::from_fn(|_| r.word() as u8);
+        game.inventory.amounts[0] = case;
+        game.inventory.amounts[4] = 5;
+        game.monsters = [(10, 4), (0, 1), (-1, 3)]
+            .map(|(life, state)| Health {
+                life,
+                state,
+                armor: 0,
+                kill_switch: 0,
+            })
+            .to_vec();
+        let mut zones = zones::Runtime::new(&world);
+        for timer in &mut zones.respawn {
+            *timer = r.word() as i32;
+        }
+        let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
+        let handle = Rc::clone(&motion.hit_cell);
+        motion.jump_timer = 7;
+        motion.speed_up = 0.2;
+        motion.on_ground = true;
+        let reset = game
+            .restart(&mut motion, &world, &mut switches, &mut zones)
+            .unwrap();
+        assert_eq!(reset, world.zones);
+        assert_eq!(game.reset_by_operator, r.word() != 0);
+        r.placement(&motion);
+        assert_eq!(game.inventory.amounts[0], r.word() as i32);
+        assert_eq!(game.inventory.amounts[4], r.word() as i32);
+        for monster in &game.monsters {
+            assert_eq!(monster.state, r.word() as i32);
+        }
+        for value in switches {
+            assert_eq!(u32::from(value), r.word());
+        }
+        for (i, &timer) in zones.respawn.iter().enumerate() {
+            assert_eq!(timer, r.word() as i32);
+            assert_eq!(r.word(), u32::from(i == 1));
+            assert_eq!(r.word(), u32::from(i == 0));
+        }
+        assert!(Rc::ptr_eq(&handle, &motion.hit_cell));
+        for _ in 0..4 {
+            motion.collider.position = r.vector();
+            motion.direction = r.float();
+            let look = r.float();
+            motion.set_orientation(look, false);
+            game.parameters.damp_camera = r.float();
+            game.parameters.camera_offset = r.float();
+            let zoom = r.word() != 0;
+            motion.update_camera(&game.parameters);
+            r.check_float(motion.last_camera_y);
+            r.check_vector(motion.camera_position);
+            for v in motion.camera(zoom) {
+                r.check_vector(v);
+            }
+            assert_eq!(r.float(), 1.);
+            assert_eq!(r.float(), 1.);
+            assert_eq!(r.word(), 0);
+        }
+    }
+    assert!(r.0.is_empty());
+}
