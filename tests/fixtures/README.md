@@ -114,3 +114,9 @@ generation is excluded from this oracle. Regenerate with
 including recursive clipping and linked-list order. The native layout preserves
 Planes[12] followed by Center because SplitCollisionFace reads one extra plane.
 Regenerate with `python3 tools/verify_collision_faces.py`.
+
+`collision-world.bin` records 64 original SetSceneR/AddMesh traversals with
+shared children, nested sectors, repeated/negative counts and attached events.
+Checks include cell creation order, transforms, scene identity, logic and event
+placement. Regenerate with `python3 tools/verify_collision_world.py`; this also
+regenerates the face fixture imported by its native harness.

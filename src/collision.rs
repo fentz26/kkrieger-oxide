@@ -2,6 +2,7 @@
 use crate::mesh::Matrix;
 pub mod connectivity;
 pub mod faces;
+pub mod world;
 
 const OVERLAP: f32 = 4.010e-3 * 2.;
 const ORDER: [[usize; 4]; 6] = [

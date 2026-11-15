@@ -59,8 +59,11 @@ and all cell modes. Collision-face generation now ports the original polygon
 clipper, recursive splitting and linked-list ordering, with 128 complete native
 reference cases including warped cells with 12 planes. The source extra-plane
 read is represented explicitly: a zero unused slot below 12 planes, or Center
-immediately after the original 12-plane array. World assembly, ray traversal
-between cells, player simulation, tick scheduling and gameplay remain pending.
+immediately after the original 12-plane array. Static-world assembly now follows
+SetSceneR/AddMesh: repeated transforms, child-before-parent cell order, root and
+sector identities, collision logic and event spawn records. Its C++ fixture covers
+64 scene traversals. Integration with the original level graph, event scheduling,
+ray traversal between cells, player simulation and the game loop remain pending.
 
 ## Implemented and checked
 

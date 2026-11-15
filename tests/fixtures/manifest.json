@@ -134,6 +134,10 @@
     "collision-faces.bin": {
       "bytes": 168372,
       "sha256": "0c1b09c21ca62461636862409637683c49e53a18ee93ce6874fc167739354c3a"
+    },
+    "collision-world.bin": {
+      "bytes": 423812,
+      "sha256": "33a71f9ebfd54f43b3f7c0926ae30d0f519a0c1aafa00c80bfd5c6ff2b9c0a81"
     }
   }
 }
