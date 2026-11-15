@@ -1,4 +1,5 @@
 //! Original gameplay state and operator parameter application.
+pub mod player;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Inventory {

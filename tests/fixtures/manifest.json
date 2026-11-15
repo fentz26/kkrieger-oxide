@@ -158,6 +158,10 @@
     "game-events.bin": {
       "bytes": 62984,
       "sha256": "ca3308b17536d3a80bf8d3ccff7486daf1a93b56570f6002991cd5ebf724af41"
+    },
+    "player-motion.bin": {
+      "bytes": 249352,
+      "sha256": "1c4840f51bdfc73cc6dbb782553580a0bd83729d339a7e50ff0d2f2d5fc80059"
     }
   }
 }

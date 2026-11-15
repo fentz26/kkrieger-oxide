@@ -353,3 +353,11 @@ Weapon event groups preserve null links and register pointers without calling
 event links marked OPC_DONTCALLLINK. Native C++ fixtures cover 384 repeated
 parameter applications and 384 event registrations. Complete player simulation,
 combat, event scheduling and runtime integration remain pending.
+
+The original player movement prefix is now ported: ground probing, damping,
+acceleration, gravity, integer stair lift, movement history, landing sound requests
+and hit-cell transforms. A 768-slice C++ fixture checks every output bit. Player
+orientation evaluates trig at higher precision before storing floats to avoid an
+observed single-precision host-library rounding difference. This does not yet
+implement the remaining OnTick phases or audio playback. Both authored levels
+also pass 64 movement-prefix steps with hit-cell physics updates between steps.

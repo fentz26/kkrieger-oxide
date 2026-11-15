@@ -177,6 +177,29 @@ fn original_level(data: &[u8], layout: kkrieger_oxide::kx::Layout, root: usize) 
             0
         );
     }
+    let mut game = kkrieger_oxide::game::State::default();
+    game.apply_parameters(&parameter.parameters).unwrap();
+    let mut motion = kkrieger_oxide::game::player::Motion::spawn(&world, position, 0.).unwrap();
+    let dynamic = [Rc::clone(&motion.hit_cell)];
+    for _ in 0..64 {
+        motion.accel_forward = game.parameters.accel_forward;
+        motion.set_orientation(0., false);
+        motion
+            .slice(&game.parameters, &mut world, 1, &dynamic)
+            .unwrap();
+        let mut hit = motion.hit_cell.borrow_mut();
+        hit.physics(1.);
+        if hit.blocked == 0 {
+            hit.matrix0 = hit.matrix1;
+        }
+        assert!(motion.collider.position.iter().all(|x| x.is_finite()));
+        assert_eq!(
+            world.entries[motion.collider.cell]
+                .cell
+                .outside_mask(motion.collider.position, 0.),
+            0
+        );
+    }
     for entry in &world.entries {
         assert!(entry.cell.vertices.iter().flatten().all(|x| x.is_finite()));
         assert!(entry.cell.planes.iter().flatten().all(|x| x.is_finite()));
