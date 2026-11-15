@@ -234,6 +234,10 @@
     "monster-ai.bin": {
       "bytes": 2521288,
       "sha256": "bd92428fa53dbfe7df1834a5fedded42b0672da7bc689a1807d318ea99019095"
+    },
+    "monster-magnet.bin": {
+      "bytes": 321028,
+      "sha256": "33e9411a0b43137f99902f04c24e9b7c2c4d926c2ef9db86661a594c30d8cc8f"
     }
   }
 }

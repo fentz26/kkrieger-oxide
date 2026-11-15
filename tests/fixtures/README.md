@@ -262,3 +262,9 @@ switches/dependencies, visibility, melee/ranged attacks, immobility, missing
 player/monster cells, death, kill switches and render-event fields. Full actor,
 hit-cell and walk state is checked after each call. Regenerate with
 `python3 tools/verify_monster_ai.py`; imported actor/walk/collision fixtures also run.
+
+`monster-magnet.bin` records 64 unchanged MonsterMagnetAI phases over 0..512
+registered monsters, including overlapping positions and inactive states. It
+checks every force bit and the subsequent RNG value, covering first-256 active
+selection, pair order and the original rejection-sampled random-ball fallback.
+Regenerate with `python3 tools/verify_monster_magnet.py`.

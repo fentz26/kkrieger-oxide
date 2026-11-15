@@ -486,3 +486,10 @@ calls are returned as requests; ranged origins capture the pre-movement position
 so delayed consumption does not move the muzzle. Player-damage/projectile owner
 integration, magnet forces, scene registration and complete tick scheduling
 remain pending. This does not make the prototype runtime a faithful game yet.
+
+MonsterMagnetAI now clears all registered forces and processes the first 256
+active monsters in original pair order. A 64-phase native fixture (0..512 actors)
+checks forces and the next random value, including coincident positions and the
+source's unnormalized random-ball fallback. The helper accepts actor references
+in registration order and a shared random stream. Scene ownership/registration
+and the complete AI/tick owner remain pending.

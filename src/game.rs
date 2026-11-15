@@ -5,6 +5,7 @@ pub mod input;
 pub mod monster;
 pub mod monster_actor;
 pub mod monster_ai;
+pub mod monster_magnet;
 pub mod monster_walk;
 pub mod player;
 pub mod shot;
