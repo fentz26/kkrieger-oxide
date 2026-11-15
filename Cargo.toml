@@ -2,9 +2,9 @@
 name = "kkrieger-oxide"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.100"
 license = "MIT AND BSD-2-Clause"
-description = "A compact procedural FPS experiment in Rust, inspired by .kkrieger"
+description = "A Rust rewrite of .kkrieger focused on procedural generation, compact binaries, and performance."
 default-run = "kkrieger-oxide"
 
 [dependencies]
