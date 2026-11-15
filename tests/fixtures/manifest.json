@@ -126,6 +126,10 @@
     "collision-queries.bin": {
       "bytes": 430652,
       "sha256": "fb8b9dc620c9579d071da6a223eddcb2013ba10bfd9060b0b51c839f46de4325"
+    },
+    "collision-connectivity.bin": {
+      "bytes": 212136,
+      "sha256": "72608495f2a140752808b8651fca4f6196bcab5225993d5a17edf83fa330d272"
     }
   }
 }

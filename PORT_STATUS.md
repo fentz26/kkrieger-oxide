@@ -53,8 +53,11 @@ particle/box branches are commented out in the published source and stay inactiv
 Cell point masks, plane rejection, approximate distance and inside/outside ray
 intersection queries are ported, with a 4,096-call original C++ regression fixture.
 The source negative-distance convention and parallel divisions are preserved.
-World connectivity, ray traversal between cells, collision faces, player
-simulation, tick scheduling and gameplay remain pending.
+Collision-cell connectivity now preserves the original heap sort and ordered
+add/sub/zone adjacency; 128 original C++ graphs cover empty lists, equal keys
+and all cell modes. Collision-face generation is separate and still pending,
+along with world assembly, ray traversal between cells, player simulation,
+tick scheduling and gameplay.
 
 ## Implemented and checked
 

@@ -103,3 +103,9 @@ with `python3 tools/verify_collision.py`.
 approxDistance, IntersectIn and IntersectOut calls. It includes radii, parallel
 and zero directions, tiny determinants, warped cells and degenerate cells.
 Regenerate with `python3 tools/verify_collision.py`.
+
+`collision-connectivity.bin` records 128 original heap-sort and bounding-box
+connection graphs, including empty graphs, equal keys and all cell modes.
+It checks sorted order and ordered add/sub/zone adjacency. Collision-face
+generation is excluded from this oracle. Regenerate with
+`python3 tools/verify_connectivity.py`.
