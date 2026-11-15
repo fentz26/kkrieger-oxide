@@ -133,3 +133,109 @@ impl Cell {
         }
     }
 }
+
+/// Persistent geometry and transforms used by KKriegerCellDynamic.
+#[derive(Clone, Debug)]
+pub struct DynamicCell {
+    pub cell: Cell,
+    pub original_planes: Vec<[f32; 4]>,
+    pub original_vertices: [[f32; 4]; 8],
+    pub confirmed_matrix: Matrix,
+    pub current_matrix: Matrix,
+    pub matrix0: Matrix,
+    pub matrix1: Matrix,
+    pub blocked: i32,
+    pub monster: Option<usize>,
+}
+
+fn rotate3(matrix: Matrix, v: [f32; 4]) -> [f32; 4] {
+    let mut result = [0.; 4];
+    for i in 0..3 {
+        result[i] = (matrix[0][i] * v[0] + matrix[1][i] * v[1]) + matrix[2][i] * v[2];
+    }
+    result
+}
+
+fn cross(a: [f32; 4], b: [f32; 4]) -> [f32; 4] {
+    [
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+        0.,
+    ]
+}
+
+fn unit3(v: &mut [f32; 4]) {
+    let scale = (1. / (dot(*v, *v) as f64).sqrt()) as f32;
+    for x in &mut v[..3] {
+        *x *= scale;
+    }
+}
+
+/// Original sMatrix::Lin4: interpolate two axes, then orthonormalize.
+/// In particular, this discards scale and derives the third axis by crossing.
+pub fn interpolate_matrix(a: Matrix, b: Matrix, fade: f32) -> Matrix {
+    let mut matrix = crate::mesh::identity();
+    for row in [0, 1, 3] {
+        for i in 0..3 {
+            matrix[row][i] = a[row][i] + (b[row][i] - a[row][i]) * fade;
+        }
+    }
+    matrix[2] = cross(matrix[0], matrix[1]);
+    unit3(&mut matrix[2]);
+    matrix[0] = cross(matrix[1], matrix[2]);
+    unit3(&mut matrix[0]);
+    unit3(&mut matrix[1]);
+    matrix
+}
+
+impl DynamicCell {
+    pub fn new(mut cell: Cell, matrix: Matrix) -> Self {
+        let original_planes = cell.planes.clone();
+        let original_vertices = cell.vertices;
+        cell.mode |= 0x20;
+        Self {
+            cell,
+            original_planes,
+            original_vertices,
+            confirmed_matrix: matrix,
+            current_matrix: matrix,
+            matrix0: matrix,
+            matrix1: matrix,
+            blocked: 0,
+            monster: None,
+        }
+    }
+
+    /// Original ApplyMatrix leaves the obsolete bounding box untouched.
+    pub fn apply_matrix(&mut self, matrix: Matrix) {
+        for (plane, original) in self.cell.planes.iter_mut().zip(&self.original_planes) {
+            let mut result = rotate3(matrix, *original);
+            result[3] = original[3] - dot(result, matrix[3]);
+            let length = (dot(result, result) as f64).sqrt() as f32;
+            let scale = 1. / length;
+            for x in &mut result {
+                *x *= scale;
+            }
+            *plane = result;
+        }
+        for (vertex, original) in self.cell.vertices.iter_mut().zip(self.original_vertices) {
+            let v = rotate3(matrix, original);
+            for i in 0..3 {
+                vertex[i] = v[i] + matrix[3][i];
+            }
+        }
+        self.cell.center = matrix[3];
+        self.current_matrix = matrix;
+        self.blocked = 0;
+    }
+
+    /// The dynamic-cell phase of KKriegerGame::Physic.
+    pub fn physics(&mut self, fade: f32) {
+        let matrix = interpolate_matrix(self.matrix0, self.matrix1, fade);
+        self.apply_matrix(matrix);
+        self.confirmed_matrix = self.current_matrix;
+        self.blocked = 0;
+        self.cell.mode &= !0x20;
+    }
+}

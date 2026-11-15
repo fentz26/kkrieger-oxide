@@ -118,6 +118,10 @@
     "collision.bin": {
       "bytes": 71604,
       "sha256": "627f6ccf0256e64881cd538aae0d0fa5621a8b5861baa2d5571298bf86316508"
+    },
+    "collision-dynamic.bin": {
+      "bytes": 240644,
+      "sha256": "747d9e5c3ec751eff199ba0eebe100c2923158216385a8a4fa06189aaf53e612"
     }
   }
 }

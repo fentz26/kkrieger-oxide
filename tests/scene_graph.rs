@@ -130,7 +130,7 @@ fn deferred_sectors_and_portals(data: &[u8], layout: Layout) {
             }
         }
     }
-    assert_eq!((painted, pending), (35, 12));
+    assert_eq!((painted, pending), (47, 0));
     let mut portals = 0;
     for (id, op) in doc.operators.iter().enumerate() {
         if doc.classes[op.class].id != 0xcd {

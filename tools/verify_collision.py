@@ -55,3 +55,48 @@ with tempfile.TemporaryDirectory() as tmp:
 out = root / 'tests/fixtures/collision.bin'
 out.write_bytes(data)
 print(f'{out}: {len(data)} bytes, 256 original cells')
+
+dynamic_functions = '\n'.join(oracle.function(s) for s in [
+    'void KKriegerCellDynamic::PrepareDynamic(',
+    'void KKriegerCellDynamic::ApplyMatrix(',
+])
+oracle.source = (root / '.reference/fr_public/werkkzeug3_kkrieger/_types.cpp').read_text(encoding='cp1252')
+dynamic_functions += '\n' + oracle.function('void sMatrix::Lin4(')
+dynamic_support = support.replace('struct sVector {', 'struct sMatrix;\nstruct sVector {')
+dynamic_support = dynamic_support.replace(' void Sub3(', '''
+ void Lin3(const sVector&a,const sVector&b,float t){x=a.x+(b.x-a.x)*t;y=a.y+(b.y-a.y)*t;z=a.z+(b.z-a.z)*t;}
+ void Unit3(){Scale3(float(1.0/sqrt(double(Dot3(*this)))));}
+ void Scale4(float f){x*=f;y*=f;z*=f;w*=f;}
+ float Abs3(){return sqrt(double(Dot3(*this)));}
+ void Rotate3(const sMatrix&,const sVector&);void RotatePl(const sMatrix&,const sVector&);
+ void Sub3(''')
+dynamic_support += r'''
+#define KCM_UNCONFIRMED 0x20
+struct sMatrix {sVector i,j,k,l;void Init(){i={1,0,0,0};j={0,1,0,0};k={0,0,1,0};l={0,0,0,1};}void Lin4(sMatrix&,sMatrix&,float);};
+void sVector::Rotate3(const sMatrix&m,const sVector&v){x=m.i.x*v.x;y=m.i.y*v.x;z=m.i.z*v.x;x+=m.j.x*v.y;y+=m.j.y*v.y;z+=m.j.z*v.y;x+=m.k.x*v.z;y+=m.k.y*v.z;z+=m.k.z*v.z;}
+void sVector::RotatePl(const sMatrix&m,const sVector&v){Rotate3(m,v);w=v.w-Dot3(m.l);}
+struct KKriegerCellDynamic:KKriegerCell {sVector OrigPlanes[6],OrigVertices[8];sMatrix ConfirmedMatrix,CurrentMatrix,Matrix0,Matrix1;int Blocked;void*Monster;void PrepareDynamic(sMatrix&);void ApplyMatrix(sMatrix&);};
+void matrix(sMatrix m){for(auto v:{m.i,m.j,m.k,m.l})vector(v);}
+void dump(KKriegerCellDynamic&c){word(c.Mode);word(c.Blocked);word(c.Monster!=nullptr);for(int i=0;i<c.PlaneCount;i++)vector(c.Planes[i]);for(auto v:c.Vertices)vector(v);vector(c.Center);vector(c.BBMin);vector(c.BBMax);for(auto m:{c.ConfirmedMatrix,c.CurrentMatrix,c.Matrix0,c.Matrix1})matrix(m);}
+'''
+dynamic_driver = r'''
+int main(){word(128);for(int c=0;c<128;c++){
+ sVector v[8];for(int k=0;k<8;k++)v[k]={-((k&1)-0.5f)*(1+c%5),-(((k>>1)&1)-0.5f)*(1+c%3),-(((k>>2)&1)-0.5f)*(1+c%7),1};
+ for(auto p:v)vector(p);
+ sMatrix a,b;a.Init();b.Init();a.i.y=(c%3)*0.25f;a.j.z=-0.125f;a.l={float(c%7),-0.25f,0.5f,1};
+ b.i={0.75f,0.25f,-0.125f,0};b.j={-0.5f,1.25f,0.25f,0};b.k={0.25f,0,1.5f,0};b.l={-0.5f,float(c%11),0.75f,1};
+ matrix(a);matrix(b);float fade=(c%9-2)*0.25f;real(fade);
+ KKriegerCellDynamic cell;cell.Init(v,1);cell.PrepareDynamic(a);dump(cell);
+ cell.Blocked=1;cell.ApplyMatrix(b);dump(cell);
+ cell.Matrix1=b;cell.CurrentMatrix.Lin4(cell.Matrix0,cell.Matrix1,fade);cell.ApplyMatrix(cell.CurrentMatrix);cell.ConfirmedMatrix=cell.CurrentMatrix;cell.Blocked=0;cell.Mode&=~KCM_UNCONFIRMED;dump(cell);
+}}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    cpp = pathlib.Path(tmp) / 'dynamic.cpp'
+    exe = pathlib.Path(tmp) / 'dynamic'
+    cpp.write_text(dynamic_support + functions + dynamic_functions + dynamic_driver)
+    subprocess.run(['clang++', '-std=c++17', '-O2', '-ffp-contract=off', str(cpp), '-o', str(exe)], check=True)
+    data = subprocess.check_output([str(exe)])
+out = root / 'tests/fixtures/collision-dynamic.bin'
+out.write_bytes(data)
+print(f'{out}: {len(data)} bytes, 128 original dynamic cells')

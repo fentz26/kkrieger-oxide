@@ -93,3 +93,8 @@ it proves the persistent envelope and variable writes, not instance allocation.
 warped, inverted, flat, repeated-corner and ordinary boxes, including face planes,
 overlap expansion, bounds and center. Regenerate with
 `python3 tools/verify_collision.py`.
+
+`collision-dynamic.bin` records 128 cells through original PrepareDynamic,
+ApplyMatrix and the dynamic-cell Physic loop, including interpolated, extrapolated
+and sheared transforms. It checks all plane/vertex and matrix fields; regenerate
+with `python3 tools/verify_collision.py`.

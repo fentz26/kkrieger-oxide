@@ -100,3 +100,72 @@ fn delay_and_if_execute_children_and_retain_per_branch_state() {
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.vm.variables[1], [0.5; 4]);
 }
+
+#[test]
+fn physics_handler_reuses_cells_and_consumes_motion() {
+    use kkrieger_oxide::{
+        kx::{Class, Document},
+        scene::exec::{Execution, Job},
+    };
+    use std::rc::Rc;
+    let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    doc.classes = [0xce, 0xc4]
+        .into_iter()
+        .map(|id| Class {
+            id,
+            convention: 0,
+            packing: &[],
+        })
+        .collect();
+    doc.operators.truncate(2);
+    for op in &mut doc.operators {
+        op.animation = &[1];
+        op.links.clear();
+        op.inputs.clear();
+    }
+    doc.operators[0].class = 0;
+    doc.operators[0].parameters = vec![
+        2 | 0x10,
+        0,
+        0,
+        0,
+        2f32.to_bits(),
+        4f32.to_bits(),
+        6f32.to_bits(),
+        0,
+        0,
+        0,
+        0,
+        0,
+    ];
+    doc.operators[0].inputs = vec![1];
+    doc.operators[1].class = 1;
+    doc.operators[1].parameters = vec![0; 11];
+    let mut execution = Execution::new(&doc);
+    execution.event_monster = Some(17);
+    execution.frame(&doc, 0).unwrap();
+    assert!(matches!(
+        execution.jobs.as_slice(),
+        [Job::Light { operator: 1, .. }]
+    ));
+    let cell = Rc::clone(&execution.dynamic_cells[0]);
+    assert_eq!(cell.borrow().monster, Some(17));
+    assert_eq!(cell.borrow().cell.mode, 0x21);
+    execution.physics(0.5);
+    assert_eq!(cell.borrow().cell.mode, 1);
+    cell.borrow_mut().matrix1[3][0] = 5.;
+    cell.borrow_mut().blocked = 1;
+    execution.finish_collision_tick();
+    assert_eq!(cell.borrow().matrix0[3][0], 0.);
+    cell.borrow_mut().blocked = 0;
+    execution.finish_collision_tick();
+    assert_eq!(cell.borrow().matrix0[3][0], 5.);
+    execution.event_monster = None;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.dynamic_cells.len(), 1);
+    assert!(Rc::ptr_eq(&cell, &execution.dynamic_cells[0]));
+    assert_eq!(cell.borrow().monster, None);
+    assert_eq!(cell.borrow().matrix1[3][0], 0.);
+    execution.physics(0.5);
+    assert_eq!(cell.borrow().cell.center[0], 2.5);
+}

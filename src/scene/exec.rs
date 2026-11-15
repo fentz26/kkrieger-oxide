@@ -4,6 +4,7 @@ use super::{
     Error, delay,
     instance::{Memory, Scope},
 };
+use crate::collision::DynamicCell;
 use crate::{
     animation::Vm,
     kx::Document,
@@ -11,6 +12,7 @@ use crate::{
     mesh_graph,
     visibility::{self, Portal, Rect},
 };
+use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug)]
 pub enum Job {
@@ -45,6 +47,8 @@ pub struct Execution {
     pub camera: Matrix,
     pub pass_adjust: i32,
     pub jobs: Vec<Job>,
+    pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
+    pub event_monster: Option<usize>,
     pub switches: [u8; 256],
     pub current_time: i32,
     pub last_time: i32,
@@ -60,6 +64,8 @@ impl Execution {
             camera: identity(),
             pass_adjust: 0,
             jobs: Vec::new(),
+            dynamic_cells: Vec::new(),
+            event_monster: None,
             switches: [0; 256],
             current_time: 0,
             last_time: 0,
@@ -71,18 +77,20 @@ impl Execution {
     }
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
+        self.dynamic_cells.clear();
         self.current_clip = Rect::UNIT;
         self.visibility_history.clear();
         self.instances.enter(Scope::Default);
         let result = self.visit(doc, root, identity());
         if result.is_err() {
             self.jobs.clear();
+            self.dynamic_cells.clear();
         }
         result
     }
     /// Execute deferred sector contents in original newest-first order. Sector
-    /// visibility is the enabled source branch; instance/game handlers still
-    /// report errors until their per-instance runtime has been ported.
+    /// visibility is the enabled source branch. Remaining unported gameplay
+    /// handlers report errors rather than dropping scene content.
     pub fn process_sectors(
         &mut self,
         doc: &Document<'_>,
@@ -155,10 +163,28 @@ impl Execution {
         self.current_clip = Rect::UNIT;
         if result.is_err() {
             self.jobs.clear();
+            self.dynamic_cells.clear();
             self.visibility_history.clear();
         }
         result
     }
+    /// Original dynamic-cell phase; caller supplies the fixed-tick interpolation.
+    pub fn physics(&mut self, fade: f32) {
+        for cell in &self.dynamic_cells {
+            cell.borrow_mut().physics(fade);
+        }
+    }
+
+    /// Original OnTick collision endpoint update, after movement has set Blocked.
+    pub fn finish_collision_tick(&mut self) {
+        for cell in &self.dynamic_cells {
+            let mut cell = cell.borrow_mut();
+            if cell.blocked == 0 {
+                cell.matrix0 = cell.matrix1;
+            }
+        }
+    }
+
     fn visit_scene(
         &mut self,
         doc: &Document<'_>,
@@ -244,6 +270,32 @@ impl Execution {
                 );
                 if let Some(&input) = op.inputs.first() {
                     self.visit(doc, input, parent)?;
+                }
+                Ok(())
+            }
+            0xce => {
+                let flags = *p.first().ok_or_else(|| fail("missing physics flags"))?;
+                let scale = [f(4)?, f(5)?, f(6)?];
+                let state = self.instances.physic(root, flags, scale, parent)?;
+                if let Some(cell) = &state.cell {
+                    if flags & 0x10 != 0 {
+                        cell.borrow_mut().monster = self.event_monster;
+                    }
+                    cell.borrow_mut().matrix1 = parent;
+                    if self.dynamic_cells.len() >= 512 {
+                        return Err(fail("dynamic cell capacity exceeded"));
+                    }
+                    self.dynamic_cells.push(Rc::clone(cell));
+                }
+                // The other particle/box modes are commented out in the original.
+                // ExecInputs invokes operators directly rather than painting cached meshes.
+                for &input in &op.inputs {
+                    self.visit(doc, input, parent)?;
+                }
+                for &link in op.links.iter().flatten() {
+                    if doc.classes[op.class].convention & 0x1000_0000 == 0 {
+                        self.visit(doc, link, parent)?;
+                    }
                 }
                 Ok(())
             }

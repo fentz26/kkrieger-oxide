@@ -23,8 +23,9 @@ prototype does not satisfy that outcome. The goal remains active.
 Rust now queues original portal and sector jobs, projects portal boxes, traverses
 cost-limited sector connections and retains bounds across views. All 128 graph
 cases at two views match the enabled original C++ visibility branch. Both exports
-register all 47 sectors and 35 portals; 35 sector contents execute completely,
-while 12 report the unsupported Physic handler explicitly.
+register all 47 sectors and 35 portals; all 47 sector contents execute through
+their currently reached handlers. This is graph execution coverage, not a playable
+game or collision-query validation.
 
 Static inspection confirms the released beta contains the corresponding recursive
 routine and edge table. Its sector layout and some visibility branches differ
@@ -37,14 +38,20 @@ switches and explicit current/previous time. Sequential instance lists distingui
 repeated operators, retain branch state and restore nested scene cursors. Sector
 execution and If children use the original per-child SceneMemLink scope.
 Malformed replay reports an error rather than silently reallocating state.
-Gameplay must still supply switches and time; physics and other handlers remain
-pending.
+Gameplay must still supply switches and time; full player physics and other
+handlers remain pending.
 
 Collision-cell geometry now includes the original face ordering, degenerate
 triangle fallback, warped-face splitting, double-precision normal normalization,
 subtractive overlap and bounding boxes. The 256-case original C++ fixture checks
 plane counts, plane coefficients, center, bounds and mode fields. Dynamic cell
-registration, motion and collision queries remain to be connected.
+preparation, transforms and the original orthonormalized matrix interpolation
+match another 128 C++ cases bit for bit. Physic now registers persistent cells
+through the sequential instance lists, executes original inputs, and exposes the
+original dynamic-cell physics phase and blocked endpoint updates. Non-cell
+particle/box branches are commented out in the published source and stay inactive.
+Full collision queries, player simulation, tick scheduling and gameplay remain
+pending.
 
 ## Implemented and checked
 
