@@ -41,9 +41,25 @@ pub struct Motion {
 pub struct Sound {
     pub slot: i32,
     pub volume: f32,
+    pub near_distance: f32,
+    pub far_distance: f32,
 }
 
 impl Motion {
+    pub fn jump(&mut self, parameters: &Parameters) -> Option<Sound> {
+        if self.on_ground && self.jump_timer == 0 {
+            self.speed_up = parameters.jump_force;
+            self.jump_timer = 10;
+            Some(Sound {
+                slot: 4,
+                volume: 0.9,
+                near_distance: 0.2,
+                far_distance: 1.,
+            })
+        } else {
+            None
+        }
+    }
     /// Original SetPlayer collision placement and hit-cell geometry.
     pub fn spawn(
         world: &World,
@@ -141,6 +157,8 @@ impl Motion {
                 sound = Some(Sound {
                     slot: 5,
                     volume: 1.,
+                    near_distance: 0.2,
+                    far_distance: 1.,
                 });
                 self.step_foot = 0;
                 self.step_timer = 0.;

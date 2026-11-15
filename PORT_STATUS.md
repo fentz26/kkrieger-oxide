@@ -361,3 +361,9 @@ orientation evaluates trig at higher precision before storing floats to avoid an
 observed single-precision host-library rounding difference. This does not yet
 implement the remaining OnTick phases or audio playback. Both authored levels
 also pass 64 movement-prefix steps with hit-cell physics updates between steps.
+
+Jump input now preserves the original ground/timer gate, impulse, ten-tick timer
+and sound request. Player damage preserves armor-dependent integer damage, life
+clamping, unchanged armor and hurt sound conditions. A native 1,024-action fixture
+also checks original sound-helper volume and distance ranges. Sound playback and
+the remaining player/input/game-tick phases are still pending.

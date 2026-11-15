@@ -8,6 +8,25 @@ pub struct Inventory {
     pub maxima: [i32; 8],
     pub weapons: [i32; 8],
 }
+impl Inventory {
+    /// Original KKriegerPlayer::Hit. Armor changes the damage calculation but
+    /// is not consumed; the returned request is the source hurt sound.
+    pub fn hit(&mut self, hits: i32) -> Option<player::Sound> {
+        let armor = self.amounts[1];
+        let damage = if hits > armor {
+            hits.wrapping_sub(armor).wrapping_add(armor / 4)
+        } else {
+            hits / 4
+        };
+        self.amounts[0] = self.amounts[0].wrapping_sub(damage).max(0);
+        (hits > 4).then_some(player::Sound {
+            slot: 10,
+            volume: 1.,
+            near_distance: 0.2,
+            far_distance: 160.,
+        })
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Parameters {

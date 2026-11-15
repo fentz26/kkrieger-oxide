@@ -162,6 +162,10 @@
     "player-motion.bin": {
       "bytes": 249352,
       "sha256": "1c4840f51bdfc73cc6dbb782553580a0bd83729d339a7e50ff0d2f2d5fc80059"
+    },
+    "player-actions.bin": {
+      "bytes": 61400,
+      "sha256": "ef153eb759a8363e15d28866ae7649814c59ed6823b72f02e486c4e1d6796281"
     }
   }
 }
