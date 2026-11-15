@@ -214,6 +214,14 @@
     "restart-camera.bin": {
       "bytes": 183816,
       "sha256": "611005363aa1e25e7b6fc6c9fb85dea8f70b34c5355f6520ae2e2892993d1cd8"
+    },
+    "input-keys.bin": {
+      "bytes": 460632,
+      "sha256": "45342010a181c143f52a8dc8952f31d32d78561956019902111506e3b8275af1"
+    },
+    "input-look.bin": {
+      "bytes": 114184,
+      "sha256": "acdc89407bdbdaefecf46c6fd0f33a95f6d5785c339449bd55416ea13ce5fdd8"
     }
   }
 }

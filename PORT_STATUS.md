@@ -453,3 +453,11 @@ collision position. Native fixtures check 64 restarts and 256 per-slice camera
 updates, including height damping, normal and zoom-position camera spaces.
 The runtime restart consumer also clears persistent zone scene memory. Mouse
 counter refresh and placement within the complete tick/input loop remain pending.
+
+Player-build OnKey handling now matches 3,072 native calls, including release
+behavior, weapon mapping, use/fire/jump, hurt sounds, fly mode and original cheat
+sequences. Mouse look matches 1,024 original prefix executions, including speed,
+inversion, angle clamping and the one-second pause cutoff. Respawn keys refresh
+mouse counters; a placement refresh API is available for other SetPlayer callers.
+Platform event translation, option transitions and the complete simulation/input
+owner are still pending; the existing prototype runtime is not the original game.

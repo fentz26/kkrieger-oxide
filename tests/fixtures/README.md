@@ -226,3 +226,14 @@ fallback, gameplay-switch clearing, preserved inventory/timers, dead-monster
 reset, zone cleanup, height damping and both camera-space branches. Regenerate
 with `python3 tools/verify_restart_camera.py`; imported collision/player/checkpoint
 fixtures are also regenerated.
+
+`input-keys.bin` records 3,072 unchanged player-build OnKey calls, including
+release masks, ignored qualifiers, movement, jump/hurt sounds, use/fire, fly mode,
+weapon mapping and cheats. Respawn placement is a recording stub; the actual
+placement and camera behavior are covered by checkpoint fixtures. Regenerate
+with `python3 tools/verify_input.py` (also regenerates player-actions.bin).
+
+`input-look.bin` records 1,024 executions of the unchanged OnTick mouse prefix
+with original Euler conversion, covering inversion, speed, clamping, fly mode,
+negative clock deltas and the 999/1000/1001 ms cutoff. Regenerate with
+`python3 tools/verify_input_look.py`; imported collision/player fixtures also run.
