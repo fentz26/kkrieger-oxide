@@ -150,6 +150,14 @@
     "collision-movement.bin": {
       "bytes": 236040,
       "sha256": "450bab5f9bd7a16bb3cb65d3b8f7aaf53d919a28691d8f06fdeada279ea5567c"
+    },
+    "game-parameters.bin": {
+      "bytes": 192008,
+      "sha256": "f4e970770eacd71f1cc3e882eac66ae0d142420b365530aeab5f93c12d9c28fc"
+    },
+    "game-events.bin": {
+      "bytes": 62984,
+      "sha256": "ca3308b17536d3a80bf8d3ccff7486daf1a93b56570f6002991cd5ebf724af41"
     }
   }
 }

@@ -343,3 +343,13 @@ oracle output. Oracle-generation tools require Clang; the MMX oracle additionall
 requires Unicorn in the reference-only Python environment. Generated regression
 fixtures are not shipped in the game executable. Existing prototype binary
 measurements do not measure the unfinished full-game runtime.
+
+## Gameplay operator state
+
+The original parameter and weapon-event operators now execute in the scene
+interpreter. Inventory and ownership reset only when ResetByOp is set; maxima,
+movement/camera tuning and weapon hit/cooldown/flag arrays update every call.
+Weapon event groups preserve null links and register pointers without calling
+event links marked OPC_DONTCALLLINK. Native C++ fixtures cover 384 repeated
+parameter applications and 384 event registrations. Complete player simulation,
+combat, event scheduling and runtime integration remain pending.

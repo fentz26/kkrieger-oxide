@@ -139,3 +139,8 @@ through generated faces and dynamic geometry, including player/monster exclusion
 active-cell changes, radius preservation and persistent zone flags. Regenerate
 with `python3 tools/verify_collision_movement.py`; imported prerequisite fixtures
 are regenerated as part of its native harness.
+
+`game-parameters.bin` records 384 original parameter applications across initial,
+live and reset calls. `game-events.bin` records 384 original registrations across
+all four weapon event groups, default routing and null links. Regenerate both
+with `python3 tools/verify_game_parameters.py`.

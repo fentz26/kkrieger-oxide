@@ -2,6 +2,7 @@
 pub mod animation;
 pub mod bitmap;
 pub mod collision;
+pub mod game;
 pub mod gpu_mesh;
 pub mod gpu_texture;
 pub mod kx;

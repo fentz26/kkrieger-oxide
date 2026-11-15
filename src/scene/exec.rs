@@ -50,6 +50,7 @@ pub struct Execution {
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
     pub switches: [u8; 256],
+    pub game: crate::game::State,
     pub current_time: i32,
     pub last_time: i32,
     instances: Memory,
@@ -67,6 +68,7 @@ impl Execution {
             dynamic_cells: Vec::new(),
             event_monster: None,
             switches: [0; 256],
+            game: crate::game::State::default(),
             current_time: 0,
             last_time: 0,
             instances: Memory::default(),
@@ -196,6 +198,23 @@ impl Execution {
         self.instances.restore(saved);
         result
     }
+    fn exec_inputs(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        matrix: Matrix,
+    ) -> Result<(), Error> {
+        let op = &doc.operators[root];
+        for &input in &op.inputs {
+            self.visit(doc, input, matrix)?;
+        }
+        if doc.classes[op.class].convention & 0x1000_0000 == 0 {
+            for &link in op.links.iter().flatten() {
+                self.visit(doc, link, matrix)?;
+            }
+        }
+        Ok(())
+    }
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
         for &input in &doc.operators[root].inputs {
             let class = doc.classes[doc.operators[input].class].id;
@@ -244,6 +263,15 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x10 => {
+                self.game.apply_parameters(&p).map_err(fail)?;
+                self.exec_inputs(doc, root, parent)
+            }
+            0x12 => {
+                let kind = *p.first().ok_or_else(|| fail("missing weapon event kind"))?;
+                self.game.events.apply(kind, &op.links).map_err(fail)?;
+                self.exec_inputs(doc, root, parent)
+            }
             0x08 => {
                 let flags = *p.first().ok_or_else(|| fail("missing delay flags"))?;
                 let switch = *p.get(1).ok_or_else(|| fail("missing delay switch"))? as usize;
@@ -287,17 +315,7 @@ impl Execution {
                     }
                     self.dynamic_cells.push(Rc::clone(cell));
                 }
-                // The other particle/box modes are commented out in the original.
-                // ExecInputs invokes operators directly rather than painting cached meshes.
-                for &input in &op.inputs {
-                    self.visit(doc, input, parent)?;
-                }
-                for &link in op.links.iter().flatten() {
-                    if doc.classes[op.class].convention & 0x1000_0000 == 0 {
-                        self.visit(doc, link, parent)?;
-                    }
-                }
-                Ok(())
+                self.exec_inputs(doc, root, parent)
             }
             0x09 => {
                 let switch = *p.first().ok_or_else(|| fail("missing If switch"))? as usize;
