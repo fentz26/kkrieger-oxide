@@ -222,6 +222,10 @@
     "input-look.bin": {
       "bytes": 114184,
       "sha256": "acdc89407bdbdaefecf46c6fd0f33a95f6d5785c339449bd55416ea13ce5fdd8"
+    },
+    "monster-walk.bin": {
+      "bytes": 2204808,
+      "sha256": "2d31a4438c28c38bb6ff3e2c57e189d14ea1563e217f6ca30059b1bffaac1e2a"
     }
   }
 }

@@ -461,3 +461,11 @@ inversion, angle clamping and the one-second pause cutoff. Respawn keys refresh
 mouse counters; a placement refresh API is available for other SetPlayer callers.
 Platform event translation, option transitions and the complete simulation/input
 owner are still pending; the existing prototype runtime is not the original game.
+
+The original KKMonsterWalk routine and its five authored style definitions are
+ported, including foot raycasts, spline/fallback foot arcs, body fitting, gait
+transitions, overlapping step timing and deviation state. A 2,560-update native
+fixture checks every persistent field and matrix across all orientation/step
+flags, original style tables, real/null splines and static/dynamic collision.
+NaN cases compare classification. Monster scene registration and complete AI
+still need to consume this routine; the prototype game remains separate.

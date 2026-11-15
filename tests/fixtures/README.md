@@ -237,3 +237,11 @@ with `python3 tools/verify_input.py` (also regenerates player-actions.bin).
 with original Euler conversion, covering inversion, speed, clamping, fly mode,
 negative clock deltas and the 999/1000/1001 ms cutoff. Regenerate with
 `python3 tools/verify_input_look.py`; imported collision/player fixtures also run.
+
+`monster-walk.bin` records 2,560 unchanged KKMonsterWalk calls with native
+collision rays and original spline evaluation. It covers all five original
+styles, all orientation/step flags, null and real splines, gait transitions,
+reset/time reversal, absent volumes, dynamic obstacles and deviation handling.
+Every persistent field, foot-cell identity and output matrix is compared; NaNs
+are compared by classification. Regenerate with `python3 tools/verify_monster_walk.py`;
+imported collision/player fixtures are regenerated too.
