@@ -7,7 +7,7 @@ use crate::{
 use std::{cell::RefCell, rc::Rc};
 
 // Original fsincos evaluates before storing its two single-precision results.
-fn orientation(angles: [f32; 3]) -> Matrix {
+pub(super) fn orientation(angles: [f32; 3]) -> Matrix {
     let pairs = angles.map(|a| {
         let (s, c) = f64::from(a).sin_cos();
         (s as f32, c as f32)

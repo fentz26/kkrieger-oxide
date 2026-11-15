@@ -170,6 +170,10 @@
     "weapon-state.bin": {
       "bytes": 98600,
       "sha256": "53114873428c681f42fc8f6cd2fdcae2fed05d18b57830f937477873b61688a6"
+    },
+    "shot-spawn.bin": {
+      "bytes": 31080,
+      "sha256": "b71b24fca0c3c0f3fee12bab04f6e2475cdc347e47a9cc446b3aa7ffd8f0d25e"
     }
   }
 }

@@ -374,3 +374,10 @@ continuous-fire flags, null event links, dry-fire sounds, ammo consumption and
 cooldown rounding. Returned FireShot requests and weapon-event reset decisions
 still need projectile creation and event lifecycle consumers. Splash processing
 remains a separate phase between footsteps and firing, as in the source.
+
+The eight original ShotInfo definitions and FireShot initialization are ported.
+Player muzzle transforms, monster direction transforms, identity shot bases,
+old-position velocity encoding and rejection-sampled cube tensors match 128
+native C++ initializations bit for bit, including subsequent RNG state. Spawn
+event metadata is retained; persistent event allocation, shot-list integration,
+projectile updates, collision damage and explosion processing remain pending.

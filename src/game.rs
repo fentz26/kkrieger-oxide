@@ -1,5 +1,6 @@
 //! Original gameplay state and operator parameter application.
 pub mod player;
+pub mod shot;
 pub mod weapon;
 
 #[derive(Clone, Debug, Default, PartialEq)]
