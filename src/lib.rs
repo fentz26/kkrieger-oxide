@@ -15,3 +15,5 @@ pub mod shadow;
 pub mod texture;
 
 pub mod texture_upload;
+
+pub mod visibility;

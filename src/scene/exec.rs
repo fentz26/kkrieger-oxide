@@ -6,6 +6,7 @@ use crate::{
     kx::Document,
     mesh::{Matrix, identity, srt_matrix},
     mesh_graph,
+    visibility::{self, Portal, Rect},
 };
 
 #[derive(Clone, Debug)]
@@ -23,6 +24,11 @@ pub enum Job {
         color: u32,
         amplify: f32,
         range: f32,
+        clip: Rect,
+    },
+    Portal {
+        operator: usize,
+        portal: Portal,
     },
     Sector {
         operator: usize,
@@ -37,6 +43,8 @@ pub struct Execution {
     pub pass_adjust: i32,
     pub jobs: Vec<Job>,
     parameters: Vec<Vec<u32>>,
+    current_clip: Rect,
+    visibility_history: Vec<Rect>,
 }
 impl Execution {
     pub fn new(doc: &Document<'_>) -> Self {
@@ -46,13 +54,96 @@ impl Execution {
             pass_adjust: 0,
             jobs: Vec::new(),
             parameters: doc.operators.iter().map(|o| o.parameters.clone()).collect(),
+            current_clip: Rect::UNIT,
+            visibility_history: Vec::new(),
         }
     }
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
+        self.current_clip = Rect::UNIT;
+        self.visibility_history.clear();
         let result = self.visit(doc, root, identity());
         if result.is_err() {
             self.jobs.clear();
+        }
+        result
+    }
+    /// Execute deferred sector contents in original newest-first order. Sector
+    /// visibility is the enabled source branch; instance/game handlers still
+    /// report errors until their per-instance runtime has been ported.
+    pub fn process_sectors(
+        &mut self,
+        doc: &Document<'_>,
+        observer: Option<usize>,
+        projection: Matrix,
+    ) -> Result<(), Error> {
+        use std::collections::BTreeMap;
+        let sectors: Vec<_> = self
+            .jobs
+            .iter()
+            .filter_map(|job| match job {
+                Job::Sector {
+                    operator,
+                    input,
+                    matrix,
+                } => Some((*operator, *input, *matrix)),
+                _ => None,
+            })
+            .collect();
+        let ids: BTreeMap<_, _> = sectors
+            .iter()
+            .enumerate()
+            .map(|(i, (id, _, _))| (*id, i))
+            .collect();
+        let result = (|| {
+            if ids.len() != sectors.len() {
+                return Err(Error {
+                    operator: 0,
+                    reason: "sector scene registered more than once",
+                });
+            }
+            let fail = |reason| Error {
+                operator: observer.unwrap_or(0),
+                reason,
+            };
+            let index = |id: usize| {
+                ids.get(&id)
+                    .copied()
+                    .ok_or_else(|| fail("portal scene has no registered sector"))
+            };
+            let mut portals = Vec::new();
+            if observer.is_some() {
+                for job in &self.jobs {
+                    if let Job::Portal { portal, .. } = job {
+                        let mut portal = portal.clone();
+                        portal.sectors = [index(portal.sectors[0])?, index(portal.sectors[1])?];
+                        portal.between = portal.between.map(index).transpose()?;
+                        portals.push(portal);
+                    }
+                }
+            }
+            let observer = observer.map(index).transpose()?;
+            let visible = visibility::compute_with_history(
+                sectors.len(),
+                &portals,
+                observer,
+                projection,
+                &self.visibility_history,
+            )
+            .map_err(fail)?;
+            self.visibility_history = visible.iter().map(|s| s.bounds).collect();
+            for (i, &(_, input, matrix)) in sectors.iter().enumerate().rev() {
+                if visible[i].execute {
+                    self.current_clip = visible[i].bounds;
+                    self.visit(doc, input, matrix)?;
+                }
+            }
+            Ok(())
+        })();
+        self.current_clip = Rect::UNIT;
+        if result.is_err() {
+            self.jobs.clear();
+            self.visibility_history.clear();
         }
         result
     }
@@ -131,6 +222,7 @@ impl Execution {
                     color: *p.get(8).ok_or_else(|| fail("missing light color"))?,
                     amplify: f(9)?,
                     range: f(10)?,
+                    clip: self.current_clip,
                 });
                 Ok(())
             }
@@ -145,6 +237,30 @@ impl Execution {
                         input,
                         matrix: parent,
                     });
+                }
+                Ok(())
+            }
+            0xcd => {
+                let mut links = [None; 3];
+                for (n, link) in links.iter_mut().enumerate() {
+                    if let Some(i) = op.links.get(n).copied().flatten() {
+                        *link = super::cache_scene_identity(doc, i)?;
+                    }
+                }
+                if let [Some(a), Some(b), between] = links {
+                    let bounds = [[f(0)?, f(2)?, f(4)?], [f(1)?, f(3)?, f(5)?]];
+                    let cost = if f(7)? >= 0.02 {
+                        *p.get(6).ok_or_else(|| fail("missing portal cost"))? as i32
+                    } else {
+                        256
+                    };
+                    self.jobs.push(Job::Portal {
+                        operator: root,
+                        portal: Portal::new([a, b], between, bounds, parent, cost),
+                    });
+                }
+                if let Some(&input) = op.inputs.first() {
+                    self.visit(doc, input, parent)?;
                 }
                 Ok(())
             }

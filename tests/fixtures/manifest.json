@@ -106,6 +106,10 @@
     "shadow.bin": {
       "bytes": 161748,
       "sha256": "e41fbd5c4fbec4c24f6ed44b83d17b31ac1c7c0f0b81552ce57a3f05077b6405"
+    },
+    "visibility.bin": {
+      "bytes": 232964,
+      "sha256": "f6807123cf4d4ecd122212732c4256600605a3442b7e621b5c3a25fee6e4be99"
     }
   }
 }

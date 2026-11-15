@@ -200,3 +200,89 @@ pub fn initialize_many(doc: &Document<'_>, roots: &[usize]) -> Result<Vec<Handle
     }
     roots.iter().map(|&i| make(doc, i, &cache)).collect()
 }
+
+/// Cache identity for scene-valued aliases, mirroring the Init handlers. Mesh
+/// and effect wrappers create new scenes; aliases retain their source identity.
+pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Option<usize>, Error> {
+    #[derive(Clone, Copy)]
+    enum Object {
+        Scene(usize),
+        Mesh,
+        Effect,
+        Other,
+    }
+    fn resolve(doc: &Document<'_>, index: usize, depth: usize) -> Result<Object, Error> {
+        let fail = |reason| Error {
+            operator: index,
+            reason,
+        };
+        if depth > doc.operators.len() {
+            return Err(fail("scene cache alias cycle"));
+        }
+        let op = doc
+            .operators
+            .get(index)
+            .ok_or_else(|| fail("scene cache index out of range"))?;
+        let id = doc.classes[op.class].id;
+        let input = |i| resolve(doc, i, depth + 1);
+        Ok(match id {
+            0x01 => {
+                if let Some(i) = op.links.first().copied().flatten() {
+                    input(i)?
+                } else {
+                    Object::Other
+                }
+            }
+            0x02..=0x0c | 0x0e | 0x15 | 0xcd => {
+                if let Some(&i) = op.inputs.first() {
+                    input(i)?
+                } else if id == 0xcd {
+                    Object::Scene(index)
+                } else {
+                    Object::Other
+                }
+            }
+            0x10 | 0x12 => {
+                if let Some(&i) = op.inputs.first() {
+                    input(i)?
+                } else {
+                    Object::Scene(index)
+                }
+            }
+            0xc0 => {
+                if let Some(&i) = op.inputs.first() {
+                    match input(i)? {
+                        Object::Scene(identity) => Object::Scene(identity),
+                        Object::Mesh | Object::Effect => Object::Scene(index),
+                        Object::Other => Object::Other,
+                    }
+                } else {
+                    Object::Scene(index)
+                }
+            }
+            0xc2 | 0xc3 => {
+                if let Some(&i) = op.inputs.first() {
+                    match input(i)? {
+                        Object::Other => Object::Other,
+                        _ => Object::Scene(index),
+                    }
+                } else {
+                    Object::Other
+                }
+            }
+            0x11 | 0x13 | 0x14 | 0xc1 | 0xc4..=0xc9 | 0xcb | 0xce => Object::Scene(index),
+            0x61 | 0x63 | 0x64 => Object::Effect,
+            _ => {
+                if mesh_graph::implemented(id) {
+                    Object::Mesh
+                } else {
+                    Object::Other
+                }
+            }
+        })
+    }
+    Ok(match resolve(doc, operator, 0)? {
+        Object::Scene(index) => Some(index),
+        _ => None,
+    })
+}

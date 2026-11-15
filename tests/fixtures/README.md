@@ -78,3 +78,7 @@ stubs. Regenerate with `python3 tools/verify_texture_upload.py`.
 homogeneous extrusion vertices. Classification retains the original global
 face table across cases, including entries beyond the current plane count.
 Regenerate with `python3 tools/verify_shadow.py`.
+
+`visibility.bin` contains 128 original C++ portal graphs with two successive
+views, including near clipping, cycles, costs and retained sector bounds.
+Regenerate with `python3 tools/verify_visibility.py`.

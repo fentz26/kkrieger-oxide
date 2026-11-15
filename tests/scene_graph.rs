@@ -95,3 +95,77 @@ fn beta_supported_scene_jobs() {
         Layout::Beta2004,
     );
 }
+
+fn deferred_sectors_and_portals(data: &[u8], layout: Layout) {
+    use scene::exec::{Execution, Job};
+    let doc = Document::parse_layout(data, layout).unwrap();
+    let mut execution = Execution::new(&doc);
+    let mut painted = 0;
+    let mut pending = 0;
+    for (id, op) in doc.operators.iter().enumerate() {
+        if doc.classes[op.class].id != 0xcb {
+            continue;
+        }
+        execution.frame(&doc, id).unwrap();
+        assert!(
+            execution
+                .jobs
+                .iter()
+                .any(|j| matches!(j,Job::Sector {operator,..} if *operator==id))
+        );
+        match execution.process_sectors(&doc, None, kkrieger_oxide::mesh::identity()) {
+            Ok(()) => {
+                painted += 1;
+                assert!(
+                    execution
+                        .jobs
+                        .iter()
+                        .any(|j| matches!(j, Job::Paint { .. }))
+                );
+            }
+            Err(e) => {
+                pending += 1;
+                assert_eq!(e.reason, "scene execution handler has not been ported");
+                assert!(execution.jobs.is_empty());
+            }
+        }
+    }
+    assert_eq!((painted, pending), (28, 19));
+    let mut portals = 0;
+    for (id, op) in doc.operators.iter().enumerate() {
+        if doc.classes[op.class].id != 0xcd {
+            continue;
+        }
+        if execution.frame(&doc, id).is_err() {
+            assert!(execution.jobs.is_empty());
+            continue;
+        }
+        let portal = execution
+            .jobs
+            .iter()
+            .find_map(|job| match job {
+                Job::Portal { operator, portal } if *operator == id => Some(portal),
+                _ => None,
+            })
+            .unwrap();
+        assert_eq!(portal.sectors, [op.links[0].unwrap(), op.links[1].unwrap()]);
+        assert_eq!(portal.between, op.links[2]);
+        portals += 1;
+    }
+    assert_eq!(portals, 33);
+}
+#[test]
+fn development_deferred_sectors_and_portals() {
+    deferred_sectors_and_portals(
+        include_bytes!("../assets/kkrieger3383.kx"),
+        Layout::Legacy3383,
+    );
+}
+#[test]
+#[ignore = "requires independently extracted original beta"]
+fn beta_deferred_sectors_and_portals() {
+    deferred_sectors_and_portals(
+        &std::fs::read(".reference/verified-beta.kx").unwrap(),
+        Layout::Beta2004,
+    );
+}

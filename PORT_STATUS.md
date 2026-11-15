@@ -18,6 +18,19 @@ prototype does not satisfy that outcome. The goal remains active.
 - No C++, original assembly, or emulator is linked into the Rust runtime.
   Original C++ and MMX are used only as offline test oracles.
 
+## Portal execution progress
+
+Rust now queues original portal and sector jobs, projects portal boxes, traverses
+cost-limited sector connections and retains bounds across views. All 128 graph
+cases at two views match the enabled original C++ visibility branch. Both exports
+register all 47 sectors and 35 portals; 28 sector contents execute completely,
+while 19 report unsupported Delay/If/Physic handlers explicitly.
+
+Static inspection confirms the released beta contains the corresponding recursive
+routine and edge table. Its sector layout and some visibility branches differ
+from the published source; this is structural evidence, not beta behavior parity.
+`tools/inspect_beta_portals.py` records that distinction and the executable hash.
+
 ## Implemented and checked
 
 - Bounds-checked Rust decoding of the original beta, development export, and
