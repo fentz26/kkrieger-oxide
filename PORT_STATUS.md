@@ -418,3 +418,13 @@ and static/dynamic collision interaction cleanup match 3,328 native C++ phases.
 Expired timers return ordered world-entry reset requests; native chain deletion
 is checked through a test consumer. The persistent event scheduler must consume
 these requests when integrated into the full simulation tick.
+
+KEvent runtime values, timeline import and KEnvironment event registration/expiry
+now have a Rust scheduler. Native fixtures check 768 schedules and 128 scoped
+contexts, including equal-time activation, newest-first lists, swap removal,
+interval/variable mapping, inherited splines and Stop. Scene Time/Event operators
+(0x05/0x06) execute against isolated event instance scopes, restore caller context,
+apply event matrices before parent transforms and initialize durations. Explicit
+begin_events/finish_events bracket scene and deferred-sector execution. Event
+instance reset/expiry releases its scope; gameplay shot/zone/weapon registration,
+trigger creation and monster-owned child-chain cleanup still need integration.

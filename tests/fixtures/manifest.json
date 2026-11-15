@@ -198,6 +198,10 @@
     "zones.bin": {
       "bytes": 5135112,
       "sha256": "f7b352574c26ce4371c482102cd0d7113f74e9bee5234ab88dcd296f909a9233"
+    },
+    "events.bin": {
+      "bytes": 110220,
+      "sha256": "ac195b5c626015646c55b345cd0106b8a23a9c3da2355c7ec0135f5ba82ff114"
     }
   }
 }

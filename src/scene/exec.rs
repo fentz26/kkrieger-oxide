@@ -49,6 +49,9 @@ pub struct Execution {
     pub jobs: Vec<Job>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
+    pub event_spline: Option<usize>,
+    pub current_event: Option<super::event::Id>,
+    pub events: super::event::Scheduler,
     pub switches: [u8; 256],
     pub game: crate::game::State,
     pub splash: crate::game::splash::Splash,
@@ -68,6 +71,9 @@ impl Execution {
             jobs: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
+            event_spline: None,
+            current_event: None,
+            events: super::event::Scheduler::from_document(doc),
             switches: [0; 256],
             game: crate::game::State::default(),
             splash: crate::game::splash::Splash::default(),
@@ -78,6 +84,53 @@ impl Execution {
             current_clip: Rect::UNIT,
             visibility_history: Vec::new(),
         }
+    }
+    /// InitFrame dynamic registration followed by KDoc::AddEvents. Call before
+    /// frame, then finish_events after deferred sectors and other scene work.
+    pub fn begin_events(&mut self, beat: i32, clear_instances: bool) {
+        let mut resets = self.events.begin(beat, clear_instances);
+        resets.extend(self.events.add_document(clear_instances));
+        for id in resets {
+            self.reset_event_instances(id);
+        }
+    }
+    pub fn reset_event_instances(&mut self, id: super::event::Id) {
+        self.instances.clear(Scope::Event(id));
+    }
+    pub fn finish_events(&mut self) {
+        for id in self.events.finish() {
+            self.reset_event_instances(id);
+        }
+    }
+    pub fn execute_event(
+        &mut self,
+        doc: &Document<'_>,
+        input: usize,
+        id: super::event::Id,
+        parent: Matrix,
+    ) -> Result<(), Error> {
+        let event = self.events.events.get(&id).cloned().ok_or(Error {
+            operator: input,
+            reason: "event missing",
+        })?;
+        let saved: [[f32; 4]; 8] = self.vm.variables[..8].try_into().unwrap();
+        let old_monster = self.event_monster;
+        let old_spline = self.event_spline;
+        let old_event = self.current_event;
+        self.vm.variables[..8].copy_from_slice(&event.variables(self.events.beat));
+        self.event_monster = event.monster;
+        if event.spline.is_some() {
+            self.event_spline = event.spline;
+        }
+        self.current_event = Some(id);
+        let cursor = self.instances.enter(Scope::Event(id));
+        let result = self.visit(doc, input, multiply(event.matrix, parent));
+        self.instances.restore(cursor);
+        self.vm.variables[..8].copy_from_slice(&saved);
+        self.event_monster = old_monster;
+        self.event_spline = old_spline;
+        self.current_event = old_event;
+        result
     }
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
@@ -249,7 +302,12 @@ impl Execution {
             .ok_or_else(|| fail("execution document mismatch"))?;
         let eval = self
             .vm
-            .execute(op, p, &doc.splines, None)
+            .execute(
+                op,
+                p,
+                &doc.splines,
+                self.event_spline.and_then(|i| doc.splines.get(i)),
+            )
             .map_err(|_| fail("scene animation failed"))?;
         let p = p.clone();
         let f = |i| {
@@ -265,6 +323,32 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x05 | 0x06 => {
+                let input = *op
+                    .inputs
+                    .first()
+                    .ok_or_else(|| fail("event operator has no input"))?;
+                let mut ids = self.events.active(root).to_vec();
+                if id == 0x05 {
+                    ids.truncate(1);
+                }
+                for event_id in ids {
+                    let event = self
+                        .events
+                        .events
+                        .get_mut(&event_id)
+                        .ok_or_else(|| fail("active event missing"))?;
+                    if id == 0x06 && event.start == event.end {
+                        event.start = self.events.beat;
+                        event.end = event
+                            .start
+                            .wrapping_add((f(0)? * 65536.).round_ties_even() as i32);
+                    }
+                    self.execute_event(doc, input, event_id, parent)?;
+                }
+                Ok(())
+            }
+
             0x13 => self
                 .game
                 .register_checkpoint(

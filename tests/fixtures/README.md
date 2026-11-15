@@ -196,3 +196,11 @@ collectable aliases, weapon selection, jump impulses, checkpoint flags and
 respawn countdown boundaries. Native event stubs record chain deletion and
 pointer clearing; the Rust test consumes ordered reset requests against the same
 stub state. Regenerate with `python3 tools/verify_zones.py`.
+
+`events.bin` records 768 native KEnvironment event schedules and 128 original
+KOp::ExecEvent contexts. Scheduling checks activation intervals, equal start/end,
+newest-first operator lists, ClearInstanceMem and swap-removal expiry order.
+Scoped execution checks all eight event variables, interval clamping, inherited
+splines, monster/current-event context restoration and Stop. Instance and stack
+stubs record calls; affine multiplication is covered separately by scene tests.
+Regenerate with `python3 tools/verify_events.py`.

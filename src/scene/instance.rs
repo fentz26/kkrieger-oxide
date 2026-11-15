@@ -11,6 +11,7 @@ pub enum Scope {
     #[default]
     Default,
     Scene(usize),
+    Event(super::event::Id),
 }
 
 struct Slot {
@@ -43,6 +44,9 @@ pub struct Memory {
 }
 
 impl Memory {
+    pub fn clear(&mut self, scope: Scope) {
+        self.lists.remove(&scope);
+    }
     pub fn splash(&mut self, operator: usize) -> Result<&mut bool, Error> {
         match self.next(operator, || State::Splash(false))? {
             State::Splash(previous) => Ok(previous),
