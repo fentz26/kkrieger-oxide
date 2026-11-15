@@ -88,6 +88,7 @@ impl Events {
 }
 
 pub struct State {
+    pub last_key: u32,
     pub inventory: Inventory,
     pub parameters: Parameters,
     pub events: Events,
@@ -99,6 +100,7 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
+            last_key: 0,
             inventory: Inventory::default(),
             parameters: Parameters::default(),
             events: Events::default(),

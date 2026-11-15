@@ -355,6 +355,60 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x0a => {
+                let p = p
+                    .get(..4)
+                    .ok_or_else(|| fail("truncated setif parameters"))?;
+                let comparison = super::menu::set_if(
+                    &mut self.switches,
+                    p[0] as usize,
+                    p[1] as i32,
+                    p[2],
+                    p[3] as usize,
+                )
+                .map_err(fail)?;
+                if let Some(variable) = comparison.variable {
+                    let saved = self.vm.variables[variable];
+                    self.vm.variables[variable] = [u8::from(comparison.value) as f32; 4];
+                    let result = self.exec_inputs(doc, root, parent);
+                    self.vm.variables[variable] = saved;
+                    result
+                } else if comparison.execute {
+                    self.exec_inputs(doc, root, parent)
+                } else {
+                    Ok(())
+                }
+            }
+            0x0b => {
+                let p = p
+                    .get(..5)
+                    .ok_or_else(|| fail("truncated state parameters"))?;
+                super::menu::state(
+                    &mut self.switches,
+                    &mut self.game.last_key,
+                    p[0] as usize,
+                    p[1] as i32,
+                    p[2] as i32,
+                    p[3] as usize,
+                    p[4] as i32,
+                )
+                .map_err(fail)?;
+                self.exec_inputs(doc, root, parent)
+            }
+            0x0e => {
+                let p = p
+                    .get(..3)
+                    .ok_or_else(|| fail("truncated menu parameters"))?;
+                super::menu::menu(
+                    &mut self.switches,
+                    &mut self.game.last_key,
+                    p[0] as usize,
+                    p[1] as i32,
+                    p[2],
+                )
+                .map_err(fail)?;
+                self.exec_inputs(doc, root, parent)
+            }
             0x15 => {
                 let values = p
                     .get(..3)

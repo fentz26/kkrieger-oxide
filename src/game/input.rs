@@ -4,12 +4,18 @@ use super::{
     player::{Motion, Sound},
 };
 use crate::collision::world::World;
+pub const UP: u32 = 0x10000;
+pub const DOWN: u32 = 0x10001;
+pub const LEFT: u32 = 0x10002;
+pub const RIGHT: u32 = 0x10003;
+pub const ENTER: u32 = 10;
+pub const BACKSPACE: u32 = 8;
+pub const ESCAPE: u32 = 27;
 pub const BREAK: u32 = 0x8000_0000;
 pub const SHIFT_LEFT: u32 = 0x10021;
 pub const CONTROL_RIGHT: u32 = 0x10025;
 pub const MOUSE_LEFT: u32 = 0x10028;
 pub struct Input {
-    pub last_key: u32,
     pub fly: bool,
     pub last_mouse: [i32; 2],
     pub last_time: i32,
@@ -23,7 +29,6 @@ pub struct KeyResult {
 impl Input {
     pub fn new(time: i32, mouse: [i32; 2]) -> Self {
         Self {
-            last_key: 0,
             fly: false,
             last_mouse: mouse,
             last_time: time,
@@ -68,13 +73,13 @@ impl Input {
         motion: &mut Motion,
         world: &World,
     ) -> Result<KeyResult, &'static str> {
-        self.last_key = key & 0x8001ffff;
+        game.last_key = key & 0x8001ffff;
         let mut result = KeyResult {
             handled: false,
             placed: false,
             sounds: Vec::new(),
         };
-        match self.last_key {
+        match game.last_key {
             32 => {
                 if let Some(sound) = motion.jump(&game.parameters) {
                     result.sounds.push(sound);

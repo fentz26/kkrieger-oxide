@@ -527,3 +527,11 @@ positions for later platform consumption. A whole-function native fixture checks
 with same-slice projectile advancement. Mixed populated tick parity, frame-clock/
 menu orchestration, platform/audio/render consumption and the original main
 runtime still need completion.
+
+SetIf (0x0a), State (0x0b) and Menu (0x0e) scene operators now implement original
+switch comparisons, scoped variables, key consumption and menu bounds. LastKey
+is canonical gameplay state shared by input and scene execution. A 768-call
+native fixture checks child/caller state; scene tests check variable restoration
+on errors and key consumption before child menus. The original main loop was
+also traced: OnTick runs before the new frame's InitFrame. Frame-clock/root/menu
+orchestration and presentation still need to follow that order in the runtime.

@@ -82,7 +82,7 @@ fn original_key_handling_preserves_release_cheats_weapon_mapping_and_sounds() {
                 .unwrap();
             placements += usize::from(result.placed);
             assert_eq!(result.handled, r.word() != 0, "{case}/{tick}");
-            assert_eq!(input.last_key, r.word());
+            assert_eq!(game.last_key, r.word());
             assert_eq!(input.fly, r.word() != 0);
             for f in [motion.accel_forward, motion.accel_side, motion.speed_up] {
                 assert_eq!(f.to_bits(), r.word());

@@ -287,3 +287,8 @@ slice counts, mouse timing, movement, cooldowns, camera/listener data, sound
 positions and death continuation. This fixture does not prove a whole tick with
 populated actor/shot/zone lists. Regenerate with `python3 tools/verify_tick_player.py`;
 imported collision/player/checkpoint/camera fixtures are regenerated too.
+
+`menu.bin` records 768 unchanged SetIf, State and Menu handler executions.
+Snapshots cover both child and caller state: scoped VM variables, switch writes,
+comparison flags, key consumption, ignored condition modes, byte wrapping and
+menu limits. Regenerate with `python3 tools/verify_menu.py`.

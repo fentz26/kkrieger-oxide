@@ -246,6 +246,10 @@
     "tick-player.bin": {
       "bytes": 65992,
       "sha256": "6596bcd33f9b111a2daa299edca79fbe5fce7a0ae52c777a6464e52d55f394b6"
+    },
+    "menu.bin": {
+      "bytes": 1816004,
+      "sha256": "67c52ca282a7846781f4d7b69abeee0505856056ffea50eb6641c5211072ba5f"
     }
   }
 }
