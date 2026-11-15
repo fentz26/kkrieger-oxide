@@ -182,3 +182,10 @@ and damage methods. `splash-trigger.bin` records 512 original per-instance trigg
 executions. Checks cover falloff, blocked/outside-volume origins, zero-damage
 activation, halved player damage, kill switches and rising-edge state. Regenerate
 with `python3 tools/verify_splash.py`; imported collision fixtures are regenerated.
+
+`checkpoints.bin` records 64 original checkpoint registration, Continue, RespawnAt
+and SetPlayer sequences. It checks checkpoint priority, retained activation,
+living-monster reset, minimum ammunition, hit-cell matrices, preserved movement
+timers and camera placement when collision falls back to the first volume.
+Regenerate with `python3 tools/verify_checkpoints.py`; imported collision/player
+fixtures are also regenerated.

@@ -190,6 +190,10 @@
     "splash-trigger.bin": {
       "bytes": 32776,
       "sha256": "28234ebae23b91e6fd05b99ec681cdbf8ad8055c033527df13dd42735759913b"
+    },
+    "checkpoints.bin": {
+      "bytes": 100356,
+      "sha256": "ac0f837f0187ae7d31ecdebeca9a618d7b5b86f3dbaad590009d42df2f2465ec"
     }
   }
 }

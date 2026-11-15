@@ -1,4 +1,5 @@
 //! Original gameplay state and operator parameter application.
+pub mod checkpoint;
 pub mod monster;
 pub mod player;
 pub mod shot;
@@ -84,6 +85,7 @@ pub struct State {
     pub reset_by_operator: bool,
     pub weapon: weapon::State,
     pub monsters: Vec<monster::Health>,
+    pub checkpoints: [checkpoint::Checkpoint; 16],
 }
 impl Default for State {
     fn default() -> Self {
@@ -94,6 +96,7 @@ impl Default for State {
             reset_by_operator: true,
             weapon: weapon::State::default(),
             monsters: Vec::new(),
+            checkpoints: [checkpoint::Checkpoint::default(); 16],
         }
     }
 }

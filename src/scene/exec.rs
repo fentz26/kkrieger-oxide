@@ -265,6 +265,14 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x13 => self
+                .game
+                .register_checkpoint(
+                    *p.get(3).ok_or_else(|| fail("missing checkpoint index"))? as usize,
+                    [f(0)?, f(1)?, f(2)?],
+                    f(4)?,
+                )
+                .map_err(fail),
             0x14 => {
                 let hits = *p.first().ok_or_else(|| fail("missing splash hit amount"))? as i32;
                 let range = f(1)?;

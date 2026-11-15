@@ -402,3 +402,11 @@ damage, player hit halving and kill switches. The splash scene operator (0x14)
 uses per-instance rising-edge state and world-space placement; another 512 native
 executions check triggering and retained pending payloads. Scheduling this phase
 within the complete game tick and consuming dynamic events remain pending.
+
+Checkpoint registration (scene operator 0x13), Continue and RespawnAt now retain
+original placement order and state changes. A 64-case native C++ fixture checks
+collision fallback, requested camera coordinates, hit-cell matrices, movement
+timer preservation, living-monster reset and minimum ammo. Scene execution keeps
+authored checkpoint coordinates independent of the parent transform. The player
+hit-cell handle remains stable across placement. Input mouse-counter refresh,
+Restart zone/event cleanup and complete tick integration remain pending.

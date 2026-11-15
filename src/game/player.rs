@@ -25,6 +25,9 @@ pub struct Motion {
     pub collider: Collider,
     pub old_position: [f32; 4],
     pub direction: f32,
+    pub look: f32,
+    pub last_camera_y: f32,
+    pub camera_position: [f32; 4],
     pub matrix: Matrix,
     pub accel_side: f32,
     pub accel_forward: f32,
@@ -66,6 +69,7 @@ impl Motion {
         mut position: [f32; 4],
         direction: f32,
     ) -> Result<Self, &'static str> {
+        let requested = position;
         let cell = if let Some(cell) = world.find_cell(position) {
             cell
         } else {
@@ -93,6 +97,9 @@ impl Motion {
             },
             old_position: position,
             direction,
+            look: 0.,
+            last_camera_y: requested[1],
+            camera_position: requested,
             matrix: orientation([0., direction, 0.]),
             accel_side: 0.,
             accel_forward: 0.,
@@ -104,6 +111,26 @@ impl Motion {
             step_timer: 0.,
             hit_cell: Rc::new(RefCell::new(DynamicCell::new(hit, matrix))),
         })
+    }
+
+    /// Collision/camera portion of SetPlayer. The input owner refreshes mouse
+    /// counters separately. Preserve motion timers and the stable hit-cell handle.
+    pub fn place(
+        &mut self,
+        world: &World,
+        position: [f32; 4],
+        direction: f32,
+        look: f32,
+    ) -> Result<(), &'static str> {
+        let fresh = Self::spawn(world, position, direction)?;
+        self.collider = fresh.collider;
+        self.old_position = fresh.old_position;
+        self.direction = direction;
+        self.look = look;
+        self.last_camera_y = fresh.last_camera_y;
+        self.camera_position = fresh.camera_position;
+        *self.hit_cell.borrow_mut() = fresh.hit_cell.borrow().clone();
+        Ok(())
     }
 
     pub fn set_orientation(&mut self, look: f32, fly: bool) {
