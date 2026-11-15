@@ -206,6 +206,10 @@
     "trigger.bin": {
       "bytes": 268856,
       "sha256": "ba9b32d1d3132f8c4aa4d6a15f4ee1058fa870fcbca9d7349bcc6e2468ff0e27"
+    },
+    "game-event-registration.bin": {
+      "bytes": 100660,
+      "sha256": "c782b33643bacf0e842bc0575aaa0c537cf02c6026aaf5778ad75a7641635a9b"
     }
   }
 }

@@ -211,3 +211,10 @@ links, first-use state, delayed/fractional timing, large beat values, negative
 intervals, generated event payloads and unconditional child execution. The
 original handler ignores the supplied color and spline arguments. Regenerate
 with `python3 tools/verify_trigger.py`; it also regenerates `events.bin`.
+
+`game-event-registration.bin` records 384 original KKriegerGame::AddEvents phases with the
+native event scheduler. It covers shot selection/swap removal, mode-dependent
+matrix copying, zone event selection, weapon switching and optics variables.
+Native matrix tokens test assignment rather than matrix arithmetic; scene tests
+cover transforms separately. Regenerate with `python3 tools/verify_game_events.py`;
+`events.bin` is also regenerated.

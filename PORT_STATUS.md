@@ -436,3 +436,12 @@ timing behavior. The source's unused color/spline arguments remain unused. Scene
 integration checks registration on the next frame and independent event memory
 across repeated emissions. Full game-event registration and tick scheduling are
 still pending.
+
+Game AddEvents now registers persistent shot, zone and weapon events with the
+scene scheduler. Its 384-phase native fixture checks original registration and
+swap-removal order, respawn selection, optics switching and weapon event fields.
+Integration tests check zone/weapon instance resets and projectile event release
+with explosion registration on the next frame. FireShot and the ShotAI ownership
+loop now create/consume actual scheduler events and apply damage before queuing
+explosions. The source Select removal path preserves its distinct no-Exit behavior.
+Complete tick/input/monster integration remains pending.
