@@ -78,8 +78,11 @@ ray traversal now follows the original 16-cell limit, checks static/dynamic
 obstacles and accumulates zone entry/exit/contact masks. All result fields and
 dynamic-cell identity match 1,280 original C++ queries. Source selective field
 copying at outer walls is preserved. Traversal uses a fixed stack buffer.
-Event scheduling, sphere movement, player simulation and the game loop remain
-pending.
+Sphere/edge and sphere/face checks and per-face soft response are ported,
+including false-result nearest-point writes and coincident-contact arithmetic.
+The native regression fixture covers 4,096 cases. Connecting sphere traversal
+and complete collider movement, event scheduling, player simulation and the
+game loop remains pending.
 
 ## Implemented and checked
 

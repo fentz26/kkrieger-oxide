@@ -142,6 +142,10 @@
     "collision-ray.bin": {
       "bytes": 761352,
       "sha256": "3f8eb41c40f48e80c0d1ddb0e6ae91dd2fc1421caf7df0f4e4e2d6a2b3088a48"
+    },
+    "collision-sphere.bin": {
+      "bytes": 321496,
+      "sha256": "60864eb74a464401ba9bd5fbadb2038bed351e4f76b36d163698349cce9621a9"
     }
   }
 }
