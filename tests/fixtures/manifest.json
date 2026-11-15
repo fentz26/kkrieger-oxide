@@ -114,6 +114,10 @@
     "delay.bin": {
       "bytes": 3037192,
       "sha256": "6d5c1f02a0b66600589c29826ea20583f9d5b558691243402472a147efe1398a"
+    },
+    "collision.bin": {
+      "bytes": 71604,
+      "sha256": "627f6ccf0256e64881cd538aae0d0fa5621a8b5861baa2d5571298bf86316508"
     }
   }
 }

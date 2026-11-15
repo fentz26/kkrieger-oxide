@@ -40,6 +40,12 @@ Malformed replay reports an error rather than silently reallocating state.
 Gameplay must still supply switches and time; physics and other handlers remain
 pending.
 
+Collision-cell geometry now includes the original face ordering, degenerate
+triangle fallback, warped-face splitting, double-precision normal normalization,
+subtractive overlap and bounding boxes. The 256-case original C++ fixture checks
+plane counts, plane coefficients, center, bounds and mode fields. Dynamic cell
+registration, motion and collision queries remain to be connected.
+
 ## Implemented and checked
 
 - Bounds-checked Rust decoding of the original beta, development export, and

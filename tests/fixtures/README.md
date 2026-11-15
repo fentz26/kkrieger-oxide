@@ -88,3 +88,8 @@ hysteresis, all variable routes, switch inputs, phase transitions, nonpositive
 durations and large/negative time steps. Regenerate with
 `python3 tools/verify_delay.py`. Child execution is stubbed in this oracle;
 it proves the persistent envelope and variable writes, not instance allocation.
+
+`collision.bin` records the original KKriegerCell vertex constructor for 256
+warped, inverted, flat, repeated-corner and ordinary boxes, including face planes,
+overlap expansion, bounds and center. Regenerate with
+`python3 tools/verify_collision.py`.

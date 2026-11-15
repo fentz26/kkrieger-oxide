@@ -1,6 +1,7 @@
 //! Asset and simulation code shared by the runtime and offline porting tools.
 pub mod animation;
 pub mod bitmap;
+pub mod collision;
 pub mod gpu_mesh;
 pub mod gpu_texture;
 pub mod kx;
