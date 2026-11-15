@@ -14,6 +14,23 @@ use std::{
     rc::Rc,
 };
 
+#[derive(Debug)]
+pub enum BuildError {
+    Scene(crate::scene::Error),
+    Mesh(crate::mesh_graph::Error),
+    World(&'static str),
+}
+impl std::fmt::Display for BuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Scene(e) => e.fmt(f),
+            Self::Mesh(e) => e.fmt(f),
+            Self::World(e) => f.write_str(e),
+        }
+    }
+}
+impl std::error::Error for BuildError {}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Logic {
     pub code: u8,
@@ -49,6 +66,36 @@ pub struct World {
 }
 
 impl World {
+    /// Initialize the original scene and batch its meshes before SetSceneR.
+    pub fn from_document(doc: &crate::kx::Document<'_>, root: usize) -> Result<Self, BuildError> {
+        let initialized =
+            crate::scene::initialize_with_sectors(doc, &[root]).map_err(BuildError::Scene)?;
+        let mut pending = vec![Rc::clone(&initialized.roots[0])];
+        let mut visited = BTreeSet::new();
+        let mut mesh_ids = BTreeSet::new();
+        while let Some(handle) = pending.pop() {
+            if !visited.insert(Rc::as_ptr(&handle) as usize) {
+                continue;
+            }
+            let scene = handle.borrow();
+            mesh_ids.extend(scene.mesh);
+            pending.extend(scene.children.iter().cloned());
+        }
+        let mesh_ids: Vec<_> = mesh_ids.into_iter().collect();
+        let meshes = crate::mesh_graph::generate_many(doc, &mesh_ids).map_err(BuildError::Mesh)?;
+        let meshes = mesh_ids.into_iter().zip(meshes).collect();
+        let identity = crate::scene::cache_scene_identity(doc, root)
+            .map_err(BuildError::Scene)?
+            .ok_or(BuildError::World("world root does not cache a scene"))?;
+        Self::build(
+            identity,
+            &initialized.roots[0],
+            &meshes,
+            &initialized.sectors,
+        )
+        .map_err(BuildError::World)
+    }
+
     /// Meshes and sector handles must come from the same initialized graph.
     pub fn build(
         root_operator: usize,

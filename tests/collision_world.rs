@@ -136,3 +136,52 @@ fn original_scene_traversal_preserves_instances_sectors_logic_and_events() {
     }
     assert!(r.0.is_empty());
 }
+
+fn original_level(data: &[u8], layout: kkrieger_oxide::kx::Layout, root: usize) {
+    use kkrieger_oxide::{kx::Document, scene};
+    let doc = Document::parse_layout(data, layout).unwrap();
+    let initialized = scene::initialize_with_sectors(&doc, &[root]).unwrap();
+    assert_eq!(initialized.sectors.len(), 47);
+    let world = World::from_document(&doc, root).unwrap();
+    let parameter = &doc.operators[doc.operators[root].inputs[0]];
+    assert_eq!(doc.classes[parameter.class].id, 0x10);
+    let position = [
+        parameter.float(29).unwrap(),
+        parameter.float(30).unwrap(),
+        parameter.float(31).unwrap(),
+        1.,
+    ];
+    let cell = world
+        .find_cell(position)
+        .expect("original player start lies in an additive cell");
+    let sector = world.entries[cell].sector.unwrap();
+    assert!(
+        initialized.sectors.iter().any(|(id, _)| *id == sector),
+        "player start sector must be registered for portal execution"
+    );
+    assert!(!world.faces[cell].as_ref().unwrap().is_empty());
+    for entry in &world.entries {
+        assert!(entry.cell.vertices.iter().flatten().all(|x| x.is_finite()));
+        assert!(entry.cell.planes.iter().flatten().all(|x| x.is_finite()));
+    }
+}
+
+#[test]
+#[ignore = "full development geometry and world assembly, including system fonts"]
+fn development_level_player_start_resolves_to_registered_sector() {
+    original_level(
+        include_bytes!("../assets/kkrieger3383.kx"),
+        kkrieger_oxide::kx::Layout::Legacy3383,
+        5171,
+    );
+}
+
+#[test]
+#[ignore = "requires independently extracted beta and full geometry generation"]
+fn beta_level_player_start_resolves_to_registered_sector() {
+    original_level(
+        &std::fs::read(".reference/verified-beta.kx").unwrap(),
+        kkrieger_oxide::kx::Layout::Beta2004,
+        4357,
+    );
+}

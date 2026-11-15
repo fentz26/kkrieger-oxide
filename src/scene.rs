@@ -68,6 +68,16 @@ fn make(doc: &Document<'_>, index: usize, cache: &[Option<Handle>]) -> Result<Ha
 /// not claim the cached tree is an executed frame (monsters, portals and walking
 /// issue their jobs from Exec handlers rather than their Init trees).
 pub fn initialize_many(doc: &Document<'_>, roots: &[usize]) -> Result<Vec<Handle>, Error> {
+    Ok(initialize_with_sectors(doc, roots)?.roots)
+}
+
+pub struct Initialized {
+    pub roots: Vec<Handle>,
+    pub sectors: Vec<(usize, Handle)>,
+}
+
+/// Retain sector identities from the same initialization pass as the roots.
+pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<Initialized, Error> {
     let mut needed = vec![false; doc.operators.len()];
     let mut pending = roots.to_vec();
     while let Some(i) = pending.pop() {
@@ -200,7 +210,22 @@ pub fn initialize_many(doc: &Document<'_>, roots: &[usize]) -> Result<Vec<Handle
         };
         cache[i] = Some(result);
     }
-    roots.iter().map(|&i| make(doc, i, &cache)).collect()
+    let roots = roots
+        .iter()
+        .map(|&i| make(doc, i, &cache))
+        .collect::<Result<_, _>>()?;
+    let sectors = cache
+        .into_iter()
+        .enumerate()
+        .filter_map(|(i, scene)| {
+            if doc.classes[doc.operators[i].class].id == 0xcb {
+                scene.map(|scene| (i, scene))
+            } else {
+                None
+            }
+        })
+        .collect();
+    Ok(Initialized { roots, sectors })
 }
 
 /// Cache identity for scene-valued aliases, mirroring the Init handlers. Mesh

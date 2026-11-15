@@ -19,6 +19,25 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Document::parse(&bytes)?
     };
+    if let Some(root) = options.iter().find_map(|a| a.strip_prefix("--world=")) {
+        let root = root.parse()?;
+        let world = kkrieger_oxide::collision::world::World::from_document(&doc, root)?;
+        let faces: usize = world.faces.iter().flatten().map(Vec::len).sum();
+        let events = world
+            .entries
+            .iter()
+            .flat_map(|e| &e.events)
+            .flatten()
+            .count();
+        println!(
+            "collision world {root}: {} cells / {} adds / {} subs / {} zones / {faces} faces / {events} event records",
+            world.entries.len(),
+            world.adds.len(),
+            world.subs.len(),
+            world.zones.len()
+        );
+        return Ok(());
+    }
     if options.iter().any(|a| a == "--animation-fixture") {
         return animation_fixture(&doc);
     }

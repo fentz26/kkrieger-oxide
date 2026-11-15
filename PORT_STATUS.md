@@ -62,7 +62,18 @@ read is represented explicitly: a zero unused slot below 12 planes, or Center
 immediately after the original 12-plane array. Static-world assembly now follows
 SetSceneR/AddMesh: repeated transforms, child-before-parent cell order, root and
 sector identities, collision logic and event spawn records. Its C++ fixture covers
-64 scene traversals. Integration with the original level graph, event scheduling,
+64 scene traversals. World::from_document now initializes sectors and batches
+meshes from the same graph pass, then builds connectivity and collision faces.
+Both complete static level graphs assemble in release mode:
+
+| Export / scene root | Cells | Adds | Subs | Zones | Faces | Event records |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Beta / 4357 | 7,745 | 1,858 | 5,737 | 150 | 50,285 | 256 |
+| Development / 5171 | 6,767 | 1,858 | 4,748 | 161 | 50,247 | 260 |
+
+Both original player start positions resolve to additive cells in registered
+sectors; the initialized graphs retain all 47 sector identities. These are Rust
+integration results, not full original-executable world parity. Event scheduling,
 ray traversal between cells, player simulation and the game loop remain pending.
 
 ## Implemented and checked
@@ -277,6 +288,10 @@ cargo test --locked
 cargo test --test kx_data --test animation_reference -- --include-ignored
 cargo run --bin kx-inspect -- assets/kkrieger3383.kx
 cargo run --bin kx-inspect -- .reference/verified-beta.kx --beta
+
+cargo run --release --bin kx-inspect -- .reference/verified-beta.kx --beta --world=4357
+cargo run --release --bin kx-inspect -- assets/kkrieger3383.kx --world=5171
+cargo test --release --test collision_world -- --include-ignored
 
 python3 tools/fetch_reference.py
 python3 tools/prepare_beta_reference.py
