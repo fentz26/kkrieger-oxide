@@ -116,6 +116,26 @@ impl Simulation {
         }
         Ok(result)
     }
+    /// Original ResetRoot after the selected scene has been assembled. Keep
+    /// the shared world handle, player hit cell, input clock and weapon event.
+    pub fn reset_root(
+        &mut self,
+        world: World,
+        execution: &mut Execution,
+        mouse: [i32; 2],
+        first_time: bool,
+    ) -> Result<(), &'static str> {
+        self.events
+            .replace_world(&world, execution, &mut self.motion);
+        self.zones = zones::Runtime::new(&world);
+        *self.world.borrow_mut() = world;
+        self.restart(execution, mouse)?;
+        if first_time {
+            execution.switches[1] = 8;
+        }
+        self.bind_scene(execution, execution.time_reset);
+        Ok(())
+    }
     pub fn select_root(
         &mut self,
         execution: &mut Execution,

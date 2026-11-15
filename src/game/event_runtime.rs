@@ -36,7 +36,16 @@ impl Runtime {
     }
 
     pub fn new(world: &World, execution: &mut Execution) -> Self {
-        let zones = world
+        let zones = Self::zone_events(world, execution);
+        let weapon = execution.events.insert(Event::default(), false);
+        Self {
+            zones,
+            weapon,
+            shots: Vec::new(),
+        }
+    }
+    fn zone_events(world: &World, execution: &mut Execution) -> Vec<(usize, [Option<Id>; 2])> {
+        world
             .zones
             .iter()
             .map(|&entry| {
@@ -55,13 +64,29 @@ impl Runtime {
                 });
                 (entry, events)
             })
-            .collect();
-        let weapon = execution.events.insert(Event::default(), false);
-        Self {
-            zones,
-            weapon,
-            shots: Vec::new(),
+            .collect()
+    }
+    /// SetScene's Flush and new zone registration. The embedded WeaponEvent
+    /// and its instance chain survive this operation in the original game.
+    pub fn replace_world(&mut self, world: &World, execution: &mut Execution, motion: &mut Motion) {
+        for (_, events) in self.zones.drain(..) {
+            for id in events.into_iter().flatten() {
+                execution.reset_event_instances(id);
+                execution.events.events.remove(&id);
+            }
         }
+        for shot in self.shots.drain(..) {
+            execution.reset_event_instances(shot.event);
+            execution.events.events.remove(&shot.event);
+        }
+        execution.game.events = super::Events::default();
+        execution.game.weapon.timer = 0.;
+        execution.game.weapon.current = 1;
+        execution.game.weapon.next = 0;
+        motion.step_timer = 0.;
+        motion.step_foot = 0;
+        motion.off_ground_time = 0.;
+        self.zones = Self::zone_events(world, execution);
     }
     /// AddEvents runs after InitFrame registration and before scene execution.
     pub fn add_events(

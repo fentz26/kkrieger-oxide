@@ -250,3 +250,88 @@ fn view_reset_retains_per_operator_scene_instances() {
     assert_eq!(e.game.monsters.active_ids(), [actor]);
     assert!(Rc::ptr_eq(&handle, &e.game.monsters.get(actor).unwrap()));
 }
+
+#[test]
+fn root_replacement_exits_zone_and_shot_chains_but_keeps_weapon_chain() {
+    use kkrieger_oxide::{
+        collision::world::EventSpawn,
+        game::{shot::Origin, simulation::Simulation},
+        random::Random,
+    };
+    let (doc, mut e) = setup();
+    let context = e.actors.take().unwrap();
+    let mut world = Rc::try_unwrap(context.world).ok().unwrap().into_inner();
+    world.zones.push(world.entries.len());
+    world.entries.push(Entry {
+        cell: Cell::new(identity(), [1.; 3], 2),
+        sector: None,
+        logic: Logic {
+            code: 0,
+            condition: 0,
+            value: 0,
+            output: 0,
+            events: [None, None],
+        },
+        events: [
+            Some(EventSpawn {
+                operator: 0,
+                translate: [0.; 4],
+                cull_distance: 10.,
+            }),
+            None,
+        ],
+    });
+    world.faces.push(None);
+    let mut sim =
+        Simulation::new(world, &mut e, [0., 0., 0., 1.], 0, [0, 0], Random::new(1)).unwrap();
+    sim.bind_scene(&mut e, false);
+    let weapon = sim.events.weapon;
+    e.events.events[&weapon].borrow_mut().operator = Some(0);
+    let zone = sim.events.zones[0].1[0].unwrap();
+    e.game.events.shot[0] = Some(0);
+    sim.events
+        .fire(
+            &mut e,
+            0,
+            Origin::Player {
+                position: [0., 0., 0., 1.],
+                look: 0.,
+                direction: 0.,
+                last_camera_y: 0.,
+                camera_offset: 0.,
+                cell: 0,
+            },
+            &mut sim.random,
+        )
+        .unwrap();
+    let shot = sim.events.shots[0].event;
+    for id in [weapon, zone, shot] {
+        e.execute_event(&doc, 0, id, identity()).unwrap();
+    }
+    let owned = e.game.monsters.active_ids().to_vec();
+    assert_eq!(owned.len(), 3);
+    let weapon_actor = e.game.monsters.get(owned[0]).unwrap();
+    let empty = World {
+        entries: vec![],
+        adds: vec![],
+        subs: vec![],
+        zones: vec![],
+        connectivity: connectivity::connect(&[]),
+        faces: vec![],
+    };
+    sim.reset_root(empty, &mut e, [0, 0], false).unwrap();
+    assert!(e.has_event_instances(weapon));
+    for id in [zone, shot] {
+        assert!(!e.has_event_instances(id));
+        assert!(!e.events.events.contains_key(&id));
+    }
+    assert!(Rc::ptr_eq(
+        &weapon_actor,
+        &e.game.monsters.get(owned[0]).unwrap()
+    ));
+    for id in &owned[1..] {
+        assert!(e.game.monsters.get(*id).is_none());
+    }
+    assert!(sim.events.shots.is_empty());
+    assert!(sim.events.zones.is_empty());
+}

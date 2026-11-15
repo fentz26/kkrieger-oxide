@@ -312,3 +312,10 @@ clock reset, marker matrices, and dynamic-event disposal. Regenerate with
 `python3 tools/verify_view.py`. Rust integration tests additionally exercise
 actor ownership under default, dynamic-event, static-event, and per-operator
 scene scopes; the last two scopes survive InitView.
+
+`flush.bin` records 64 calls to the unchanged player-build Flush function,
+including cell/event/shot cleanup callbacks, weapon bindings, animation and
+footstep timers, and preserved inventory/cooldown/motion fields. Regenerate
+with `python3 tools/verify_flush.py`. Rust root-replacement integration also
+checks zone rebinding, menu-to-game collision placement, first-start intro mode,
+shared handles, and weapon-event instance ownership.

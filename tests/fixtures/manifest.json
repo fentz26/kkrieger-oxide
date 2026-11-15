@@ -266,6 +266,10 @@
     "view.bin": {
       "bytes": 134916,
       "sha256": "17c840daf047bbc0b268fcb69ab3a093a48ef0a536f4755e15cf317aae274f43"
+    },
+    "flush.bin": {
+      "bytes": 14340,
+      "sha256": "27cd1f0f840cc4db1ddb9336b90836b19ff3e9ac40ddbe6673f9b4ed275d330f"
     }
   }
 }
