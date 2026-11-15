@@ -469,3 +469,12 @@ fixture checks every persistent field and matrix across all orientation/step
 flags, original style tables, real/null splines and static/dynamic collision.
 NaN cases compare classification. Monster scene registration and complete AI
 still need to consume this routine; the prototype game remains separate.
+
+Monster actor initialization/respawn now consumes the original parameter block,
+faces the player, resolves collision cells, prepares the hit cell, initializes
+walking and applies overrides. A 120-call native fixture checks retained attack
+timers/magnet force and stable hit-cell ownership across respawns. The source's
+16-word copy into a 14-word parameter block is modeled explicitly: collision
+scale x/y overwrite Event.Matrix.i.x/y. This is source fidelity, not verification
+of released-binary behavior. Scene registration, shared actor health ownership
+and complete AI/tick integration remain pending.

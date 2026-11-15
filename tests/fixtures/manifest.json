@@ -226,6 +226,10 @@
     "monster-walk.bin": {
       "bytes": 2204808,
       "sha256": "2d31a4438c28c38bb6ff3e2c57e189d14ea1563e217f6ca30059b1bffaac1e2a"
+    },
+    "monster-actor.bin": {
+      "bytes": 239208,
+      "sha256": "c6630c0d7afe831997442fc8c217d89883738a87e6622290bed4260732f00af2"
     }
   }
 }

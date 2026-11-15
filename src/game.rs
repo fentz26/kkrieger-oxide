@@ -3,6 +3,7 @@ pub mod checkpoint;
 pub mod event_runtime;
 pub mod input;
 pub mod monster;
+pub mod monster_actor;
 pub mod monster_walk;
 pub mod player;
 pub mod shot;

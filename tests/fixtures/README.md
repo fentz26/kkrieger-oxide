@@ -245,3 +245,12 @@ reset/time reversal, absent volumes, dynamic obstacles and deviation handling.
 Every persistent field, foot-cell identity and output matrix is compared; NaNs
 are compared by classification. Regenerate with `python3 tools/verify_monster_walk.py`;
 imported collision/player fixtures are regenerated too.
+
+`monster-actor.bin` records 120 runs of the unchanged initialization branch from
+Exec_KKrieger_Monster, with original collision, dynamic-cell preparation, walking
+and spline evaluation. It covers all five styles, outside-volume spawns, retained
+attack timers/magnet force on respawn and monster overrides. The native scaffold
+asserts the original 14-word parameter-block layout: its 16-word copy overwrites
+the first two event-matrix floats. Scene registration/rendering after that branch
+is excluded. Regenerate with `python3 tools/verify_monster_actor.py`; imported
+collision/player/walking fixtures are regenerated too.
