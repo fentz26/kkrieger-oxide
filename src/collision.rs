@@ -2,6 +2,7 @@
 use crate::mesh::Matrix;
 pub mod connectivity;
 pub mod faces;
+pub mod ray;
 pub mod world;
 
 const OVERLAP: f32 = 4.010e-3 * 2.;
@@ -22,6 +23,14 @@ pub struct Cell {
     pub only_for_shot: bool,
     pub center: [f32; 4],
     pub bounds: [[f32; 4]; 2],
+    pub interactions: Interactions,
+}
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Interactions {
+    pub enter: u32,
+    pub leave: u32,
+    pub collided: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -214,6 +223,7 @@ impl Cell {
             only_for_shot: mode & 4 != 0,
             center,
             bounds,
+            interactions: Interactions::default(),
         }
     }
 }

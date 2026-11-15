@@ -29,6 +29,7 @@ fn original_heap_and_neighbor_order_match_for_128_graphs() {
                 planes: Vec::new(),
                 only_for_shot: false,
                 center: [0.; 4],
+                interactions: Default::default(),
             })
             .collect();
         let graph = connectivity::connect(&cells);

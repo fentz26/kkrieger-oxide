@@ -138,6 +138,10 @@
     "collision-world.bin": {
       "bytes": 423812,
       "sha256": "33a71f9ebfd54f43b3f7c0926ae30d0f519a0c1aafa00c80bfd5c6ff2b9c0a81"
+    },
+    "collision-ray.bin": {
+      "bytes": 761352,
+      "sha256": "3f8eb41c40f48e80c0d1ddb0e6ae91dd2fc1421caf7df0f4e4e2d6a2b3088a48"
     }
   }
 }

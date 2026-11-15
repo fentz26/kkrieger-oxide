@@ -120,3 +120,9 @@ shared children, nested sectors, repeated/negative counts and attached events.
 Checks include cell creation order, transforms, scene identity, logic and event
 placement. Regenerate with `python3 tools/verify_collision_world.py`; this also
 regenerates the face fixture imported by its native harness.
+
+`collision-ray.bin` records 1,280 original world ray queries through connected
+additive cells, static/dynamic obstacles and persistent zone flags. It verifies
+the 16-cell traversal cap, all result fields and dynamic-cell pointer identity.
+Regenerate with `python3 tools/verify_collision_ray.py`; its native harness also
+regenerates the imported world and face fixtures.
