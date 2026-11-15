@@ -130,6 +130,10 @@
     "collision-connectivity.bin": {
       "bytes": 212136,
       "sha256": "72608495f2a140752808b8651fca4f6196bcab5225993d5a17edf83fa330d272"
+    },
+    "collision-faces.bin": {
+      "bytes": 168372,
+      "sha256": "0c1b09c21ca62461636862409637683c49e53a18ee93ce6874fc167739354c3a"
     }
   }
 }

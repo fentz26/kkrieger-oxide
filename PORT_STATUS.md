@@ -55,9 +55,12 @@ intersection queries are ported, with a 4,096-call original C++ regression fixtu
 The source negative-distance convention and parallel divisions are preserved.
 Collision-cell connectivity now preserves the original heap sort and ordered
 add/sub/zone adjacency; 128 original C++ graphs cover empty lists, equal keys
-and all cell modes. Collision-face generation is separate and still pending,
-along with world assembly, ray traversal between cells, player simulation,
-tick scheduling and gameplay.
+and all cell modes. Collision-face generation now ports the original polygon
+clipper, recursive splitting and linked-list ordering, with 128 complete native
+reference cases including warped cells with 12 planes. The source extra-plane
+read is represented explicitly: a zero unused slot below 12 planes, or Center
+immediately after the original 12-plane array. World assembly, ray traversal
+between cells, player simulation, tick scheduling and gameplay remain pending.
 
 ## Implemented and checked
 

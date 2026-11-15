@@ -1,6 +1,7 @@
 //! Original KKriegerCell geometry, including degenerate and warped faces.
 use crate::mesh::Matrix;
 pub mod connectivity;
+pub mod faces;
 
 const OVERLAP: f32 = 4.010e-3 * 2.;
 const ORDER: [[usize; 4]; 6] = [

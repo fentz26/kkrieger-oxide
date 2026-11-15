@@ -109,3 +109,8 @@ connection graphs, including empty graphs, equal keys and all cell modes.
 It checks sorted order and ordered add/sub/zone adjacency. Collision-face
 generation is excluded from this oracle. Regenerate with
 `python3 tools/verify_connectivity.py`.
+
+`collision-faces.bin` records 128 complete original CreateCollisionFaces outputs,
+including recursive clipping and linked-list order. The native layout preserves
+Planes[12] followed by Center because SplitCollisionFace reads one extra plane.
+Regenerate with `python3 tools/verify_collision_faces.py`.
