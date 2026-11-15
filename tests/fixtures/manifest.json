@@ -254,6 +254,14 @@
     "frame.bin": {
       "bytes": 786192,
       "sha256": "b38af8f3fe5e8281d2b0f203f2c56977ff1fb290ec8b3b4f1ba292bafa62dbd2"
+    },
+    "startup.bin": {
+      "bytes": 528608,
+      "sha256": "d159164b74c1f5d6e8a429d90324d04fd91115c3300bb98b2fcf28679e4fc357"
+    },
+    "nullable-player.bin": {
+      "bytes": 14340,
+      "sha256": "7dc3208d47c73c35fd43b91490279a4bc8955303c5d3fcc917ac80a58a49523c"
     }
   }
 }

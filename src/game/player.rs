@@ -72,17 +72,16 @@ impl Motion {
         let requested = position;
         let cell = if let Some(cell) = world.find_cell(position) {
             cell
-        } else {
-            let &cell = world
-                .adds
-                .first()
-                .ok_or("player world has no additive cell")?;
+        } else if let Some(&cell) = world.adds.first() {
             for (i, value) in position[..3].iter_mut().enumerate() {
                 *value = (world.entries[cell].cell.bounds[0][i]
                     + world.entries[cell].cell.bounds[1][i])
                     * 0.5;
             }
             cell
+        } else {
+            // Original SetPlayer keeps a null cell for menu/intro scenes.
+            usize::MAX
         };
         let mut matrix = identity();
         matrix[3] = [0., -0.25, 0., 1.];

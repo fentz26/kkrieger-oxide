@@ -55,7 +55,7 @@ impl Simulation {
     ) -> Result<Self, &'static str> {
         let mut motion = Motion::spawn(&world, position, 0.)?;
         motion.matrix = crate::mesh::identity();
-        let player_cell = Some(motion.collider.cell);
+        let player_cell = (motion.collider.cell != usize::MAX).then_some(motion.collider.cell);
         let zones = zones::Runtime::new(&world);
         let events = event_runtime::Runtime::new(&world, execution);
         Ok(Self {
@@ -111,9 +111,21 @@ impl Simulation {
             &self.world.borrow(),
         )?;
         if result.placed {
-            self.player_cell = Some(self.motion.collider.cell);
+            self.player_cell =
+                (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
         }
         Ok(result)
+    }
+    pub fn select_root(
+        &mut self,
+        execution: &mut Execution,
+        mouse: [i32; 2],
+    ) -> Result<super::root::Selection, &'static str> {
+        let selection = super::root::select(&mut execution.switches);
+        if selection.restart {
+            self.restart(execution, mouse)?;
+        }
+        Ok(selection)
     }
     pub fn restart(
         &mut self,
@@ -126,7 +138,8 @@ impl Simulation {
             &self.world.borrow(),
             &mut self.zones,
         )?;
-        self.player_cell = Some(self.motion.collider.cell);
+        self.player_cell =
+            (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
         self.input.placement_mouse(mouse);
         Ok(())
     }
@@ -222,7 +235,8 @@ impl Simulation {
                     position: sound_position,
                 });
             }
-            self.player_cell = Some(self.motion.collider.cell);
+            self.player_cell =
+                (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
             execution.physics((slice as f32 + 1.) / slices as f32);
             let resets = self.zones.tick(
                 &mut execution.game,
@@ -313,7 +327,8 @@ impl Simulation {
             execution
                 .game
                 .continue_game(&mut self.motion, &world, &execution.switches)?;
-            self.player_cell = Some(self.motion.collider.cell);
+            self.player_cell =
+                (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
             self.input.placement_mouse(mouse);
             result.continued = true;
         }

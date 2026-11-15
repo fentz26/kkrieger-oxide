@@ -109,6 +109,12 @@ impl Execution {
             visibility_history: Vec::new(),
         }
     }
+    pub fn new_player(doc: &Document<'_>) -> Self {
+        let mut execution = Self::new(doc);
+        execution.game = crate::game::State::player_build();
+        execution.switches = crate::game::root::switches();
+        execution
+    }
     /// Original InitFrame CPU state. Document and game event registration follow
     /// this call, after the previous frame's simulation has already run.
     pub fn init_frame(&mut self, beat: i32, milliseconds: i32, clear_instances: bool) {

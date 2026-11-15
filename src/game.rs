@@ -10,6 +10,7 @@ pub mod monster_magnet;
 pub mod monster_registry;
 pub mod monster_walk;
 pub mod player;
+pub mod root;
 pub mod shot;
 pub mod simulation;
 pub mod splash;

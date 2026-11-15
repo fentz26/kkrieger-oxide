@@ -299,3 +299,10 @@ variables, timing/reset/slice/jitter values, dynamic registration counts, camera
 fields, beat conversion, the ten-slice cap and FPS smoothing. Default-instance
 linkage is recorded with placeholder heads; typed instance replay and cleanup
 are covered separately by scene tests. Regenerate with `python3 tools/verify_frame.py`.
+
+`startup.bin` records the original player inventory, weapon controls, Panic
+parameters, startup switches, and all 256 GetNewRoot inputs. Restart and exit
+are recorded as platform requests; their handlers are tested separately.
+`nullable-player.bin` records 64 original SetPlayer calls without additive
+collision cells, including camera coordinates and hit matrices. Regenerate with
+`python3 tools/verify_startup.py` and `python3 tools/verify_nullable_player.py`.
