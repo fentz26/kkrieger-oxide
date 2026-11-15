@@ -1,0 +1,102 @@
+use kkrieger_oxide::scene::instance::{Memory, Scope};
+
+#[test]
+fn sequential_instances_and_nested_scene_scopes_replay_independently() {
+    let mut memory = Memory::default();
+    memory.enter(Scope::Default);
+    memory.delay(12).unwrap().time = 0.25;
+    // A repeated operator in the same traversal consumes a distinct instance.
+    memory.delay(12).unwrap().time = 0.5;
+    let saved = memory.enter(Scope::Scene(3));
+    memory.delay(12).unwrap().time = 0.75;
+    let nested = memory.enter(Scope::Scene(4));
+    memory.delay(12).unwrap().time = 1.;
+    memory.restore(nested);
+    memory.delay(13).unwrap().time = 1.25;
+    memory.restore(saved);
+    memory.delay(14).unwrap().time = 1.5;
+
+    for _ in 0..3 {
+        memory.enter(Scope::Default);
+        assert_eq!(memory.delay(12).unwrap().time, 0.25);
+        assert_eq!(memory.delay(12).unwrap().time, 0.5);
+        let saved = memory.enter(Scope::Scene(3));
+        assert_eq!(memory.delay(12).unwrap().time, 0.75);
+        let nested = memory.enter(Scope::Scene(4));
+        assert_eq!(memory.delay(12).unwrap().time, 1.);
+        memory.restore(nested);
+        assert_eq!(memory.delay(13).unwrap().time, 1.25);
+        memory.restore(saved);
+        assert_eq!(memory.delay(14).unwrap().time, 1.5);
+        assert_eq!(
+            memory.delay(15).unwrap_err().reason,
+            "instance list exhausted during replay"
+        );
+    }
+    memory.enter(Scope::Default);
+    assert_eq!(
+        memory.delay(15).unwrap_err().reason,
+        "instance operator differs during replay"
+    );
+}
+
+#[test]
+fn delay_and_if_execute_children_and_retain_per_branch_state() {
+    use kkrieger_oxide::{
+        kx::{Class, Document},
+        scene::exec::{Execution, Job},
+    };
+    let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    doc.classes = [0x09, 0x08, 0xc4]
+        .into_iter()
+        .map(|id| Class {
+            id,
+            convention: 0,
+            packing: &[],
+        })
+        .collect();
+    doc.operators.truncate(5);
+    for op in &mut doc.operators {
+        op.animation = &[1];
+        op.inputs.clear();
+        op.links.clear();
+    }
+    doc.operators[0].class = 0;
+    doc.operators[0].parameters = vec![0, 1];
+    doc.operators[0].inputs = vec![1, 2];
+    for i in 1..3 {
+        let op = &mut doc.operators[i];
+        op.class = 1;
+        op.parameters = vec![0x10, 1, 0, 0, 1f32.to_bits(), 0, 1f32.to_bits()];
+        op.inputs = vec![i + 2];
+    }
+    for i in 3..5 {
+        let op = &mut doc.operators[i];
+        op.class = 2;
+        op.parameters = vec![0; 11];
+        op.parameters[10] = 1f32.to_bits();
+    }
+    let mut execution = Execution::new(&doc);
+    execution.switches[1] = 1;
+    execution.current_time = 250;
+    execution.switches[0] = 1;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.vm.variables[1], [0.25; 4]);
+    assert!(matches!(
+        execution.jobs.as_slice(),
+        [Job::Light { operator: 3, .. }]
+    ));
+    execution.switches[0] = 0;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.vm.variables[1], [0.25; 4]);
+    assert!(matches!(
+        execution.jobs.as_slice(),
+        [Job::Light { operator: 4, .. }]
+    ));
+    execution.switches[0] = 1;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.vm.variables[1], [0.5; 4]);
+    execution.switches[0] = 0;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.vm.variables[1], [0.5; 4]);
+}

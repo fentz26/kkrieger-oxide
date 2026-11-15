@@ -1,6 +1,9 @@
 //! Scene Exec handlers emit the original engine jobs. Unported gameplay is an
 //! error, so an incomplete frame can never masquerade as a faithful game frame.
-use super::Error;
+use super::{
+    Error, delay,
+    instance::{Memory, Scope},
+};
 use crate::{
     animation::Vm,
     kx::Document,
@@ -42,6 +45,10 @@ pub struct Execution {
     pub camera: Matrix,
     pub pass_adjust: i32,
     pub jobs: Vec<Job>,
+    pub switches: [u8; 256],
+    pub current_time: i32,
+    pub last_time: i32,
+    instances: Memory,
     parameters: Vec<Vec<u32>>,
     current_clip: Rect,
     visibility_history: Vec<Rect>,
@@ -53,6 +60,10 @@ impl Execution {
             camera: identity(),
             pass_adjust: 0,
             jobs: Vec::new(),
+            switches: [0; 256],
+            current_time: 0,
+            last_time: 0,
+            instances: Memory::default(),
             parameters: doc.operators.iter().map(|o| o.parameters.clone()).collect(),
             current_clip: Rect::UNIT,
             visibility_history: Vec::new(),
@@ -62,6 +73,7 @@ impl Execution {
         self.jobs.clear();
         self.current_clip = Rect::UNIT;
         self.visibility_history.clear();
+        self.instances.enter(Scope::Default);
         let result = self.visit(doc, root, identity());
         if result.is_err() {
             self.jobs.clear();
@@ -135,7 +147,7 @@ impl Execution {
             for (i, &(_, input, matrix)) in sectors.iter().enumerate().rev() {
                 if visible[i].execute {
                     self.current_clip = visible[i].bounds;
-                    self.visit(doc, input, matrix)?;
+                    self.visit_scene(doc, input, matrix)?;
                 }
             }
             Ok(())
@@ -145,6 +157,17 @@ impl Execution {
             self.jobs.clear();
             self.visibility_history.clear();
         }
+        result
+    }
+    fn visit_scene(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        matrix: Matrix,
+    ) -> Result<(), Error> {
+        let saved = self.instances.enter(Scope::Scene(root));
+        let result = self.visit(doc, root, matrix);
+        self.instances.restore(saved);
         result
     }
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
@@ -195,6 +218,48 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x08 => {
+                let flags = *p.first().ok_or_else(|| fail("missing delay flags"))?;
+                let switch = *p.get(1).ok_or_else(|| fail("missing delay switch"))? as usize;
+                let switch = if flags & 0xc0 == 0 {
+                    *self
+                        .switches
+                        .get(switch)
+                        .ok_or_else(|| fail("delay switch out of range"))?
+                } else {
+                    0
+                };
+                let parameters = delay::Parameters {
+                    flags,
+                    threshold: f(2)?,
+                    hysteresis: f(3)?,
+                    durations: [f(4)?, f(5)?, f(6)?],
+                };
+                self.instances.delay(root)?.advance(
+                    parameters,
+                    switch,
+                    &mut self.vm.variables,
+                    self.current_time,
+                    self.last_time,
+                );
+                if let Some(&input) = op.inputs.first() {
+                    self.visit(doc, input, parent)?;
+                }
+                Ok(())
+            }
+            0x09 => {
+                let switch = *p.first().ok_or_else(|| fail("missing If switch"))? as usize;
+                let value = *p.get(1).ok_or_else(|| fail("missing If value"))? as i32;
+                let switch = *self
+                    .switches
+                    .get(switch)
+                    .ok_or_else(|| fail("If switch out of range"))?;
+                let index = usize::from(switch as i32 != value);
+                if let Some(&input) = op.inputs.get(index) {
+                    self.visit_scene(doc, input, parent)?;
+                }
+                Ok(())
+            }
             0x02 | 0x03 | 0xc1 => self.inputs(doc, root, parent),
             0xc0 | 0xc3 => self.inputs(doc, root, multiply(srt()?, parent)),
             0xc2 => {

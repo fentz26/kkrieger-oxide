@@ -45,7 +45,6 @@ fn beta_scene_initialization() {
 fn execute_supported(data: &[u8], layout: Layout) {
     use scene::exec::{Execution, Job};
     let doc = Document::parse_layout(data, layout).unwrap();
-    let mut execution = Execution::new(&doc);
     let mut frames = 0;
     let mut paints = 0;
     let mut lights = 0;
@@ -53,6 +52,7 @@ fn execute_supported(data: &[u8], layout: Layout) {
         if !matches!(doc.classes[op.class].id, 0xc0..=0xc4 | 0xc6 | 0xcb) {
             continue;
         }
+        let mut execution = Execution::new(&doc);
         execution.vm.variables[3] = [3., 4., 5., 6.];
         match execution.frame(&doc, id) {
             Ok(()) => {
@@ -99,13 +99,13 @@ fn beta_supported_scene_jobs() {
 fn deferred_sectors_and_portals(data: &[u8], layout: Layout) {
     use scene::exec::{Execution, Job};
     let doc = Document::parse_layout(data, layout).unwrap();
-    let mut execution = Execution::new(&doc);
     let mut painted = 0;
     let mut pending = 0;
     for (id, op) in doc.operators.iter().enumerate() {
         if doc.classes[op.class].id != 0xcb {
             continue;
         }
+        let mut execution = Execution::new(&doc);
         execution.frame(&doc, id).unwrap();
         assert!(
             execution
@@ -130,12 +130,13 @@ fn deferred_sectors_and_portals(data: &[u8], layout: Layout) {
             }
         }
     }
-    assert_eq!((painted, pending), (28, 19));
+    assert_eq!((painted, pending), (35, 12));
     let mut portals = 0;
     for (id, op) in doc.operators.iter().enumerate() {
         if doc.classes[op.class].id != 0xcd {
             continue;
         }
+        let mut execution = Execution::new(&doc);
         if execution.frame(&doc, id).is_err() {
             assert!(execution.jobs.is_empty());
             continue;
@@ -152,7 +153,7 @@ fn deferred_sectors_and_portals(data: &[u8], layout: Layout) {
         assert_eq!(portal.between, op.links[2]);
         portals += 1;
     }
-    assert_eq!(portals, 33);
+    assert_eq!(portals, 35);
 }
 #[test]
 fn development_deferred_sectors_and_portals() {

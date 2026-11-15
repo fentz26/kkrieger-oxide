@@ -5,6 +5,7 @@ use std::{cell::RefCell, fmt, rc::Rc};
 
 pub mod delay;
 pub mod exec;
+pub mod instance;
 
 pub type Handle = Rc<RefCell<Scene>>;
 #[derive(Clone, Debug)]

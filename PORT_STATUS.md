@@ -23,18 +23,22 @@ prototype does not satisfy that outcome. The goal remains active.
 Rust now queues original portal and sector jobs, projects portal boxes, traverses
 cost-limited sector connections and retains bounds across views. All 128 graph
 cases at two views match the enabled original C++ visibility branch. Both exports
-register all 47 sectors and 35 portals; 28 sector contents execute completely,
-while 19 report unsupported Delay/If/Physic handlers explicitly.
+register all 47 sectors and 35 portals; 35 sector contents execute completely,
+while 12 report the unsupported Physic handler explicitly.
 
 Static inspection confirms the released beta contains the corresponding recursive
 routine and edge table. Its sector layout and some visibility branches differ
 from the published source; this is structural evidence, not beta behavior parity.
 `tools/inspect_beta_portals.py` records that distinction and the executable hash.
 
-The Delay envelope state machine is ported separately, with 20,480 persistent
-calls checked against the extracted original handler. Connecting its sequential
-instance-memory allocation, scoped child execution and game switches remains
-pending; Delay still reports unsupported in the scene interpreter.
+The Delay envelope state machine matches 20,480 persistent calls to the original
+handler. Delay and If now execute in the scene interpreter using 256 game
+switches and explicit current/previous time. Sequential instance lists distinguish
+repeated operators, retain branch state and restore nested scene cursors. Sector
+execution and If children use the original per-child SceneMemLink scope.
+Malformed replay reports an error rather than silently reallocating state.
+Gameplay must still supply switches and time; physics and other handlers remain
+pending.
 
 ## Implemented and checked
 
