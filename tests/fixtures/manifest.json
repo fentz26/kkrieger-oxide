@@ -122,6 +122,10 @@
     "collision-dynamic.bin": {
       "bytes": 240644,
       "sha256": "747d9e5c3ec751eff199ba0eebe100c2923158216385a8a4fa06189aaf53e612"
+    },
+    "collision-queries.bin": {
+      "bytes": 430652,
+      "sha256": "fb8b9dc620c9579d071da6a223eddcb2013ba10bfd9060b0b51c839f46de4325"
     }
   }
 }

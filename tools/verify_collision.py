@@ -100,3 +100,42 @@ with tempfile.TemporaryDirectory() as tmp:
 out = root / 'tests/fixtures/collision-dynamic.bin'
 out.write_bytes(data)
 print(f'{out}: {len(data)} bytes, 128 original dynamic cells')
+
+oracle.source = (root / '.reference/fr_public/werkkzeug3_kkrieger/kkriegergame.cpp').read_text(encoding='cp1252')
+query_functions = '\n'.join(oracle.function(s) for s in [
+    'sBool KKriegerCell::RejectPlane(', 'sInt KKriegerCell::OutsideMask(',
+    'sBool KKriegerCell::IntersectOut(', 'sBool KKriegerCell::IntersectIn(',
+    'sF32 KKriegerCell::approxDistance(',
+])
+query_support = support.replace('void Init(const sVector*,int);', '''
+void Init(const sVector*,int);bool RejectPlane(const sVector&,const sVector&);
+int OutsideMask(const sVector&,float);bool IntersectOut(const sVector&,const sVector&,sVector&,float&,float);
+bool IntersectIn(const sVector&,const sVector&,sVector&,float&,float);float approxDistance(const sVector&);
+''')
+query_support = '#define GAMEPERF(x)\n#define LOGGING 0\n' + query_support
+query_driver = r'''
+int main(){word(256);word(16);for(int c=0;c<256;c++){
+ sVector v[8];for(int k=0;k<8;k++)v[k]={-((k&1)-0.5f)*(c%7-2),-(((k>>1)&1)-0.5f)*((c/7)%7-2),-(((k>>2)&1)-0.5f)*((c/49)%7-2),1};
+ if(c%3==0)v[7].z+=0.125f;if(c%5==0)v[6].y-=0.25f;
+ if(c%11==0)v[0]=v[2];if(c%17==0)for(int k=0;k<8;k++)v[k].z=0;
+ word(c%8);for(auto p:v)vector(p);KKriegerCell cell;cell.Init(v,c%8);
+ for(int k=0;k<16;k++){
+  sVector p={(k%5-2)*0.5f,((c+k)%7-3)*0.25f,((k+c/7)%9-4)*0.25f,1};
+  sVector d={((c+k)%5-2)*0.25f,(k%3-1)*0.5f,((c/3+k)%7-3)*0.25f,0};
+  if(k==0)d={0,0,0,0};if(k==1)d={1e-16f,-1e-16f,0,0};if(k==2)d={-0.0f,0,-0.0f,0};
+  sVector b={p.x+d.x,p.y+d.y,p.z+d.z,1};float radius=(k%5-1)*0.125f;
+  vector(p);vector(d);vector(b);real(radius);word(cell.OutsideMask(p,radius));word(cell.RejectPlane(p,b));real(cell.approxDistance(p));
+  sVector plane{};float distance=0;bool hit=cell.IntersectOut(p,d,plane,distance,radius);word(hit);if(hit){vector(plane);real(distance);}
+  hit=cell.IntersectIn(p,d,plane,distance,radius);word(hit);if(hit){vector(plane);real(distance);}
+ }
+}}
+'''
+with tempfile.TemporaryDirectory() as tmp:
+    cpp = pathlib.Path(tmp) / 'queries.cpp'
+    exe = pathlib.Path(tmp) / 'queries'
+    cpp.write_text(query_support + functions + query_functions + query_driver)
+    subprocess.run(['clang++', '-std=c++17', '-O2', '-ffp-contract=off', str(cpp), '-o', str(exe)], check=True)
+    data = subprocess.check_output([str(exe)])
+out = root / 'tests/fixtures/collision-queries.bin'
+out.write_bytes(data)
+print(f'{out}: {len(data)} bytes, 4096 original cell queries')

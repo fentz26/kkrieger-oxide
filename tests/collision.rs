@@ -92,3 +92,55 @@ fn original_dynamic_cells_prepare_move_and_interpolate() {
     }
     assert!(r.0.is_empty());
 }
+
+#[test]
+fn original_cell_queries_include_parallel_rays_and_degenerate_cells() {
+    use kkrieger_oxide::collision::Intersection;
+    fn check(r: &mut Reader<'_>, hit: Option<Intersection>, case: usize, query: usize) {
+        assert_eq!(hit.is_some(), r.word() != 0, "{case}/{query}");
+        if let Some(hit) = hit {
+            for (a, b) in hit.plane.into_iter().zip(r.vector()) {
+                assert_eq!(a.to_bits(), b.to_bits(), "{case}/{query}");
+            }
+            assert_eq!(hit.distance.to_bits(), r.word(), "{case}/{query}");
+        }
+    }
+    let mut r = Reader(include_bytes!("fixtures/collision-queries.bin"));
+    assert_eq!(r.word(), 256);
+    assert_eq!(r.word(), 16);
+    for case in 0..256 {
+        let mode = r.word();
+        let vertices = std::array::from_fn(|_| r.vector());
+        let cell = Cell::from_vertices(vertices, mode);
+        for query in 0..16 {
+            let point = r.vector();
+            let direction = r.vector();
+            let other = r.vector();
+            let radius = f32::from_bits(r.word());
+            assert_eq!(cell.outside_mask(point, radius), r.word(), "{case}/{query}");
+            assert_eq!(
+                cell.reject_plane(point, other),
+                r.word() != 0,
+                "{case}/{query}"
+            );
+            assert_eq!(
+                cell.approximate_distance(point).to_bits(),
+                r.word(),
+                "{case}/{query}"
+            );
+            check(
+                &mut r,
+                cell.intersect_out(point, direction, radius),
+                case,
+                query,
+            );
+            check(
+                &mut r,
+                cell.intersect_in(point, direction, radius),
+                case,
+                query,
+            );
+        }
+    }
+    assert!(r.0.is_empty());
+}

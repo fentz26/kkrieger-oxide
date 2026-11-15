@@ -21,6 +21,87 @@ pub struct Cell {
     pub bounds: [[f32; 4]; 2],
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Intersection {
+    pub plane: [f32; 4],
+    pub distance: f32,
+}
+
+impl Cell {
+    pub fn reject_plane(&self, a: [f32; 4], b: [f32; 4]) -> bool {
+        self.planes
+            .iter()
+            .any(|&plane| dot(plane, a) + plane[3] < 0. && dot(plane, b) + plane[3] < 0.)
+    }
+
+    pub fn outside_mask(&self, point: [f32; 4], radius: f32) -> u32 {
+        let mut mask = 0;
+        for (i, &plane) in self.planes.iter().enumerate() {
+            if dot(plane, point) + plane[3] - radius < 0. {
+                mask |= 1 << i;
+            }
+        }
+        mask
+    }
+
+    pub fn approximate_distance(&self, point: [f32; 4]) -> f32 {
+        let mut result = 10000.;
+        for &plane in &self.planes {
+            let distance = dot(point, plane) + plane[3];
+            if distance < result {
+                result = distance;
+            }
+        }
+        -result
+    }
+
+    /// Original IntersectOut retains negative distances and parallel-plane
+    /// divisions. These conventions are consumed by the original CollideRay.
+    pub fn intersect_out(
+        &self,
+        point: [f32; 4],
+        direction: [f32; 4],
+        radius: f32,
+    ) -> Option<Intersection> {
+        let mut best = 0.;
+        let mut result = None;
+        for &plane in &self.planes {
+            let distance = dot(plane, point) + plane[3] - radius;
+            if distance < 0. {
+                let distance = -distance / dot(plane, direction);
+                if distance < best {
+                    best = distance;
+                    result = Some(Intersection { plane, distance });
+                }
+            }
+        }
+        result
+    }
+
+    pub fn intersect_in(
+        &self,
+        point: [f32; 4],
+        direction: [f32; 4],
+        radius: f32,
+    ) -> Option<Intersection> {
+        let mut best = -1048576.;
+        let mut result = None;
+        for &plane in &self.planes {
+            let distance = dot(plane, point) + plane[3] - radius;
+            let determinant = dot(plane, direction);
+            // The C++ literal is double precision.
+            if determinant as f64 > 1.0e-16 {
+                let distance = -distance / determinant;
+                if distance > best {
+                    best = distance;
+                    result = Some(Intersection { plane, distance });
+                }
+            }
+        }
+        result
+    }
+}
+
 fn dot(a: [f32; 4], b: [f32; 4]) -> f32 {
     a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }

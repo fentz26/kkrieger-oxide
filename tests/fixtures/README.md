@@ -98,3 +98,8 @@ overlap expansion, bounds and center. Regenerate with
 ApplyMatrix and the dynamic-cell Physic loop, including interpolated, extrapolated
 and sheared transforms. It checks all plane/vertex and matrix fields; regenerate
 with `python3 tools/verify_collision.py`.
+
+`collision-queries.bin` records 4,096 original OutsideMask, RejectPlane,
+approxDistance, IntersectIn and IntersectOut calls. It includes radii, parallel
+and zero directions, tiny determinants, warped cells and degenerate cells.
+Regenerate with `python3 tools/verify_collision.py`.

@@ -50,8 +50,11 @@ match another 128 C++ cases bit for bit. Physic now registers persistent cells
 through the sequential instance lists, executes original inputs, and exposes the
 original dynamic-cell physics phase and blocked endpoint updates. Non-cell
 particle/box branches are commented out in the published source and stay inactive.
-Full collision queries, player simulation, tick scheduling and gameplay remain
-pending.
+Cell point masks, plane rejection, approximate distance and inside/outside ray
+intersection queries are ported, with a 4,096-call original C++ regression fixture.
+The source negative-distance convention and parallel divisions are preserved.
+World connectivity, ray traversal between cells, collision faces, player
+simulation, tick scheduling and gameplay remain pending.
 
 ## Implemented and checked
 
