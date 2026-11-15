@@ -178,6 +178,10 @@
     "shot-ai.bin": {
       "bytes": 127720,
       "sha256": "0ae0200c88b6929d1502a666584bda3d0b4d19ebc9e9def93b68f74d9155dc8c"
+    },
+    "monster-damage.bin": {
+      "bytes": 26632,
+      "sha256": "70402b70acf4e7ca19773053bdcab53e569b12e5e22313adaaf9fd47ddc88e72"
     }
   }
 }

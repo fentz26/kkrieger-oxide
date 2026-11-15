@@ -1,4 +1,5 @@
 //! Original gameplay state and operator parameter application.
+pub mod monster;
 pub mod player;
 pub mod shot;
 pub mod weapon;
@@ -81,6 +82,7 @@ pub struct State {
     pub events: Events,
     pub reset_by_operator: bool,
     pub weapon: weapon::State,
+    pub monsters: Vec<monster::Health>,
 }
 impl Default for State {
     fn default() -> Self {
@@ -90,10 +92,34 @@ impl Default for State {
             events: Events::default(),
             reset_by_operator: true,
             weapon: weapon::State::default(),
+            monsters: Vec::new(),
         }
     }
 }
 impl State {
+    /// Apply damage before handing the explosion event to its lifecycle owner.
+    pub fn apply_shot_outcome(
+        &mut self,
+        outcome: shot::Outcome,
+        switches: &mut [u8; 256],
+    ) -> Result<ShotEffects, &'static str> {
+        let sound = match outcome.damage {
+            Some(shot::Damage::Monster { monster, hits }) => {
+                self.monsters
+                    .get_mut(monster)
+                    .ok_or("shot monster identity out of range")?
+                    .hit(hits, switches)?;
+                None
+            }
+            Some(shot::Damage::Player { hits }) => self.inventory.hit(hits),
+            None => None,
+        };
+        Ok(ShotEffects {
+            alive: outcome.alive,
+            sound,
+            explosion: outcome.explosion,
+        })
+    }
     /// Original Exec_KKrieger_Para: maxima and tuning update every call; initial
     /// collectables and weapon ownership update only after a game reset.
     pub fn apply_parameters(&mut self, words: &[u32]) -> Result<(), &'static str> {
@@ -133,4 +159,10 @@ impl State {
         };
         Ok(())
     }
+}
+
+pub struct ShotEffects {
+    pub alive: bool,
+    pub sound: Option<player::Sound>,
+    pub explosion: Option<shot::Explosion>,
 }

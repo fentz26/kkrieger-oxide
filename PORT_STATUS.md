@@ -388,3 +388,10 @@ explicit coverage for both player and monster damage. The original bounce-state
 reset is preserved. Consumers must apply damage before queuing the corresponding
 event. Persistent shot/event lifecycle and complete game-tick integration remain
 pending. The repository is now pinned to Rust 1.100.0.
+
+Monster damage now updates health and activation state, with original dead-monster
+guards and byte-sized kill-switch increments. A native 1,024-call fixture covers
+armor, zero/negative switch disabling and overflow. Projectile outcomes now have
+a state consumer that applies player/monster damage before returning explosion
+metadata for event queuing. Monster registration/AI and the event scheduler remain
+pending.

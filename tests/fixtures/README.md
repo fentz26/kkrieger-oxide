@@ -172,3 +172,7 @@ traversal. It checks point/cube movement, rotation, bounces, player and monster
 damage requests, explosion matrices, null event links and zone masks. Damage and
 dynamic-event helpers record calls; consuming those requests is a separate phase.
 Regenerate with `python3 tools/verify_shot_ai.py`.
+
+`monster-damage.bin` records 1,024 original monster hits, including dead-monster
+guards, activation, unchanged armor, disabled kill switches and byte wrapping.
+Regenerate with `python3 tools/verify_monster_damage.py`.
