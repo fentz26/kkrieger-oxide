@@ -31,6 +31,11 @@ routine and edge table. Its sector layout and some visibility branches differ
 from the published source; this is structural evidence, not beta behavior parity.
 `tools/inspect_beta_portals.py` records that distinction and the executable hash.
 
+The Delay envelope state machine is ported separately, with 20,480 persistent
+calls checked against the extracted original handler. Connecting its sequential
+instance-memory allocation, scoped child execution and game switches remains
+pending; Delay still reports unsupported in the scene interpreter.
+
 ## Implemented and checked
 
 - Bounds-checked Rust decoding of the original beta, development export, and

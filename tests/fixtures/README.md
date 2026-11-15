@@ -82,3 +82,9 @@ Regenerate with `python3 tools/verify_shadow.py`.
 `visibility.bin` contains 128 original C++ portal graphs with two successive
 views, including near clipping, cycles, costs and retained sector bounds.
 Regenerate with `python3 tools/verify_visibility.py`.
+
+`delay.bin` records 256 sequences of 80 original Misc_Delay calls, including
+hysteresis, all variable routes, switch inputs, phase transitions, nonpositive
+durations and large/negative time steps. Regenerate with
+`python3 tools/verify_delay.py`. Child execution is stubbed in this oracle;
+it proves the persistent envelope and variable writes, not instance allocation.

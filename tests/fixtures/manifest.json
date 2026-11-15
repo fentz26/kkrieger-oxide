@@ -110,6 +110,10 @@
     "visibility.bin": {
       "bytes": 232964,
       "sha256": "f6807123cf4d4ecd122212732c4256600605a3442b7e621b5c3a25fee6e4be99"
+    },
+    "delay.bin": {
+      "bytes": 3037192,
+      "sha256": "6d5c1f02a0b66600589c29826ea20583f9d5b558691243402472a147efe1398a"
     }
   }
 }
