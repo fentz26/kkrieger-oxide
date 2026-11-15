@@ -381,3 +381,10 @@ old-position velocity encoding and rejection-sampled cube tensors match 128
 native C++ initializations bit for bit, including subsequent RNG state. Spawn
 event metadata is retained; persistent event allocation, shot-list integration,
 projectile updates, collision damage and explosion processing remain pending.
+
+ShotAI movement, cube damping/rotation/gravity, collision response and ordered
+damage/explosion requests now match 64 native C++ trajectories bit for bit, with
+explicit coverage for both player and monster damage. The original bounce-state
+reset is preserved. Consumers must apply damage before queuing the corresponding
+event. Persistent shot/event lifecycle and complete game-tick integration remain
+pending. The repository is now pinned to Rust 1.100.0.

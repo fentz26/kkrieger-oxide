@@ -106,6 +106,166 @@ fn direction_matrix(v: [f32; 4]) -> Matrix {
     m
 }
 
+fn rotation(v: [f32; 4]) -> Matrix {
+    let angle = f64::from(dot(v)).sqrt() as f32;
+    if f64::from(angle) < 0.00000001 {
+        return identity();
+    }
+    let (ss, cc) = (f64::from(angle).sin() as f32, f64::from(angle).cos() as f32);
+    let mut u = v;
+    unit(&mut u);
+    let s = [
+        [ss * 0., ss * u[2], ss * -u[1]],
+        [ss * -u[2], ss * 0., ss * u[0]],
+        [ss * u[1], ss * -u[0], ss * 0.],
+    ];
+    let mut mat = identity();
+    for row in 0..3 {
+        for col in 0..3 {
+            let c = if row == col {
+                cc * (1. - u[row] * u[row])
+            } else {
+                cc * -u[row] * u[col]
+            };
+            mat[row][col] = u[row] * u[col] + c + s[row][col];
+        }
+    }
+    mat
+}
+
+pub enum Damage {
+    Monster { monster: usize, hits: i32 },
+    Player { hits: i32 },
+}
+pub struct Explosion {
+    pub operator: Option<usize>,
+    pub matrix: Matrix,
+}
+pub struct Outcome {
+    pub alive: bool,
+    pub damage: Option<Damage>,
+    pub explosion: Option<Explosion>,
+}
+
+impl Spawn {
+    /// Original ShotAI. Apply returned damage before queuing its explosion event.
+    pub fn advance(
+        &mut self,
+        world: &mut crate::collision::world::World,
+        dynamic: &[std::rc::Rc<std::cell::RefCell<crate::collision::DynamicCell>>],
+        player_hit: Option<&std::rc::Rc<std::cell::RefCell<crate::collision::DynamicCell>>>,
+        parameters: &super::Parameters,
+        events: &super::Events,
+    ) -> Result<Outcome, &'static str> {
+        if self.weapon >= 8 {
+            return Err("shot weapon out of range");
+        }
+        let mut info = crate::collision::ray::Info {
+            zone_mask: 1 << (8 + self.weapon),
+            flags: self.who,
+            ..Default::default()
+        };
+        let mut speed = [0.; 4];
+        for (i, v) in speed[..3].iter_mut().enumerate() {
+            *v = self.matrix[3][i] - self.old_position[i];
+            if self.mode == 2 {
+                *v *= 0.999;
+            }
+        }
+        let mut new_position = self.matrix[3];
+        for i in 0..3 {
+            new_position[i] += speed[i];
+        }
+        new_position[3] = 1.;
+        if self.mode == 2 {
+            new_position[1] -= 0.00025;
+            let mat = rotation(self.tensor);
+            for v in &mut self.tensor[..3] {
+                *v *= 0.990;
+            }
+            let old = self.matrix;
+            for (out, row) in self.matrix[..3].iter_mut().zip(&old[..3]) {
+                for (col, value) in out[..3].iter_mut().enumerate() {
+                    *value = (mat[0][col] * row[0] + mat[1][col] * row[1]) + mat[2][col] * row[2];
+                }
+            }
+        }
+        self.old_position = self.matrix[3];
+        self.matrix[3] = new_position;
+        if world.collide_ray(
+            &mut self.cell,
+            self.matrix[3],
+            self.old_position,
+            &mut info,
+            dynamic,
+        )? {
+            if self.mode == 2 && self.double_kill == 0 {
+                self.matrix[3] = info.position;
+                for i in 0..3 {
+                    self.matrix[3][i] += info.plane[i] * 0.125;
+                }
+                self.double_kill = 1;
+                self.tensor = cross(self.tensor, info.plane);
+                let dir = cross(speed, info.plane);
+                for i in 0..3 {
+                    self.tensor[i] += dir[i] * -0.5;
+                    speed[i] *= 0.75;
+                    self.old_position[i] = self.matrix[3][i] - speed[i];
+                }
+                let d =
+                    speed[0] * info.plane[0] + speed[1] * info.plane[1] + speed[2] * info.plane[2];
+                for i in 0..3 {
+                    self.old_position[i] += info.plane[i] * (d * 2.);
+                }
+            } else {
+                self.matrix[3] = info.position;
+                let mut mat = direction_matrix(info.plane);
+                mat[3] = self.matrix[3];
+                return Ok(Outcome {
+                    alive: false,
+                    damage: None,
+                    explosion: Some(Explosion {
+                        operator: events.explode[0][self.weapon],
+                        matrix: mat,
+                    }),
+                });
+            }
+        }
+        self.double_kill = 0;
+        if let Some(handle) = &info.dynamic_cell {
+            let cell = handle.borrow();
+            if let Some(monster) = cell.monster.filter(|_| self.who == 1) {
+                return Ok(Outcome {
+                    alive: false,
+                    damage: Some(Damage::Monster {
+                        monster,
+                        hits: parameters.weapon_hits[self.weapon],
+                    }),
+                    explosion: Some(Explosion {
+                        operator: events.explode[1][self.weapon],
+                        matrix: self.matrix,
+                    }),
+                });
+            }
+            if self.who == 2 && player_hit.is_some_and(|player| std::rc::Rc::ptr_eq(player, handle))
+            {
+                return Ok(Outcome {
+                    alive: false,
+                    damage: Some(Damage::Player {
+                        hits: parameters.weapon_hits[self.weapon],
+                    }),
+                    explosion: None,
+                });
+            }
+        }
+        Ok(Outcome {
+            alive: true,
+            damage: None,
+            explosion: None,
+        })
+    }
+}
+
 pub fn spawn(
     weapon: usize,
     operator: Option<usize>,
