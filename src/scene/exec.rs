@@ -55,6 +55,8 @@ pub struct Execution {
     pub game_camera: super::camera::Environment,
     pub current_camera: super::camera::Environment,
     pub pass_adjust: i32,
+    pub aspect: f32,
+    pub markers: [Matrix; 32],
     pub jobs: Vec<Job>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
@@ -85,6 +87,8 @@ impl Execution {
             game_camera: super::camera::Environment::default(),
             current_camera: super::camera::Environment::default(),
             pass_adjust: 0,
+            aspect: 1.,
+            markers: [identity(); 32],
             jobs: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
@@ -114,6 +118,25 @@ impl Execution {
         execution.game = crate::game::State::player_build();
         execution.switches = crate::game::root::switches();
         execution
+    }
+    /// Original InitView boundary: discard dynamic and default-owned instance
+    /// chains while retaining document events and per-operator scene memory.
+    pub fn reset_view(&mut self) {
+        for id in self.events.reset_view() {
+            self.reset_event_instances(id);
+        }
+        self.clear_scope(Scope::Default);
+        self.instances.enter(Scope::Default);
+        self.clear_instances = true;
+        self.aspect = 1.;
+        self.current_time = 0;
+        self.last_time = 0;
+        self.time_delta = 0;
+        self.time_slices = 0;
+        self.time_jitter = 0;
+        self.time_reset = true;
+        self.markers.fill(identity());
+        self.game.monsters.begin_frame();
     }
     /// Original InitFrame CPU state. Document and game event registration follow
     /// this call, after the previous frame's simulation has already run.

@@ -306,3 +306,9 @@ are recorded as platform requests; their handlers are tested separately.
 `nullable-player.bin` records 64 original SetPlayer calls without additive
 collision cells, including camera coordinates and hit matrices. Regenerate with
 `python3 tools/verify_startup.py` and `python3 tools/verify_nullable_player.py`.
+
+`view.bin` records 64 original InitView calls, including DeleteChain, frame
+clock reset, marker matrices, and dynamic-event disposal. Regenerate with
+`python3 tools/verify_view.py`. Rust integration tests additionally exercise
+actor ownership under default, dynamic-event, static-event, and per-operator
+scene scopes; the last two scopes survive InitView.

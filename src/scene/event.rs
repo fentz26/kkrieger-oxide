@@ -126,6 +126,15 @@ impl Scheduler {
         }
         id
     }
+    pub fn reset_view(&mut self) -> Vec<Id> {
+        self.beat = 0;
+        self.active.clear();
+        let removed = std::mem::take(&mut self.dynamic);
+        for id in &removed {
+            self.events.remove(id);
+        }
+        removed
+    }
     /// Register active dynamic events first, as InitFrame does. Returned IDs need
     /// their instance lists reset when ClearInstanceMem is set.
     pub fn begin(&mut self, beat: i32, clear_instances: bool) -> Vec<Id> {

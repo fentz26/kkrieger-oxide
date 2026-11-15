@@ -262,6 +262,10 @@
     "nullable-player.bin": {
       "bytes": 14340,
       "sha256": "7dc3208d47c73c35fd43b91490279a4bc8955303c5d3fcc917ac80a58a49523c"
+    },
+    "view.bin": {
+      "bytes": 134916,
+      "sha256": "17c840daf047bbc0b268fcb69ab3a093a48ef0a536f4755e15cf317aae274f43"
     }
   }
 }

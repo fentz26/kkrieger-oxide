@@ -192,3 +192,61 @@ fn expiring_parent_event_recursively_releases_nested_monsters_and_their_events()
     assert!(execution.game.monsters.get(1).is_none());
     assert!(execution.game.monsters.is_empty());
 }
+
+#[test]
+fn view_reset_clears_dynamic_and_default_actors_but_retains_static_event_instances() {
+    let (doc, mut e) = setup();
+    let static_event = e.events.insert(Event::default(), false);
+    let dynamic_event = e.events.insert(Event::default(), true);
+    e.execute_event(&doc, 0, static_event, identity()).unwrap();
+    let retained = e.game.monsters.active_ids()[0];
+    e.execute_event(&doc, 0, dynamic_event, identity()).unwrap();
+    let dynamic_actor = e.game.monsters.active_ids()[1];
+    e.frame(&doc, 0).unwrap();
+    let default_actor = e.game.monsters.active_ids()[0];
+    assert!(e.has_event_instances(static_event));
+    assert!(e.has_event_instances(dynamic_event));
+    e.reset_view();
+    assert!(e.game.monsters.is_empty());
+    assert!(e.game.monsters.get(dynamic_actor).is_none());
+    assert!(e.game.monsters.get(default_actor).is_none());
+    assert!(e.game.monsters.get(retained).is_some());
+    assert!(e.has_event_instances(static_event));
+    assert!(!e.has_event_instances(dynamic_event));
+    assert!(!e.events.events.contains_key(&dynamic_event));
+    e.execute_event(&doc, 0, static_event, identity()).unwrap();
+    assert_eq!(e.game.monsters.active_ids(), [retained]);
+    e.frame(&doc, 0).unwrap();
+    let replacement = e.game.monsters.active_ids()[0];
+    assert_ne!(replacement, default_actor);
+    assert_ne!(replacement, retained);
+    // Repeated resets have no stale cursor or event ownership to revisit.
+    e.reset_view();
+    e.reset_view();
+    assert!(e.game.monsters.get(replacement).is_none());
+    assert!(e.game.monsters.get(retained).is_some());
+}
+
+#[test]
+fn view_reset_retains_per_operator_scene_instances() {
+    let (mut doc, _) = setup();
+    doc.classes.push(Class {
+        id: 9,
+        convention: 0,
+        packing: &[],
+    });
+    doc.operators[4].class = doc.classes.len() - 1;
+    doc.operators[4].parameters = vec![0, 0];
+    doc.operators[4].inputs = vec![0];
+    let mut e = Execution::new(&doc);
+    let (_, context) = setup();
+    e.actors = context.actors;
+    e.frame(&doc, 4).unwrap();
+    let actor = e.game.monsters.active_ids()[0];
+    let handle = e.game.monsters.get(actor).unwrap();
+    e.reset_view();
+    assert!(e.game.monsters.is_empty());
+    e.frame(&doc, 4).unwrap();
+    assert_eq!(e.game.monsters.active_ids(), [actor]);
+    assert!(Rc::ptr_eq(&handle, &e.game.monsters.get(actor).unwrap()));
+}
