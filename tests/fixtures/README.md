@@ -189,3 +189,10 @@ living-monster reset, minimum ammunition, hit-cell matrices, preserved movement
 timers and camera placement when collision falls back to the first volume.
 Regenerate with `python3 tools/verify_checkpoints.py`; imported collision/player
 fixtures are also regenerated.
+
+`zones.bin` records 3,328 original Zones phases over 832 three-zone sequences,
+covering all trigger/action nibbles, condition gates, ordered switch effects,
+collectable aliases, weapon selection, jump impulses, checkpoint flags and
+respawn countdown boundaries. Native event stubs record chain deletion and
+pointer clearing; the Rust test consumes ordered reset requests against the same
+stub state. Regenerate with `python3 tools/verify_zones.py`.

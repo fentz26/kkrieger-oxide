@@ -194,6 +194,10 @@
     "checkpoints.bin": {
       "bytes": 100356,
       "sha256": "ac0f837f0187ae7d31ecdebeca9a618d7b5b86f3dbaad590009d42df2f2465ec"
+    },
+    "zones.bin": {
+      "bytes": 5135112,
+      "sha256": "f7b352574c26ce4371c482102cd0d7113f74e9bee5234ab88dcd296f909a9233"
     }
   }
 }

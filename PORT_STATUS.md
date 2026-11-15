@@ -410,3 +410,11 @@ timer preservation, living-monster reset and minimum ammo. Scene execution keeps
 authored checkpoint coordinates independent of the parent transform. The player
 hit-cell handle remains stable across placement. Input mouse-counter refresh,
 Restart zone/event cleanup and complete tick integration remain pending.
+
+The original Zones phase now processes authored trigger/action codes in world
+zone order, including conditional switch mutations, bounded inventory changes,
+weapon pickup selection, jump impulses and checkpoint activation. Respawn timers
+and static/dynamic collision interaction cleanup match 3,328 native C++ phases.
+Expired timers return ordered world-entry reset requests; native chain deletion
+is checked through a test consumer. The persistent event scheduler must consume
+these requests when integrated into the full simulation tick.

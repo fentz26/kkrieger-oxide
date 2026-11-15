@@ -5,6 +5,7 @@ pub mod player;
 pub mod shot;
 pub mod splash;
 pub mod weapon;
+pub mod zones;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Inventory {

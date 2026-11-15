@@ -1,0 +1,153 @@
+use kkrieger_oxide::{
+    collision::{
+        Cell, DynamicCell, connectivity,
+        world::{Entry, Logic, World},
+    },
+    game::{State, player::Motion, zones::Runtime},
+    mesh::identity,
+};
+use std::{cell::RefCell, rc::Rc};
+struct Reader<'a>(&'a [u8]);
+impl Reader<'_> {
+    fn word(&mut self) -> u32 {
+        let v = u32::from_le_bytes(self.0[..4].try_into().unwrap());
+        self.0 = &self.0[4..];
+        v
+    }
+    fn int(&mut self) -> i32 {
+        self.word() as i32
+    }
+    fn float(&mut self) -> f32 {
+        f32::from_bits(self.word())
+    }
+    fn interactions(&mut self) -> kkrieger_oxide::collision::Interactions {
+        kkrieger_oxide::collision::Interactions {
+            enter: self.word(),
+            leave: self.word(),
+            collided: self.word(),
+        }
+    }
+}
+#[test]
+fn original_zone_logic_respawn_countdowns_and_interaction_cleanup() {
+    let mut r = Reader(include_bytes!("fixtures/zones.bin"));
+    assert_eq!(r.word(), 832);
+    assert_eq!(r.word(), 4);
+    for case in 0..832 {
+        let mut game = State::default();
+        let mut switches = std::array::from_fn(|_| r.word() as u8);
+        game.weapon.use_key = r.word() != 0;
+        game.weapon.next = r.word() as usize;
+        let speed = r.float();
+        for i in 0..16 {
+            let amount = r.int();
+            let max = r.int();
+            if i < 8 {
+                game.inventory.amounts[i] = amount;
+                game.inventory.maxima[i] = max;
+            } else {
+                game.inventory.weapons[i - 8] = amount;
+                assert_eq!(max, 1);
+            }
+        }
+        let mut entries = vec![Entry {
+            cell: Cell::new(identity(), [20.; 3], 0),
+            sector: None,
+            events: [None, None],
+            logic: Logic {
+                code: 0,
+                condition: 0,
+                value: 0,
+                output: 0,
+                events: [None, None],
+            },
+        }];
+        assert_eq!(r.word(), 3);
+        let mut timers = Vec::new();
+        for _ in 0..3 {
+            let logic = Logic {
+                code: r.word() as u8,
+                condition: r.word() as u8,
+                output: r.word() as u8,
+                value: r.int(),
+                events: [None, None],
+            };
+            timers.push(r.int());
+            entries.push(Entry {
+                cell: Cell::new(identity(), [1.; 3], 2),
+                sector: None,
+                events: [None, None],
+                logic,
+            });
+        }
+        let cells: Vec<_> = entries.iter().map(|e| e.cell.clone()).collect();
+        let mut world = World {
+            entries,
+            adds: vec![0],
+            subs: vec![],
+            zones: vec![1, 2, 3],
+            connectivity: connectivity::connect(&cells),
+            faces: vec![Some(vec![]), None, None, None],
+        };
+        let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
+        motion.speed_up = speed;
+        let dynamic: Vec<_> = (0..2)
+            .map(|_| {
+                Rc::new(RefCell::new(DynamicCell::new(
+                    Cell::new(identity(), [1.; 3], 2),
+                    identity(),
+                )))
+            })
+            .collect();
+        let mut runtime = Runtime::new(&world);
+        runtime.respawn = timers;
+        let mut deleted = [0; 3];
+        let mut instance = [true; 3];
+        for tick in 0..4 {
+            for &entry in &world.zones {
+                world.entries[entry].cell.interactions = r.interactions();
+            }
+            for cell in &dynamic {
+                cell.borrow_mut().cell.interactions = kkrieger_oxide::collision::Interactions {
+                    enter: 2,
+                    leave: 0xff00,
+                    collided: 0xff02,
+                };
+            }
+            let resets = runtime
+                .tick(&mut game, &mut motion, &mut world, &dynamic, &mut switches)
+                .unwrap();
+            for entry in resets {
+                let i = entry - 1;
+                if instance[i] {
+                    deleted[i] += 1;
+                }
+                instance[i] = false;
+            }
+            for value in switches {
+                assert_eq!(u32::from(value), r.word(), "{case}/{tick}");
+            }
+            assert_eq!(game.weapon.next, r.word() as usize);
+            assert_eq!(motion.speed_up.to_bits(), r.word());
+            for value in game
+                .inventory
+                .amounts
+                .into_iter()
+                .chain(game.inventory.weapons)
+            {
+                assert_eq!(value, r.int(), "{case}/{tick}");
+            }
+            for i in 0..3 {
+                assert_eq!(runtime.respawn[i], r.int(), "{case}/{tick}/{i}");
+                assert_eq!(world.entries[i + 1].cell.interactions, r.interactions());
+                assert_eq!(deleted[i], r.word());
+                assert_eq!(instance[i], r.word() != 0);
+            }
+            for cell in &dynamic {
+                assert_eq!(r.word(), 0);
+                assert_eq!(cell.borrow().cell.interactions, r.interactions());
+            }
+        }
+    }
+    assert!(r.0.is_empty());
+}
