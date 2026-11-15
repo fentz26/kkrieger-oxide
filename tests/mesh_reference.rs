@@ -495,9 +495,8 @@ fn original_bending_bevel_and_texture_displacement_match_cpp() {
     let mut bitmap = kkrieger_oxide::bitmap::Bitmap::flat(5, 4, 0, 0);
     for y in 0..16 {
         for x in 0..32 {
-            for channel in 0..4 {
-                bitmap.pixels[y * 32 + x][channel] =
-                    ((x * 113 + y * 349 + channel * 997) % 32768) as u16;
+            for (channel, value) in bitmap.pixels[y * 32 + x].iter_mut().enumerate() {
+                *value = ((x * 113 + y * 349 + channel * 997) % 32768) as u16;
             }
         }
     }

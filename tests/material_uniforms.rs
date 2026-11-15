@@ -45,22 +45,34 @@ fn original_material_set_registers_match_cpp() {
         let constants = state.constants(&env);
         assert_eq!(r.word() as usize, constants.vertex_count);
         assert_eq!(r.word() as usize, constants.pixel_count);
-        for i in 0..constants.vertex_count {
+        for (i, actual) in constants
+            .uniforms
+            .vc
+            .iter()
+            .enumerate()
+            .take(constants.vertex_count)
+        {
             let expected = r.floats::<4>();
             // Model projection never reads c16-c19; source leaves that block uninitialized.
             if state.words[1] & 0x700 == 0x100 && (16..20).contains(&i) {
                 continue;
             }
-            for (a, e) in constants.uniforms.vc[i].iter().zip(expected) {
+            for (a, e) in actual.iter().zip(expected) {
                 assert!(
                     (a - e).abs() <= 2e-6,
                     "case {case}, vertex register {i}: {a} != {e}"
                 );
             }
         }
-        for i in 0..constants.pixel_count {
+        for (i, actual) in constants
+            .uniforms
+            .pc
+            .iter()
+            .enumerate()
+            .take(constants.pixel_count)
+        {
             let expected = r.floats::<4>();
-            for (component, (&a, e)) in constants.uniforms.pc[i].iter().zip(expected).enumerate() {
+            for (component, (&a, e)) in actual.iter().zip(expected).enumerate() {
                 if i == 1 && component == 1 && state.words[2] & 7 != 0 {
                     continue;
                 }

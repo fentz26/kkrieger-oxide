@@ -64,14 +64,12 @@ fn delay_and_if_execute_children_and_retain_per_branch_state() {
     doc.operators[0].class = 0;
     doc.operators[0].parameters = vec![0, 1];
     doc.operators[0].inputs = vec![1, 2];
-    for i in 1..3 {
-        let op = &mut doc.operators[i];
+    for (i, op) in doc.operators.iter_mut().enumerate().take(3).skip(1) {
         op.class = 1;
         op.parameters = vec![0x10, 1, 0, 0, 1f32.to_bits(), 0, 1f32.to_bits()];
         op.inputs = vec![i + 2];
     }
-    for i in 3..5 {
-        let op = &mut doc.operators[i];
+    for op in &mut doc.operators[3..5] {
         op.class = 2;
         op.parameters = vec![0; 11];
         op.parameters[10] = 1f32.to_bits();
