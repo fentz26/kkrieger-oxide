@@ -40,12 +40,14 @@ fn original_monster_damage_preserves_dead_guard_activation_and_switch_wrap() {
 #[test]
 fn projectile_damage_is_applied_before_explosion_is_released() {
     let mut game = State::default();
-    game.monsters.push(Health {
+    let actor = game.monsters.allocate().unwrap();
+    actor.borrow_mut().health = Health {
         life: 1,
         armor: 0,
         state: 3,
         kill_switch: 7,
-    });
+    };
+    game.monsters.register(actor.borrow().id).unwrap();
     let mut switches = [0; 256];
     switches[7] = 255;
     let result = game
@@ -64,8 +66,8 @@ fn projectile_damage_is_applied_before_explosion_is_released() {
             &mut switches,
         )
         .unwrap();
-    assert_eq!(game.monsters[0].life, 0);
-    assert_eq!(game.monsters[0].state, 4);
+    assert_eq!(actor.borrow().health.life, 0);
+    assert_eq!(actor.borrow().health.state, 4);
     assert_eq!(switches[7], 0);
     assert_eq!(result.explosion.unwrap().operator, Some(55));
     assert!(result.sound.is_none());

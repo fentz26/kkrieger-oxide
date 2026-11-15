@@ -65,8 +65,8 @@ pub struct Actor {
     pub spawn_switch: i32,
 }
 impl Actor {
-    pub fn spawn(id: usize, words: &[u32], context: Context<'_>) -> Result<Self, &'static str> {
-        let mut actor = Self {
+    pub fn uninitialized(id: usize) -> Self {
+        Self {
             id,
             health: Health {
                 life: 0,
@@ -97,7 +97,10 @@ impl Actor {
             ))),
             walk: monster_walk::State::default(),
             spawn_switch: 0,
-        };
+        }
+    }
+    pub fn spawn(id: usize, words: &[u32], context: Context<'_>) -> Result<Self, &'static str> {
+        let mut actor = Self::uninitialized(id);
         actor.initialize(words, context)?;
         Ok(actor)
     }

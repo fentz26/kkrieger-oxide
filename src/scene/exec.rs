@@ -135,6 +135,7 @@ impl Execution {
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
         self.dynamic_cells.clear();
+        self.game.monsters.begin_frame();
         self.current_clip = Rect::UNIT;
         self.visibility_history.clear();
         self.instances.enter(Scope::Default);
@@ -142,6 +143,7 @@ impl Execution {
         if result.is_err() {
             self.jobs.clear();
             self.dynamic_cells.clear();
+            self.game.monsters.begin_frame();
         }
         result
     }
@@ -221,6 +223,7 @@ impl Execution {
         if result.is_err() {
             self.jobs.clear();
             self.dynamic_cells.clear();
+            self.game.monsters.begin_frame();
             self.visibility_history.clear();
         }
         result

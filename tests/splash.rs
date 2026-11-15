@@ -82,27 +82,30 @@ fn original_splash_phase_preserves_visibility_falloff_damage_order_and_switches(
         game.inventory.amounts[0] = r.word() as i32;
         game.inventory.amounts[1] = r.word() as i32;
         let n = r.word();
-        let mut positions = Vec::new();
         for _ in 0..n {
-            game.monsters.push(Health {
+            let actor = game.monsters.allocate().unwrap();
+            actor.borrow_mut().health = Health {
                 life: r.word() as i32,
                 armor: r.word() as i32,
                 state: r.word() as i32,
                 kill_switch: r.word() as i32,
-            });
-            positions.push(r.vector());
+            };
+            actor.borrow_mut().body.position = r.vector();
+            let id = actor.borrow().id;
+            game.monsters.register(id).unwrap();
         }
-        let old: Vec<_> = game.monsters.iter().map(|m| m.life).collect();
+        let old: Vec<_> = game
+            .monsters
+            .active()
+            .map(|m| m.borrow().health.life)
+            .collect();
         let mut switches = [0; 256];
         switches[7] = 254;
         switches[255] = 255;
         let sound = game
             .apply_splash(
                 &mut splash,
-                Targets {
-                    monsters: &positions,
-                    player,
-                },
+                Targets { player },
                 &mut world,
                 &dynamic,
                 &mut switches,
@@ -119,7 +122,9 @@ fn original_splash_phase_preserves_visibility_falloff_damage_order_and_switches(
             assert_eq!(s.far_distance, 160.);
             hurt += 1;
         }
-        for (m, old) in game.monsters.iter().zip(old) {
+        for (actor, old) in game.monsters.active().zip(old) {
+            let actor = actor.borrow();
+            let m = &actor.health;
             assert_eq!(m.life, r.word() as i32, "case {case}");
             assert_eq!(m.armor, r.word() as i32);
             assert_eq!(m.state, r.word() as i32);

@@ -25,8 +25,9 @@ int main(){word(64);for(int c=0;c<64;c++){
  for(int i=0;i<count;i++){
   auto&m=monsters[i];m.State=c%3==0?4:c%3==1?(i%3?4:2):i%5;m.Collider.Pos={float(i%7)*0.125f,float(i%3)*0.0625f,float(i/7)*0.125f,1};
   if(c%4==0)m.Collider.Pos={0,0,0,1};if(c%4==1 && i%3==0)m.Collider.Pos={0.0001f*i,0,0,1};m.MagnetForce={11,12,13,14};
-  word(m.State);vec(m.Collider.Pos);game.Monsters.Add(&m);
+  word(m.State);vec(m.Collider.Pos);
  }
+ for(int i=0;i<count;i++){int index=c%5==0?i/2:i;word(index);game.Monsters.Add(&monsters[index]);}
  sSetRndSeed(seed);game.MonsterMagnetAI();for(auto&m:monsters)vec(m.MagnetForce);word(sGetRnd());
 }}
 '''

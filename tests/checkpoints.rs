@@ -89,14 +89,17 @@ fn original_checkpoint_registration_continue_and_placement() {
         game.parameters.start_position = [1., 2., 3., 1.];
         game.inventory.amounts[0] = case;
         game.inventory.amounts[4] = if case % 2 != 0 { 250 } else { 5 };
-        game.monsters = [(10, 4), (0, 1), (-1, 3)]
-            .map(|(life, state)| Health {
+        for (life, state) in [(10, 4), (0, 1), (-1, 3)] {
+            let actor = game.monsters.allocate().unwrap();
+            actor.borrow_mut().health = Health {
                 life,
                 state,
                 armor: 0,
                 kill_switch: 0,
-            })
-            .to_vec();
+            };
+            let id = actor.borrow().id;
+            game.monsters.register(id).unwrap();
+        }
         let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
         let handle = Rc::clone(&motion.hit_cell);
         motion.jump_timer = 7;
@@ -106,8 +109,8 @@ fn original_checkpoint_registration_continue_and_placement() {
         r.placement(&motion);
         assert_eq!(game.inventory.amounts[0], r.word() as i32);
         assert_eq!(game.inventory.amounts[4], r.word() as i32);
-        for monster in &game.monsters {
-            assert_eq!(monster.state, r.word() as i32);
+        for monster in game.monsters.active() {
+            assert_eq!(monster.borrow().health.state, r.word() as i32);
         }
         for checkpoint in game.checkpoints {
             assert_eq!(checkpoint.valid, r.word() != 0);
@@ -233,14 +236,17 @@ fn original_restart_resets_gameplay_state_and_camera_uses_resolved_position() {
         let mut switches = std::array::from_fn(|_| r.word() as u8);
         game.inventory.amounts[0] = case;
         game.inventory.amounts[4] = 5;
-        game.monsters = [(10, 4), (0, 1), (-1, 3)]
-            .map(|(life, state)| Health {
+        for (life, state) in [(10, 4), (0, 1), (-1, 3)] {
+            let actor = game.monsters.allocate().unwrap();
+            actor.borrow_mut().health = Health {
                 life,
                 state,
                 armor: 0,
                 kill_switch: 0,
-            })
-            .to_vec();
+            };
+            let id = actor.borrow().id;
+            game.monsters.register(id).unwrap();
+        }
         let mut zones = zones::Runtime::new(&world);
         for timer in &mut zones.respawn {
             *timer = r.word() as i32;
@@ -258,8 +264,8 @@ fn original_restart_resets_gameplay_state_and_camera_uses_resolved_position() {
         r.placement(&motion);
         assert_eq!(game.inventory.amounts[0], r.word() as i32);
         assert_eq!(game.inventory.amounts[4], r.word() as i32);
-        for monster in &game.monsters {
-            assert_eq!(monster.state, r.word() as i32);
+        for monster in game.monsters.active() {
+            assert_eq!(monster.borrow().health.state, r.word() as i32);
         }
         for value in switches {
             assert_eq!(u32::from(value), r.word());

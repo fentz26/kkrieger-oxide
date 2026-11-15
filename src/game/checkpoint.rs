@@ -29,7 +29,9 @@ impl State {
         motion.place(world, self.parameters.start_position, 0., 0.)?;
         motion.last_camera_y = motion.collider.position[1];
         motion.camera_position = motion.collider.position;
-        for monster in &mut self.monsters {
+        for actor in self.monsters.active() {
+            let mut actor = actor.borrow_mut();
+            let monster = &mut actor.health;
             monster.state = 0;
         }
         zones.respawn.fill(0);
@@ -86,7 +88,9 @@ impl State {
                 motion.place(world, checkpoint.position, checkpoint.direction, 0.)?;
             }
         }
-        for monster in &mut self.monsters {
+        for actor in self.monsters.active() {
+            let mut actor = actor.borrow_mut();
+            let monster = &mut actor.health;
             if monster.life > 0 {
                 monster.state = 0;
             }

@@ -10,8 +10,7 @@ pub struct Splash {
     pub range: f32,
     pub hits: i32,
 }
-pub struct Targets<'a> {
-    pub monsters: &'a [[f32; 4]],
+pub struct Targets {
     pub player: [f32; 4],
 }
 impl Splash {
@@ -63,7 +62,7 @@ impl State {
     pub fn apply_splash(
         &mut self,
         splash: &mut Splash,
-        targets: Targets<'_>,
+        targets: Targets,
         world: &mut World,
         dynamic: &[Rc<RefCell<DynamicCell>>],
         switches: &mut [u8; 256],
@@ -71,13 +70,11 @@ impl State {
         if !splash.enabled {
             return Ok(None);
         }
-        if targets.monsters.len() != self.monsters.len() {
-            return Err("splash monster positions do not match registry");
-        }
         let cell = world.find_cell(splash.position);
-        for (monster, &position) in self.monsters.iter_mut().zip(targets.monsters) {
+        for monster in self.monsters.active() {
+            let position = monster.borrow().body.position;
             let hits = splash.calculate(position, cell, world, dynamic)?;
-            monster.hit(hits, switches)?;
+            monster.borrow_mut().health.hit(hits, switches)?;
         }
         splash.hits /= 2;
         let sound = self

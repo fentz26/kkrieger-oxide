@@ -6,6 +6,7 @@ pub mod monster;
 pub mod monster_actor;
 pub mod monster_ai;
 pub mod monster_magnet;
+pub mod monster_registry;
 pub mod monster_walk;
 pub mod player;
 pub mod shot;
@@ -91,7 +92,7 @@ pub struct State {
     pub events: Events,
     pub reset_by_operator: bool,
     pub weapon: weapon::State,
-    pub monsters: Vec<monster::Health>,
+    pub monsters: monster_registry::Registry,
     pub checkpoints: [checkpoint::Checkpoint; 16],
 }
 impl Default for State {
@@ -102,7 +103,7 @@ impl Default for State {
             events: Events::default(),
             reset_by_operator: true,
             weapon: weapon::State::default(),
-            monsters: Vec::new(),
+            monsters: monster_registry::Registry::default(),
             checkpoints: [checkpoint::Checkpoint::default(); 16],
         }
     }
@@ -117,8 +118,10 @@ impl State {
         let sound = match outcome.damage {
             Some(shot::Damage::Monster { monster, hits }) => {
                 self.monsters
-                    .get_mut(monster)
+                    .get(monster)
                     .ok_or("shot monster identity out of range")?
+                    .borrow_mut()
+                    .health
                     .hit(hits, switches)?;
                 None
             }

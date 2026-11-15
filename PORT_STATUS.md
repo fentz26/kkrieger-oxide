@@ -493,3 +493,14 @@ checks forces and the next random value, including coincident positions and the
 source's unnormalized random-ball fallback. The helper accepts actor references
 in registration order and a shared random stream. Scene ownership/registration
 and the complete AI/tick owner remain pending.
+
+Monster health now lives in the canonical actor registry instead of a separate
+health vector. Persistent IDs survive per-frame registration reordering; removed
+IDs are not reused. Projectile damage, splash and restart/continue mutate the
+same actor objects, and splash reads their collider positions directly. Frame
+setup clears registration while retaining instance-owned actors. Native damage,
+splash and checkpoint fixtures still pass; an actual projectile integration test
+kills an actor whose persistent ID differs from its registration-list index and
+queues the correct explosion. Magnet handling now supports aliased references,
+with expanded native pointer-alias/RNG coverage. The monster scene handler and
+instance-owned cleanup still need to connect this registry to scene execution.

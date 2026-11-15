@@ -10,6 +10,7 @@ use kkrieger_oxide::{
     mesh::identity,
     random::Random,
 };
+use std::{cell::RefCell, rc::Rc};
 struct Reader<'a>(&'a [u8]);
 impl Reader<'_> {
     fn word(&mut self) -> u32 {
@@ -79,10 +80,14 @@ fn original_magnet_pair_order_cap_and_random_stream_match() {
             actor.health.state = state;
             actor.body.position = position;
             actor.magnet_force = [11., 12., 13., 14.];
-            actors.push(actor);
+            actors.push(Rc::new(RefCell::new(actor)));
         }
-        monster_magnet::apply(&mut actors.iter_mut().collect::<Vec<_>>(), &mut rng);
+        let registered: Vec<_> = (0..count)
+            .map(|_| Rc::clone(&actors[r.word() as usize]))
+            .collect();
+        monster_magnet::apply(&registered, &mut rng);
         for (i, actor) in actors.iter().enumerate() {
+            let actor = actor.borrow();
             for (a, b) in actor.magnet_force.into_iter().zip(r.vector()) {
                 assert_eq!(a.to_bits(), b.to_bits(), "{case}/{i}: {a} vs {b}");
             }
