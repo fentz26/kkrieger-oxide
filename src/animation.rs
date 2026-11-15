@@ -93,6 +93,13 @@ impl Vm {
         }
         vm
     }
+    pub fn begin_frame(&mut self, beat: i32) {
+        self.variables.fill([0.; 4]);
+        self.variables[0] = [beat as f32 / 65536.; 4];
+        self.variables[4] = [1., 1., 1., 0.];
+        self.saved.fill((0, [0.; 4]));
+        self.save_len = 0;
+    }
     pub fn restore(&mut self, count: usize) -> Result<()> {
         if count > self.save_len {
             return Err(err(0, "variable restore underflow"));

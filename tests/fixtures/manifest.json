@@ -250,6 +250,10 @@
     "menu.bin": {
       "bytes": 1816004,
       "sha256": "67c52ca282a7846781f4d7b69abeee0505856056ffea50eb6641c5211072ba5f"
+    },
+    "frame.bin": {
+      "bytes": 786192,
+      "sha256": "b38af8f3fe5e8281d2b0f203f2c56977ff1fb290ec8b3b4f1ba292bafa62dbd2"
     }
   }
 }

@@ -312,3 +312,32 @@ fn respawn_key_refreshes_the_tick_owner_collision_cell_and_mouse_baseline() {
     assert_eq!(simulation.player_cell, Some(0));
     assert_eq!(simulation.input.last_mouse, [5, 9]);
 }
+
+#[test]
+fn preparation_installs_the_new_frame_clock_after_tick_and_sets_camera_aspect() {
+    let (doc, mut execution, mut simulation) = configured();
+    execution.current_time = 11;
+    execution.last_time = 0;
+    simulation
+        .tick(&mut execution, &doc, 1, 20, [0; 2])
+        .unwrap();
+    assert_eq!(execution.current_time, 11);
+    simulation
+        .prepare_scene(&mut execution, 65536, 20, 1.5, false)
+        .unwrap();
+    assert_eq!(execution.last_time, 11);
+    assert_eq!(execution.current_time, 20);
+    assert_eq!(execution.time_delta, 9);
+    assert_eq!(execution.time_slices, 1);
+    assert!(!execution.time_reset);
+    assert_eq!(execution.vm.variables[0], [1.; 4]);
+    assert_eq!(execution.game_camera.space, simulation.motion.camera(false));
+    assert_eq!(execution.game_camera.zoom_y, 1.5);
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.dynamic_cells.len(), 1);
+    assert!(std::rc::Rc::ptr_eq(
+        &execution.dynamic_cells[0],
+        &simulation.motion.hit_cell
+    ));
+    execution.finish_events();
+}

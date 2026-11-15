@@ -535,3 +535,14 @@ native fixture checks child/caller state; scene tests check variable restoration
 on errors and key consumption before child menus. The original main loop was
 also traced: OnTick runs before the new frame's InitFrame. Frame-clock/root/menu
 orchestration and presentation still need to follow that order in the runtime.
+
+Frame initialization now resets the original VM variables/save stack, event
+context, camera environments and timing fields, preserving signed slice/jitter
+behavior and backwards-time reset. The player main-loop clock ports beat/FPS
+calculation and the ten-slice cap. A native fixture checks 768 frame resets and
+256 timing updates. Simulation scene preparation installs this state after the
+previous-frame tick, then registers document/game events and camera aspect.
+Static game events now honor ClearInstanceMem through the same registration
+path as document events. Scope-reset and preparation-order tests pass. Root
+switching/startup, remaining operators, renderer/audio consumption and replacement
+of the prototype main loop remain pending.

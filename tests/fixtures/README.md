@@ -292,3 +292,10 @@ imported collision/player/checkpoint/camera fixtures are regenerated too.
 Snapshots cover both child and caller state: scoped VM variables, switch writes,
 comparison flags, key consumption, ignored condition modes, byte wrapping and
 menu limits. Regenerate with `python3 tools/verify_menu.py`.
+
+`frame.bin` records 768 original InitFrame calls, original sMaterialEnv::Init
+camera values and 256 unchanged main-loop timing prefixes. It checks all VM
+variables, timing/reset/slice/jitter values, dynamic registration counts, camera
+fields, beat conversion, the ten-slice cap and FPS smoothing. Default-instance
+linkage is recorded with placeholder heads; typed instance replay and cleanup
+are covered separately by scene tests. Regenerate with `python3 tools/verify_frame.py`.

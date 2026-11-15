@@ -88,7 +88,7 @@ impl Runtime {
             } else {
                 if shot.state.mode != 0 {
                     event.borrow_mut().matrix = shot.state.matrix;
-                    execution.events.add(shot.event);
+                    execution.add_event(shot.event);
                 }
                 i += 1;
             }
@@ -97,12 +97,12 @@ impl Runtime {
             if respawn == 0
                 && let Some(id) = events[0]
             {
-                execution.events.add(id);
+                execution.add_event(id);
             }
             if respawn > 0
                 && let Some(id) = events[1]
             {
-                execution.events.add(id);
+                execution.add_event(id);
             }
         }
         if execution.game.weapon.next >= 8 || execution.game.weapon.current >= 8 {
@@ -142,7 +142,7 @@ impl Runtime {
                 event.modulation = (cooldown - execution.game.weapon.cooldown) / cooldown;
             }
             drop(event);
-            execution.events.add(self.weapon);
+            execution.add_event(self.weapon);
         }
         Ok(())
     }

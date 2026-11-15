@@ -78,6 +78,22 @@ impl Simulation {
             time_reset,
         });
     }
+    pub fn prepare_scene(
+        &mut self,
+        execution: &mut Execution,
+        beat: i32,
+        milliseconds: i32,
+        aspect: f32,
+        clear_instances: bool,
+    ) -> Result<(), &'static str> {
+        execution.init_frame(beat, milliseconds, clear_instances);
+        execution.add_document_events();
+        self.register_events(execution)?;
+        self.bind_scene(execution, execution.time_reset);
+        execution.game_camera.space = self.motion.camera(false);
+        execution.game_camera.zoom_y = aspect;
+        Ok(())
+    }
     pub fn register_events(&mut self, execution: &mut Execution) -> Result<(), &'static str> {
         self.events.add_events(execution, &self.motion, &self.zones)
     }

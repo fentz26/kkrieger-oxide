@@ -1,6 +1,7 @@
 //! Original gameplay state and operator parameter application.
 pub mod checkpoint;
 pub mod event_runtime;
+pub mod frame;
 pub mod input;
 pub mod monster;
 pub mod monster_actor;

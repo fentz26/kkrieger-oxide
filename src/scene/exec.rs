@@ -52,7 +52,8 @@ pub struct ActorContext {
 
 pub struct Execution {
     pub vm: Vm,
-    pub camera: Matrix,
+    pub game_camera: super::camera::Environment,
+    pub current_camera: super::camera::Environment,
     pub pass_adjust: i32,
     pub jobs: Vec<Job>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
@@ -67,6 +68,11 @@ pub struct Execution {
     pub next_monster_override: Option<crate::game::monster_actor::Override>,
     pub current_time: i32,
     pub last_time: i32,
+    pub time_delta: i32,
+    pub time_slices: i32,
+    pub time_jitter: i32,
+    pub time_reset: bool,
+    pub clear_instances: bool,
     instances: Memory,
     parameters: Vec<Vec<u32>>,
     current_clip: Rect,
@@ -76,7 +82,8 @@ impl Execution {
     pub fn new(doc: &Document<'_>) -> Self {
         Self {
             vm: Vm::new(),
-            camera: identity(),
+            game_camera: super::camera::Environment::default(),
+            current_camera: super::camera::Environment::default(),
             pass_adjust: 0,
             jobs: Vec::new(),
             dynamic_cells: Vec::new(),
@@ -91,20 +98,69 @@ impl Execution {
             next_monster_override: None,
             current_time: 0,
             last_time: 0,
+            time_delta: 0,
+            time_slices: 0,
+            time_jitter: 0,
+            time_reset: true,
+            clear_instances: false,
             instances: Memory::default(),
             parameters: doc.operators.iter().map(|o| o.parameters.clone()).collect(),
             current_clip: Rect::UNIT,
             visibility_history: Vec::new(),
         }
     }
-    /// InitFrame dynamic registration followed by KDoc::AddEvents. Call before
-    /// frame, then finish_events after deferred sectors and other scene work.
-    pub fn begin_events(&mut self, beat: i32, clear_instances: bool) {
-        let mut resets = self.events.begin(beat, clear_instances);
-        resets.extend(self.events.add_document(clear_instances));
+    /// Original InitFrame CPU state. Document and game event registration follow
+    /// this call, after the previous frame's simulation has already run.
+    pub fn init_frame(&mut self, beat: i32, milliseconds: i32, clear_instances: bool) {
+        self.vm.begin_frame(beat);
+        self.game_camera = super::camera::Environment::default();
+        self.current_camera = super::camera::Environment::default();
+        self.event_spline = None;
+        self.event_monster = None;
+        self.current_event = None;
+        self.last_time = self.current_time;
+        self.current_time = milliseconds;
+        self.time_delta = self.current_time.wrapping_sub(self.last_time);
+        self.time_reset = self.time_delta < 0;
+        if self.time_reset {
+            self.time_delta = 0;
+            self.time_slices = 0;
+            self.time_jitter = 0;
+        } else {
+            self.time_slices = (self.current_time / 10).wrapping_sub(self.last_time / 10);
+            self.time_jitter = self.current_time % 10;
+        }
+        self.clear_instances = clear_instances;
+        let resets = self.events.begin(beat, clear_instances);
         for id in resets {
             self.reset_event_instances(id);
         }
+        self.instances.enter(Scope::Default);
+        self.next_monster_override = None;
+        if let Some(actors) = &mut self.actors {
+            actors.time_reset = self.time_reset;
+        }
+    }
+    pub fn add_event(&mut self, id: super::event::Id) -> bool {
+        let active = self.events.add(id);
+        if active && self.clear_instances {
+            self.reset_event_instances(id);
+        }
+        active
+    }
+    pub fn add_document_events(&mut self) {
+        for id in self.events.document.clone() {
+            self.add_event(id);
+        }
+    }
+    /// Event-only registration for callers that manage frame state separately.
+    pub fn begin_events(&mut self, beat: i32, clear_instances: bool) {
+        self.clear_instances = clear_instances;
+        let resets = self.events.begin(beat, clear_instances);
+        for id in resets {
+            self.reset_event_instances(id);
+        }
+        self.add_document_events();
     }
     pub fn has_event_instances(&self, id: super::event::Id) -> bool {
         self.instances.contains(Scope::Event(id))
@@ -122,6 +178,7 @@ impl Execution {
         }
     }
     pub fn finish_events(&mut self) {
+        self.clear_instances = false;
         for id in self.events.finish() {
             self.reset_event_instances(id);
         }
@@ -694,7 +751,7 @@ impl Execution {
                 Ok(())
             }
             0xc6 => {
-                self.camera = multiply(srt()?, parent);
+                self.game_camera.space = multiply(srt()?, parent);
                 Ok(())
             }
             0xcb => {

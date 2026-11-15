@@ -3,6 +3,7 @@
 use crate::{kx::Document, mesh_graph};
 use std::{cell::RefCell, fmt, rc::Rc};
 
+pub mod camera;
 pub mod delay;
 pub mod event;
 pub mod exec;
