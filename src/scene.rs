@@ -7,6 +7,7 @@ pub mod delay;
 pub mod event;
 pub mod exec;
 pub mod instance;
+pub mod trigger;
 
 pub type Handle = Rc<RefCell<Scene>>;
 #[derive(Clone, Debug)]

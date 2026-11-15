@@ -428,3 +428,11 @@ apply event matrices before parent transforms and initialize durations. Explicit
 begin_events/finish_events bracket scene and deferred-sector execution. Event
 instance reset/expiry releases its scope; gameplay shot/zone/weapon registration,
 trigger creation and monster-owned child-chain cleanup still need integration.
+
+Misc_Trigger (0x07) now creates dynamic scheduler events from per-instance state.
+Its 2,048-call native fixture covers first-use suppression, threshold inversion,
+repeating timers, parent-position payloads, invalid event links and float-to-int
+timing behavior. The source's unused color/spline arguments remain unused. Scene
+integration checks registration on the next frame and independent event memory
+across repeated emissions. Full game-event registration and tick scheduling are
+still pending.

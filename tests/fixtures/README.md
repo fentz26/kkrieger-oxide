@@ -204,3 +204,10 @@ Scoped execution checks all eight event variables, interval clamping, inherited
 splines, monster/current-event context restoration and Stop. Instance and stack
 stubs record calls; affine multiplication is covered separately by scene tests.
 Regenerate with `python3 tools/verify_events.py`.
+
+`trigger.bin` records 2,048 original Misc_Trigger executions with persistent
+instance memory. It covers inverted/repeating/parent-position flags, invalid
+links, first-use state, delayed/fractional timing, large beat values, negative
+intervals, generated event payloads and unconditional child execution. The
+original handler ignores the supplied color and spline arguments. Regenerate
+with `python3 tools/verify_trigger.py`; it also regenerates `events.bin`.

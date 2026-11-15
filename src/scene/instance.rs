@@ -23,6 +23,7 @@ enum State {
     Delay(delay::State),
     Physic(Physic),
     Splash(bool),
+    Trigger(super::trigger::State),
 }
 
 pub struct Physic {
@@ -46,6 +47,18 @@ pub struct Memory {
 impl Memory {
     pub fn clear(&mut self, scope: Scope) {
         self.lists.remove(&scope);
+    }
+    pub fn trigger(&mut self, operator: usize) -> Result<&mut super::trigger::State, Error> {
+        match self.next(
+            operator,
+            || State::Trigger(super::trigger::State::default()),
+        )? {
+            State::Trigger(state) => Ok(state),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
     }
     pub fn splash(&mut self, operator: usize) -> Result<&mut bool, Error> {
         match self.next(operator, || State::Splash(false))? {

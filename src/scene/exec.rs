@@ -323,6 +323,42 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x07 => {
+                if let Some(target) = op.links.first().copied().flatten() {
+                    let target_op = doc
+                        .operators
+                        .get(target)
+                        .ok_or_else(|| fail("trigger target out of range"))?;
+                    if doc.classes[target_op.class].id == 0x06 {
+                        let parameters = super::trigger::Parameters {
+                            operator: target,
+                            trigger: f(0)?,
+                            threshold: f(1)?,
+                            delay: f(2)?,
+                            duration: f(3)?,
+                            flags: *p.get(4).ok_or_else(|| fail("missing trigger flags"))?,
+                            velocity: f(5)?,
+                            modulation: f(6)?,
+                            select: *p.get(7).ok_or_else(|| fail("missing trigger selection"))?
+                                as i32,
+                            scale: [f(8)?, f(9)?, f(10)?],
+                            rotate: [f(11)?, f(12)?, f(13)?],
+                            translate: [f(14)?, f(15)?, f(16)?],
+                        };
+                        if let Some(event) = self.instances.trigger(root)?.advance(
+                            self.events.beat,
+                            parameters,
+                            parent,
+                        ) {
+                            self.events.insert(event, true);
+                        }
+                    }
+                }
+                if let Some(&input) = op.inputs.first() {
+                    self.visit(doc, input, parent)?;
+                }
+                Ok(())
+            }
             0x05 | 0x06 => {
                 let input = *op
                     .inputs
