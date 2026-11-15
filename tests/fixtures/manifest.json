@@ -166,6 +166,10 @@
     "player-actions.bin": {
       "bytes": 61400,
       "sha256": "ef153eb759a8363e15d28866ae7649814c59ed6823b72f02e486c4e1d6796281"
+    },
+    "weapon-state.bin": {
+      "bytes": 98600,
+      "sha256": "53114873428c681f42fc8f6cd2fdcae2fed05d18b57830f937477873b61688a6"
     }
   }
 }

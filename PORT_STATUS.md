@@ -367,3 +367,10 @@ and sound request. Player damage preserves armor-dependent integer damage, life
 clamping, unchanged armor and hurt sound conditions. A native 1,024-action fixture
 also checks original sound-helper volume and distance ranges. Sound playback and
 the remaining player/input/game-tick phases are still pending.
+
+Weapon animation, footstep timing, switch decisions and firing eligibility now
+match 1,024 native C++ frames. The port preserves free weapon-zero firing,
+continuous-fire flags, null event links, dry-fire sounds, ammo consumption and
+cooldown rounding. Returned FireShot requests and weapon-event reset decisions
+still need projectile creation and event lifecycle consumers. Splash processing
+remains a separate phase between footsteps and firing, as in the source.

@@ -1,5 +1,6 @@
 //! Original gameplay state and operator parameter application.
 pub mod player;
+pub mod weapon;
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Inventory {
@@ -78,6 +79,7 @@ pub struct State {
     pub parameters: Parameters,
     pub events: Events,
     pub reset_by_operator: bool,
+    pub weapon: weapon::State,
 }
 impl Default for State {
     fn default() -> Self {
@@ -86,6 +88,7 @@ impl Default for State {
             parameters: Parameters::default(),
             events: Events::default(),
             reset_by_operator: true,
+            weapon: weapon::State::default(),
         }
     }
 }
