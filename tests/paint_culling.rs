@@ -89,3 +89,27 @@ fn native_original_transformed_bounds_planes_and_culling_match() {
     }
     assert!(bytes.is_empty());
 }
+
+#[test]
+fn original_zfail_volume_closes_between_light_and_camera_near_plane() {
+    let viewport = [-1., -1., 1., 1.];
+    let behind = Frustum::zfail_volume([0., 0., 0.], identity(), 1., [1., 1.], viewport);
+    assert_eq!(behind.count, 6);
+    assert!(!Bounds([[-0.1, -0.1, 0.4], [0.1, 0.1, 0.6]]).culled(&behind.planes[..behind.count]));
+    assert!(Bounds([[-0.1, -0.1, 1.4], [0.1, 0.1, 1.6]]).culled(&behind.planes[..behind.count]));
+    let front = Frustum::zfail_volume([0., 0., 2.], identity(), 1., [1., 1.], viewport);
+    assert!(!Bounds([[-0.1, -0.1, 1.4], [0.1, 0.1, 1.6]]).culled(&front.planes[..front.count]));
+    let on = Frustum::zfail_volume([0., 0., 1.], identity(), 1., [1., 1.], viewport);
+    assert_eq!(on.count, 2);
+    assert_eq!(on.planes[0].equation, [0., 0., 4., -4. + 1e-4]);
+    assert_eq!(on.planes[1].equation, [-0., -0., -4., 4. - 1e-4]);
+}
+#[test]
+fn original_frustum_enlargement_and_normalization_preserve_selectors() {
+    let mut frustum = Frustum::from_view_projection(identity(), [-1., -1., 1., 1.]);
+    frustum.enlarge_to_include([2., 0., 0.5]);
+    assert!(!Bounds([[2., 0., 0.5]; 2]).culled(&frustum.planes));
+    let selectors = frustum.planes.map(|p| p.near_vertex);
+    frustum.normalize();
+    assert_eq!(frustum.planes.map(|p| p.near_vertex), selectors);
+}
