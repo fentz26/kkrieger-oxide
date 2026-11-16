@@ -429,3 +429,11 @@ mesh-job construction is excluded. Initial effect metadata models Print's
 MakeEffect and PartSystem's distinct initialization. Tests compare every job
 identity and sort key, including stable ties and clamped pass adjustments.
 Regenerate with `python3 tools/verify_effect_schedule.py`.
+
+`print-geometry.bin` records 256 original EffectPrintInfo layouts, including
+Width overloads, Print glyph vertices, SetVert packing and the authored
+alignment loop. Synthetic letter metrics cover empty/extended-byte glyphs,
+spacing, center markers and both curvature directions. Every vertex word,
+triangle index and line width is compared. Font rasterization, HUD formatting
+and released x86 transcendental rounding are outside this fixture's scope.
+Regenerate with `python3 tools/verify_print_geometry.py`.

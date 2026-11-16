@@ -52,3 +52,61 @@ fn original_print_skips_empty_glyphs_and_honors_quad_capacity() {
     assert_eq!(geometry.vertices.len(), 4096 * 4);
     assert_eq!(geometry.indices.len(), 4096 * 6);
 }
+
+#[test]
+fn native_original_print_layout_matches_vertex_and_index_words() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/print-geometry.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let n = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        n
+    }
+    fn real(bytes: &mut &[u8]) -> f32 {
+        f32::from_bits(word(bytes))
+    }
+    assert_eq!(word(&mut bytes), 256);
+    for case in 0..256 {
+        let flags = word(&mut bytes);
+        let center = word(&mut bytes) as i32;
+        let layout = Layout {
+            flags,
+            size: std::array::from_fn(|_| real(&mut bytes)),
+            space: std::array::from_fn(|_| real(&mut bytes)),
+            radius: real(&mut bytes),
+        };
+        let y = real(&mut bytes);
+        let mut letters = [Letter::default(); 256];
+        for code in [65, 66, 128, 32] {
+            letters[code] = Letter {
+                uv: std::array::from_fn(|_| real(&mut bytes)),
+                pre_space: real(&mut bytes),
+                width: real(&mut bytes),
+                ..Letter::default()
+            };
+        }
+        let len = word(&mut bytes) as usize;
+        let text: Vec<_> = (0..len).map(|_| word(&mut bytes) as u8).collect();
+        let mut geometry = Geometry::default();
+        layout.append_line(
+            &text,
+            (center >= 0).then_some(center as usize),
+            y,
+            &letters,
+            &mut geometry,
+        );
+        assert_eq!(
+            layout.width(&text, None, &letters).to_bits(),
+            word(&mut bytes),
+            "case {case} width"
+        );
+        assert_eq!(geometry.vertices.len(), word(&mut bytes) as usize);
+        assert_eq!(geometry.indices.len(), word(&mut bytes) as usize);
+        for (i, v) in geometry.vertices.iter().flatten().enumerate() {
+            assert_eq!(v.to_bits(), word(&mut bytes), "case {case} vertex word {i}");
+        }
+        for i in geometry.indices {
+            assert_eq!(u32::from(i), word(&mut bytes), "case {case} index");
+        }
+    }
+    assert!(bytes.is_empty());
+}
