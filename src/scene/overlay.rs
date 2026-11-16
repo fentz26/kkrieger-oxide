@@ -145,12 +145,13 @@ pub fn fx_quad(
     })
 }
 #[derive(Clone, Debug)]
-pub struct CopyDraw {
+pub struct Draw {
     pub viewport: Viewport,
     pub environment: super::camera::Environment,
     pub material: usize,
     pub texture: i32,
     pub color: u32,
+    pub color2: Option<u32>,
     pub vertices: [[f32; 8]; 4],
 }
 impl Pool {
@@ -161,7 +162,7 @@ impl Pool {
         mode: usize,
         color: u32,
         mut zoom: f32,
-    ) -> Result<Option<CopyDraw>, &'static str> {
+    ) -> Result<Option<Draw>, &'static str> {
         let source = self
             .targets
             .get(source)
@@ -176,7 +177,7 @@ impl Pool {
             .ok_or("overlay copy material out of range")?;
         zoom *= 0.5;
         let uv = [0.5 - zoom, 0.5 - zoom, 0.5 + zoom, 0.5 + zoom];
-        Ok(Some(CopyDraw {
+        Ok(Some(Draw {
             viewport,
             environment: super::camera::Environment {
                 orthogonal: 1,
@@ -185,6 +186,7 @@ impl Pool {
             material,
             texture,
             color,
+            color2: None,
             vertices: fx_quad(Some(source.scale_uv), Some(uv), None, None),
         }))
     }
@@ -197,7 +199,7 @@ impl Pool {
         color: u32,
         zoom: f32,
         count: i32,
-    ) -> Result<Option<CopyDraw>, &'static str> {
+    ) -> Result<Option<Draw>, &'static str> {
         let Some(source) = self.last_output else {
             return Ok(None);
         };
@@ -217,5 +219,58 @@ impl Pool {
         };
         self.last_output = Some(destination);
         Ok(draw)
+    }
+}
+
+impl Pool {
+    /// Color differs from Copy: a cached output skips input execution, and a
+    /// newly rendered output consumes one input reference.
+    pub fn color_operator(
+        &mut self,
+        owner: usize,
+        mut size: usize,
+        color: u32,
+        operation: usize,
+        amplify: u32,
+        count: i32,
+    ) -> Result<Option<Draw>, &'static str> {
+        if let Some(cached) = self.find(Some(owner)) {
+            self.last_output = Some(cached);
+            return Ok(None);
+        }
+        let Some(source) = self.last_output else {
+            return Ok(None);
+        };
+        let input = self
+            .targets
+            .get(source)
+            .ok_or("overlay source out of range")?;
+        let Some(texture) = input.texture else {
+            return Ok(None);
+        };
+        let scale = input.scale_uv;
+        if size == SIZES + 1 {
+            size = input.size;
+        }
+        let material = 8usize
+            .checked_add(operation)
+            .filter(|&index| index < 36)
+            .ok_or("overlay color material out of range")?;
+        let destination = self.allocate(Some(owner), size, count);
+        let draw = Draw {
+            viewport: self.viewport(destination)?,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material,
+            texture,
+            color,
+            color2: Some(amplify),
+            vertices: fx_quad(Some(scale), None, None, None),
+        };
+        self.free(source)?;
+        self.last_output = Some(destination);
+        Ok(Some(draw))
     }
 }

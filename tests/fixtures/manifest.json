@@ -282,6 +282,10 @@
     "overlay-copy.bin": {
       "bytes": 759236,
       "sha256": "bfdf02f188a9e34ab2da09227f56bd18bb3a7f09dce9260e175ebe5e29394d49"
+    },
+    "overlay-color.bin": {
+      "bytes": 1075376,
+      "sha256": "40e1f598d807f6b36f4bafbd1eacc8bcc9423c2867f48f7566f557e566058e36"
     }
   }
 }

@@ -340,3 +340,9 @@ material, texture, color, normalized projection, and vertex packets. Pool
 reference counts and owner-cache results are checked after each operation.
 GPU rasterization is outside this fixture. Regenerate with
 `python3 tools/verify_overlay_copy.py`.
+
+`overlay-color.bin` records 4,096 unchanged Exec_IPP_Color calls, including
+cached-input skipping, missing/screen input behavior, output allocations,
+reference consumption, packed colors/amplification, and generated draw packets.
+The fixture captures graphics calls; it does not claim GPU pixel parity.
+Regenerate with `python3 tools/verify_overlay_color.py`.

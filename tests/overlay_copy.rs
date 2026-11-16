@@ -1,4 +1,4 @@
-use kkrieger_oxide::scene::overlay::{CopyDraw, Pool, Viewport, fx_quad};
+use kkrieger_oxide::scene::overlay::{Draw, Pool, Viewport, fx_quad};
 struct Reader<'a>(&'a [u8]);
 impl Reader<'_> {
     fn word(&mut self) -> u32 {
@@ -30,7 +30,7 @@ impl Reader<'_> {
             }
         }
     }
-    fn draw(&mut self, draw: Option<&CopyDraw>, inputs: u32) {
+    fn draw(&mut self, draw: Option<&Draw>, inputs: u32) {
         let exists = u32::from(draw.is_some());
         for _ in 0..3 {
             assert_eq!(self.word(), exists);
@@ -154,8 +154,8 @@ fn scene_copy_executes_inputs_then_emits_the_original_cached_copy() {
     e.overlay = Some(pool);
     e.frame(&doc, 0).unwrap();
     assert_eq!(e.game.events.optics, [Some(0); 8]);
-    assert_eq!(e.overlay_copies.len(), 1);
-    let draw = &e.overlay_copies[0];
+    assert_eq!(e.overlay_draws.len(), 1);
+    let draw = &e.overlay_draws[0];
     assert_eq!(draw.texture, 103);
     assert_eq!(draw.color, 0xff123456);
     assert_eq!(draw.material, 27);
@@ -163,6 +163,6 @@ fn scene_copy_executes_inputs_then_emits_the_original_cached_copy() {
     assert_eq!(pool.last_output, Some(0));
     assert_eq!(pool.targets[source].references, 2);
     e.frame(&doc, 0).unwrap();
-    assert!(e.overlay_copies.is_empty());
+    assert!(e.overlay_draws.is_empty());
     assert_eq!(e.overlay.as_ref().unwrap().last_output, Some(0));
 }

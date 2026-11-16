@@ -59,7 +59,7 @@ pub struct Execution {
     pub markers: [Matrix; 32],
     pub jobs: Vec<Job>,
     pub overlay: Option<super::overlay::Pool>,
-    pub overlay_copies: Vec<super::overlay::CopyDraw>,
+    pub overlay_draws: Vec<super::overlay::Draw>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
     pub event_spline: Option<usize>,
@@ -93,7 +93,7 @@ impl Execution {
             markers: [identity(); 32],
             jobs: Vec::new(),
             overlay: None,
-            overlay_copies: Vec::new(),
+            overlay_draws: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
             event_spline: None,
@@ -249,7 +249,7 @@ impl Execution {
     }
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
-        self.overlay_copies.clear();
+        self.overlay_draws.clear();
         self.dynamic_cells.clear();
         self.game.monsters.begin_frame();
         self.next_monster_override = None;
@@ -262,7 +262,7 @@ impl Execution {
         let result = self.visit(doc, root, identity());
         if result.is_err() {
             self.jobs.clear();
-            self.overlay_copies.clear();
+            self.overlay_draws.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
         }
@@ -343,7 +343,7 @@ impl Execution {
         self.current_clip = Rect::UNIT;
         if result.is_err() {
             self.jobs.clear();
-            self.overlay_copies.clear();
+            self.overlay_draws.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
             self.visibility_history.clear();
@@ -448,6 +448,38 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xe6 => {
+                let params = p
+                    .get(..5)
+                    .ok_or_else(|| fail("truncated IPP color parameters"))?;
+                let cached = self
+                    .overlay
+                    .as_ref()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?
+                    .find(Some(root));
+                if let Some(cached) = cached {
+                    self.overlay.as_mut().unwrap().last_output = Some(cached);
+                } else {
+                    self.exec_inputs(doc, root, parent)?;
+                    if let Some(draw) = self
+                        .overlay
+                        .as_mut()
+                        .ok_or_else(|| fail("postprocessing target pool missing"))?
+                        .color_operator(
+                            root,
+                            params[0] as usize,
+                            params[1],
+                            params[2] as usize,
+                            params[3],
+                            params[4] as i32,
+                        )
+                        .map_err(fail)?
+                    {
+                        self.overlay_draws.push(draw);
+                    }
+                }
+                Ok(())
+            }
             0xe2 => {
                 let params = p
                     .get(..4)
@@ -467,7 +499,7 @@ impl Execution {
                     )
                     .map_err(fail)?
                 {
-                    self.overlay_copies.push(draw);
+                    self.overlay_draws.push(draw);
                 }
                 Ok(())
             }
