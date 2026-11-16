@@ -51,3 +51,54 @@ fn original_print_preserves_truncated_tokens_and_negative_decimal_remainders() {
         511
     );
 }
+
+#[test]
+fn native_original_print_expansion_matches_bytes_centers_and_newlines() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/print-format.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let n = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        n
+    }
+    assert_eq!(word(&mut bytes), 512);
+    for case in 0..512 {
+        let inventory = Inventory {
+            amounts: std::array::from_fn(|_| word(&mut bytes) as i32),
+            ..Inventory::default()
+        };
+        let current_weapon = word(&mut bytes) as usize;
+        let fps = f32::from_bits(word(&mut bytes));
+        let switches = std::array::from_fn(|_| word(&mut bytes) as u8);
+        let count = word(&mut bytes) as usize;
+        let text: Vec<_> = (0..count).map(|_| word(&mut bytes) as u8).collect();
+        let values = Values {
+            inventory: &inventory,
+            current_weapon,
+            switches: &switches,
+            fps,
+        };
+        let lines = format_lines(&text, &values).unwrap();
+        assert_eq!(
+            lines.len(),
+            word(&mut bytes) as usize,
+            "case {case} line count"
+        );
+        for line in lines {
+            let len = word(&mut bytes) as usize;
+            let expected: Vec<_> = (0..len).map(|_| word(&mut bytes) as u8).collect();
+            assert_eq!(line.text, expected, "case {case} text");
+            let center = word(&mut bytes) as i32;
+            assert_eq!(
+                line.center,
+                (center >= 0).then_some(center as usize),
+                "case {case} center"
+            );
+            assert_eq!(
+                line.newlines,
+                word(&mut bytes) as usize,
+                "case {case} newlines"
+            );
+        }
+    }
+    assert!(bytes.is_empty());
+}

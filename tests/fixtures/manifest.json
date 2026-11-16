@@ -346,6 +346,10 @@
     "print-geometry.bin": {
       "bytes": 166524,
       "sha256": "0666d7a06ad15371b4f744c6a9279f5ccbc498b5fbbee34cb88cc877738ae312"
+    },
+    "print-format.bin": {
+      "bytes": 603156,
+      "sha256": "c6f16626baabbe2bcb1fea9c253ed447b4f2ceeff83f45adc60bc38b432700f2"
     }
   }
 }

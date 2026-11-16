@@ -437,3 +437,10 @@ spacing, center markers and both curvature directions. Every vertex word,
 triangle index and line width is compared. Font rasterization, HUD formatting
 and released x86 transcendental rounding are outside this fixture's scope.
 Regenerate with `python3 tools/verify_print_geometry.py`.
+
+`print-format.bin` records 512 original Print expansion calls over sixteen
+text patterns and varied inventory, switch, weapon and fractional FPS values.
+The expansion loop is extracted unchanged from Exec_Effect_Print; output bytes,
+center markers and newline counts are compared. The corpus includes truncated
+tokens and escaped choice separators, but excludes source buffer overflows.
+Regenerate with `python3 tools/verify_print_format.py`.
