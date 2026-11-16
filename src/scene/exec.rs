@@ -273,6 +273,22 @@ impl Execution {
         }
         result
     }
+    /// Use the same current-camera matrix supplied to material uniforms.
+    pub fn process_camera_sectors(
+        &mut self,
+        doc: &Document<'_>,
+        observer: Option<usize>,
+        viewport: [i32; 2],
+    ) -> Result<(), Error> {
+        let environment = self
+            .current_camera
+            .material_environment(viewport)
+            .map_err(|reason| Error {
+                operator: observer.unwrap_or(0),
+                reason,
+            })?;
+        self.process_sectors(doc, observer, environment.view_projection)
+    }
     /// Execute deferred sector contents in original newest-first order. Sector
     /// visibility is the enabled source branch. Remaining unported gameplay
     /// handlers report errors rather than dropping scene content.
