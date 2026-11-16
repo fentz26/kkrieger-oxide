@@ -314,6 +314,10 @@
     "sample.bin": {
       "bytes": 253600,
       "sha256": "65e541abb834cab6d400a0c7aaa32b2cd132ea4c5e613c2b399957bdd7c438e8"
+    },
+    "overlay-render-target.bin": {
+      "bytes": 90092,
+      "sha256": "042598c4219d7b9f833a69eb57fae147e1987d121f606431585df9cafd94b2a1"
     }
   }
 }

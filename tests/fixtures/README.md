@@ -389,3 +389,8 @@ playback handles, volume, retrigger state and positional audio updates. Velocity
 compares the three initialized components of the original vector. Sound device
 output and synthesizer samples are outside this fixture. Regenerate with
 `python3 tools/verify_sample.py`.
+
+`overlay-render-target.bin` records 256 unchanged linked render-target wrapper
+calls with captured copy commands, input callbacks, master viewports, selected
+outputs, references and UV scales. GPU rasterization is outside this fixture.
+Regenerate with `python3 tools/verify_overlay_render_target.py`.
