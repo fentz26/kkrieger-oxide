@@ -333,3 +333,10 @@ GetMasterViewport. It includes target ownership/reference snapshots, allocation
 fallback, full-size texture UV scales, and viewport windows. Renderer material
 unbind/bind requests are recorded separately from the Rust allocation pool.
 Regenerate with `python3 tools/verify_overlay_pool.py`.
+
+`overlay-copy.bin` records 512 unchanged FXQuad geometry calls and 2,048
+unchanged Copy/Exec_IPP_Copy calls. Graphics calls are captured as viewport,
+material, texture, color, normalized projection, and vertex packets. Pool
+reference counts and owner-cache results are checked after each operation.
+GPU rasterization is outside this fixture. Regenerate with
+`python3 tools/verify_overlay_copy.py`.

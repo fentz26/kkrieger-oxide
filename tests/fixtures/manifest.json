@@ -278,6 +278,10 @@
     "overlay-pool.bin": {
       "bytes": 1475336,
       "sha256": "0caba03cac853567e5e2a369c0e719b93f50320c1c42c75faf95fe92c435eded"
+    },
+    "overlay-copy.bin": {
+      "bytes": 759236,
+      "sha256": "bfdf02f188a9e34ab2da09227f56bd18bb3a7f09dce9260e175ebe5e29394d49"
     }
   }
 }

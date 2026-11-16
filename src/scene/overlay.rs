@@ -115,3 +115,107 @@ impl Pool {
         }
     }
 }
+
+/// sVertexDouble position, zero color word, and two UV pairs.
+pub fn fx_quad(
+    scale0: Option<[f32; 2]>,
+    uv0: Option<[f32; 4]>,
+    scale1: Option<[f32; 2]>,
+    uv1: Option<[f32; 4]>,
+) -> [[f32; 8]; 4] {
+    let [s0, s1] = [scale0.unwrap_or([1.; 2]), scale1.unwrap_or([1.; 2])];
+    let [uv0, uv1] = [
+        uv0.unwrap_or([0., 0., 1., 1.]),
+        uv1.unwrap_or([0., 0., 1., 1.]),
+    ];
+    std::array::from_fn(|i| {
+        let j = i ^ (i >> 1);
+        let x = usize::from(j & 1 != 0);
+        let y = usize::from(j & 2 != 0);
+        [
+            if x != 0 { 1. } else { -1. },
+            if y != 0 { -1. } else { 1. },
+            1.,
+            0.,
+            uv0[x * 2] * s0[0],
+            uv0[1 + y * 2] * s0[1],
+            uv1[x * 2] * s1[0],
+            uv1[1 + y * 2] * s1[1],
+        ]
+    })
+}
+#[derive(Clone, Debug)]
+pub struct CopyDraw {
+    pub viewport: Viewport,
+    pub environment: super::camera::Environment,
+    pub material: usize,
+    pub texture: i32,
+    pub color: u32,
+    pub vertices: [[f32; 8]; 4],
+}
+impl Pool {
+    pub fn copy(
+        &self,
+        source: usize,
+        destination: usize,
+        mode: usize,
+        color: u32,
+        mut zoom: f32,
+    ) -> Result<Option<CopyDraw>, &'static str> {
+        let source = self
+            .targets
+            .get(source)
+            .ok_or("overlay source out of range")?;
+        let Some(texture) = source.texture else {
+            return Ok(None);
+        };
+        let viewport = self.viewport(destination)?;
+        let material = 27usize
+            .checked_add(mode)
+            .filter(|&index| index < 36)
+            .ok_or("overlay copy material out of range")?;
+        zoom *= 0.5;
+        let uv = [0.5 - zoom, 0.5 - zoom, 0.5 + zoom, 0.5 + zoom];
+        Ok(Some(CopyDraw {
+            viewport,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material,
+            texture,
+            color,
+            vertices: fx_quad(Some(source.scale_uv), Some(uv), None, None),
+        }))
+    }
+    /// Exec_IPP_Copy after its input operators have executed. Source references
+    /// are intentionally retained; this operator does not call Free(in).
+    pub fn copy_operator(
+        &mut self,
+        owner: usize,
+        mut size: usize,
+        color: u32,
+        zoom: f32,
+        count: i32,
+    ) -> Result<Option<CopyDraw>, &'static str> {
+        let Some(source) = self.last_output else {
+            return Ok(None);
+        };
+        if size == SIZES + 1 {
+            size = self
+                .targets
+                .get(source)
+                .ok_or("overlay source out of range")?
+                .size;
+        }
+        let (destination, draw) = if let Some(found) = self.find(Some(owner)) {
+            (found, None)
+        } else {
+            let destination = self.allocate(Some(owner), size, count);
+            let draw = self.copy(source, destination, 0, color, zoom)?;
+            (destination, draw)
+        };
+        self.last_output = Some(destination);
+        Ok(draw)
+    }
+}
