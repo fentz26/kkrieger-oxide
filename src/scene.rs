@@ -12,6 +12,7 @@ pub mod exec;
 pub mod instance;
 pub mod menu;
 pub mod overlay;
+pub mod paint;
 pub mod particles;
 pub mod print;
 pub mod sample;
