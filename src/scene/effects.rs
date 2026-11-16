@@ -9,6 +9,14 @@ pub struct Scheduled {
     pub sort_key: u32,
 }
 
+/// Geometry produced at a deferred particle effect's position in paint order.
+pub struct ParticleDraw {
+    pub operator: usize,
+    pub sort_key: u32,
+    pub material: Option<usize>,
+    pub quads: Vec<[[f32; 8]; 4]>,
+}
+
 /// Resolve a linked cached material to its first pass and raw usage. A missing
 /// material or empty pass list returns None. Mesh jobs are scheduled separately
 /// by the engine; these keys allow a stable merge with that paint-job array.

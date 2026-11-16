@@ -110,6 +110,70 @@ pub struct Execution {
     effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
 }
 impl Execution {
+    /// Generate the particle portion of a viewport pass in original effect
+    /// order. Meshes and Print remain separate consumers of the same sort keys.
+    pub fn draw_particle_pass(
+        &mut self,
+        doc: &Document<'_>,
+        pass: &super::viewport::RenderPass,
+        materials: &std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
+    ) -> Result<Vec<super::effects::ParticleDraw>, Error> {
+        use crate::material::Usage;
+        let scheduled = super::effects::schedule(doc, &pass.jobs, |index| {
+            let first = materials.get(&index)?.passes.first()?;
+            let usage = match first.usage {
+                Usage::Base => 0,
+                Usage::PreLight => 1,
+                Usage::Ambient => 2,
+                Usage::Shadow => 3,
+                Usage::Light => 4,
+                Usage::PostLight => 5,
+                Usage::PostLight2 => 6,
+                Usage::Other => 7,
+                Usage::Explicit(value) => value,
+            };
+            Some((first.render_pass, usage))
+        })?;
+        // A linked material absent from the prepared cache is an integration
+        // error, distinct from an authored null material or an empty pass list.
+        for entry in &scheduled {
+            let Job::Paint { operator, .. } = &pass.jobs[entry.job] else {
+                unreachable!()
+            };
+            if let Some(material) = doc.operators[*operator].links.first().copied().flatten()
+                && !materials.contains_key(&material)
+            {
+                return Err(Error {
+                    operator: *operator,
+                    reason: "effect material has not been prepared",
+                });
+            }
+        }
+        let modelview = crate::material::uniforms::trans_r(pass.camera.space);
+        let mut packets = Vec::new();
+        for entry in scheduled {
+            let job = &pass.jobs[entry.job];
+            let Job::Paint { operator, .. } = job else {
+                unreachable!()
+            };
+            let op = &doc.operators[*operator];
+            if doc.classes[op.class].id != 0x64 {
+                continue;
+            }
+            let material = op.links.first().copied().flatten();
+            let passes = material
+                .and_then(|index| materials.get(&index))
+                .map(|m| m.passes.len());
+            let quads = self.draw_particle_job(doc, job, modelview, passes)?;
+            packets.push(super::effects::ParticleDraw {
+                operator: *operator,
+                sort_key: entry.sort_key,
+                material,
+                quads,
+            });
+        }
+        Ok(packets)
+    }
     /// Execute a deferred PartSystem effect after the backend selects its first
     /// material pass. MODELVIEW is supplied before applying the operator matrix,
     /// matching the effect's identity ModelSpace assignment in the source.

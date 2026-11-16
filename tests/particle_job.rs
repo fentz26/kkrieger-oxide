@@ -77,3 +77,77 @@ fn deferred_particle_handler_restores_local_variables_when_slot_is_invalid() {
     assert_eq!(error.reason, "particle slot out of range");
     assert_eq!(e.vm.variables[7], [8.; 4]);
 }
+
+#[test]
+fn particle_render_pass_resolves_prepared_material_and_uses_camera_axes() {
+    use kkrieger_oxide::{
+        material,
+        scene::{camera::Environment, exec::Job, overlay::Viewport, viewport::RenderPass},
+    };
+    use std::{collections::BTreeMap, rc::Rc};
+    let source = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let root = source
+        .operators
+        .iter()
+        .position(|op| source.classes[op.class].id == 0xd0)
+        .unwrap();
+    let generated = material::generate_many(&source, &[root]).unwrap();
+    let mut prepared = (*generated[0]).clone();
+    assert!(!prepared.passes.is_empty());
+    prepared.passes[0].render_pass = 12;
+    let mut d = document();
+    let mut material_op = source.operators.into_iter().nth(root).unwrap();
+    material_op.inputs.clear();
+    material_op.links.clear();
+    material_op.animation = &[1];
+    d.operators.push(material_op);
+    d.operators[1].links = vec![Some(2)];
+    let mut e = Execution::new(&d);
+    e.vm.variables[5] = [4.; 4];
+    e.frame(&d, 0).unwrap();
+    let mut job = e.jobs[0].clone();
+    if let Job::Paint { pass_adjust, .. } = &mut job {
+        *pass_adjust = 3;
+    }
+    e.particles[2].particles.push(Particle {
+        position: [0.; 4],
+        speed: [0.; 4],
+        time: 0,
+        max_time: 100,
+    });
+    let camera = Environment {
+        space: [
+            [0., 1., 0., 0.],
+            [-1., 0., 0., 0.],
+            [0., 0., 1., 0.],
+            [0., 0., 0., 1.],
+        ],
+        ..Environment::default()
+    };
+    let pass = RenderPass {
+        viewport: Viewport {
+            screen: 0,
+            render_target: -1,
+            window: [0, 0, 640, 360],
+        },
+        camera,
+        clear_flags: 0,
+        clear_color: 0,
+        paint_mode: 0,
+        jobs: vec![job],
+        grab_stereo_target: false,
+        blend_stereo_target: false,
+        allocate_stereo_target: false,
+    };
+    let cache = BTreeMap::from([(2, Rc::new(prepared))]);
+    e.time_delta = 10;
+    let packets = e.draw_particle_pass(&d, &pass, &cache).unwrap();
+    assert_eq!(packets.len(), 1);
+    assert_eq!(packets[0].operator, 1);
+    assert_eq!(packets[0].sort_key, 0x0f070000);
+    assert_eq!(packets[0].material, Some(2));
+    assert_eq!(&packets[0].quads[0][0][..3], &[0., 4., 0.]);
+    assert_eq!(e.particles[2].particles[0].time, 10);
+    assert!(e.draw_particle_pass(&d, &pass, &BTreeMap::new()).is_err());
+    assert_eq!(e.particles[2].particles[0].time, 10);
+}
