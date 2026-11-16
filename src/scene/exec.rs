@@ -448,6 +448,61 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xe7 => {
+                let params = p
+                    .get(..5)
+                    .ok_or_else(|| fail("truncated IPP merge parameters"))?;
+                let cached = self
+                    .overlay
+                    .as_ref()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?
+                    .find(Some(root));
+                if let Some(cached) = cached {
+                    self.overlay.as_mut().unwrap().last_output = Some(cached);
+                } else {
+                    let mut sources = [0; 2];
+                    for (index, source) in sources.iter_mut().enumerate() {
+                        self.overlay.as_mut().unwrap().last_output = None;
+                        if let Some(&input) = op.inputs.get(index) {
+                            self.visit(doc, input, parent)?;
+                        }
+                        let overlay = self
+                            .overlay
+                            .as_mut()
+                            .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                        let Some(output) = overlay.last_output.take() else {
+                            return Ok(());
+                        };
+                        if overlay
+                            .targets
+                            .get(output)
+                            .ok_or_else(|| fail("overlay source out of range"))?
+                            .texture
+                            .is_none()
+                        {
+                            return Ok(());
+                        }
+                        *source = output;
+                    }
+                    let parameters = super::overlay::Merge {
+                        size: params[0] as usize,
+                        operation: params[1] as usize,
+                        alpha: params[2] as i32,
+                        amplify: params[3],
+                        count: params[4] as i32,
+                    };
+                    if let Some(draw) = self
+                        .overlay
+                        .as_mut()
+                        .unwrap()
+                        .merge_operator(root, sources, &parameters)
+                        .map_err(fail)?
+                    {
+                        self.overlay_draws.push(draw);
+                    }
+                }
+                Ok(())
+            }
             0xe6 => {
                 let params = p
                     .get(..5)

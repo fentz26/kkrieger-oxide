@@ -346,3 +346,10 @@ cached-input skipping, missing/screen input behavior, output allocations,
 reference consumption, packed colors/amplification, and generated draw packets.
 The fixture captures graphics calls; it does not claim GPU pixel parity.
 Regenerate with `python3 tools/verify_overlay_color.py`.
+
+`overlay-merge.bin` records 4,096 unchanged Exec_IPP_Merge calls, including
+ordered input callbacks, early exits, cached outputs, two texture bindings and
+UV sets, packed alpha/amplification, and per-target reference counts. Aliased
+inputs preserve the source's two separate Free calls. Graphics calls are
+captured as draw packets; GPU pixels are outside this fixture. Regenerate with
+`python3 tools/verify_overlay_merge.py`.

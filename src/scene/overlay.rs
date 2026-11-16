@@ -1,4 +1,4 @@
-//! Original player IPP render-target pool and master viewport bookkeeping.
+//! Original player IPP target management and postprocessing draw commands.
 pub const SIZES: usize = 4;
 pub const PER_SIZE: usize = 3;
 pub const COUNT: usize = SIZES * PER_SIZE;
@@ -150,6 +150,7 @@ pub struct Draw {
     pub environment: super::camera::Environment,
     pub material: usize,
     pub texture: i32,
+    pub texture1: Option<i32>,
     pub color: u32,
     pub color2: Option<u32>,
     pub vertices: [[f32; 8]; 4],
@@ -185,6 +186,7 @@ impl Pool {
             },
             material,
             texture,
+            texture1: None,
             color,
             color2: None,
             vertices: fx_quad(Some(source.scale_uv), Some(uv), None, None),
@@ -265,12 +267,76 @@ impl Pool {
             },
             material,
             texture,
+            texture1: None,
             color,
             color2: Some(amplify),
             vertices: fx_quad(Some(scale), None, None, None),
         };
         self.free(source)?;
         self.last_output = Some(destination);
+        Ok(Some(draw))
+    }
+}
+
+pub struct Merge {
+    pub size: usize,
+    pub operation: usize,
+    pub alpha: i32,
+    pub amplify: u32,
+    pub count: i32,
+}
+impl Pool {
+    /// Called after both input operators have produced texture targets.
+    pub fn merge_operator(
+        &mut self,
+        owner: usize,
+        sources: [usize; 2],
+        parameters: &Merge,
+    ) -> Result<Option<Draw>, &'static str> {
+        if let Some(cached) = self.find(Some(owner)) {
+            self.last_output = Some(cached);
+            return Ok(None);
+        }
+        let mut textures = [0; 2];
+        let mut scales = [[0.; 2]; 2];
+        for (i, source) in sources.into_iter().enumerate() {
+            let target = self
+                .targets
+                .get(source)
+                .ok_or("overlay source out of range")?;
+            let Some(texture) = target.texture else {
+                return Ok(None);
+            };
+            textures[i] = texture;
+            scales[i] = target.scale_uv;
+        }
+        let size = if parameters.size == SIZES + 1 {
+            self.targets[sources[0]].size
+        } else {
+            parameters.size
+        };
+        let material = 16usize
+            .checked_add(parameters.operation)
+            .filter(|&index| index < 36)
+            .ok_or("overlay merge material out of range")?;
+        let output = self.allocate(Some(owner), size, parameters.count);
+        let draw = Draw {
+            viewport: self.viewport(output)?,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material,
+            texture: textures[0],
+            texture1: Some(textures[1]),
+            color: (parameters.alpha as u32).wrapping_shl(24),
+            color2: Some(parameters.amplify),
+            vertices: fx_quad(Some(scales[0]), None, Some(scales[1]), None),
+        };
+        for source in sources {
+            self.free(source)?;
+        }
+        self.last_output = Some(output);
         Ok(Some(draw))
     }
 }

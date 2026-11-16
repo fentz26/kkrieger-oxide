@@ -286,6 +286,10 @@
     "overlay-color.bin": {
       "bytes": 1075376,
       "sha256": "40e1f598d807f6b36f4bafbd1eacc8bcc9423c2867f48f7566f557e566058e36"
+    },
+    "overlay-merge.bin": {
+      "bytes": 1068136,
+      "sha256": "353d1c0afa2b212788a5318807ea8339d56d45a97e55be4ea3b53585d8d63d5a"
     }
   }
 }
