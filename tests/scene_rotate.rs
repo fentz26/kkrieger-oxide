@@ -65,3 +65,45 @@ fn rotate_aligns_each_axis_and_uses_current_camera_for_other_modes() {
         }
     }
 }
+
+#[test]
+fn original_rotation_transforms_match_native_at_input_boundary() {
+    struct Reader<'a>(&'a [u8]);
+    impl Reader<'_> {
+        fn word(&mut self) -> u32 {
+            let value = u32::from_le_bytes(self.0[..4].try_into().unwrap());
+            self.0 = &self.0[4..];
+            value
+        }
+        fn float(&mut self) -> f32 {
+            f32::from_bits(self.word())
+        }
+        fn matrix(&mut self) -> [[f32; 4]; 4] {
+            std::array::from_fn(|_| std::array::from_fn(|_| self.float()))
+        }
+    }
+    let mut r = Reader(include_bytes!("fixtures/scene-rotate.bin"));
+    assert_eq!(r.word(), 512);
+    for _ in 0..512 {
+        let axis = r.word() as i32;
+        let direction = std::array::from_fn(|_| r.float());
+        let parent = r.matrix();
+        let camera = r.matrix();
+        let actual = kkrieger_oxide::scene::camera::rotate(parent, camera, direction, axis);
+        let expected = r.matrix();
+        for (a, b) in actual
+            .into_iter()
+            .flatten()
+            .zip(expected.into_iter().flatten())
+        {
+            if b.is_nan() {
+                assert!(a.is_nan());
+            } else {
+                assert_eq!(a.to_bits(), b.to_bits());
+            }
+        }
+        assert_eq!(r.word(), 1);
+        assert_eq!(parent, r.matrix());
+    }
+    assert!(r.0.is_empty());
+}

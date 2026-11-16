@@ -372,3 +372,8 @@ executions, capturing modified sample rectangles, both graphics passes per
 stage, packed amplification, target references, screen fallback and cached
 outputs. Native graphics calls are captured; GPU pixels are not compared.
 Regenerate with `python3 tools/verify_overlay_blur.py`.
+
+`scene-rotate.bin` records 512 unchanged Exec_Scene_Rotate calls at the input
+execution boundary, including degenerate directions, parent transforms, camera
+fallback and stack restoration. NaN results are compared by classification.
+Regenerate with `python3 tools/verify_scene_rotate.py`.

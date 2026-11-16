@@ -41,3 +41,50 @@ impl Default for Environment {
         }
     }
 }
+
+/// Original Exec_Scene_Rotate input transform.
+pub fn rotate(parent: Matrix, camera: Matrix, direction: [f32; 3], axis: i32) -> Matrix {
+    let unit = |mut v: [f32; 4], safe: bool| {
+        let length = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+        if safe && (length.is_nan() || length <= 1e-20) {
+            v[..3].copy_from_slice(&[1., 0., 0.]);
+        } else {
+            let scale = (1. / f64::from(length).sqrt()) as f32;
+            for n in &mut v[..3] {
+                *n *= scale;
+            }
+        }
+        v
+    };
+    let cross = |a: [f32; 4], b: [f32; 4]| {
+        [
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0],
+            0.,
+        ]
+    };
+    let v = unit([direction[0], direction[1], direction[2], 0.], true);
+    let mut matrix = camera;
+    match axis {
+        0 => {
+            matrix[0] = v;
+            matrix[2] = unit(cross(matrix[0], parent[1]), false);
+            matrix[1] = unit(cross(matrix[2], matrix[0]), false);
+        }
+        1 => {
+            matrix[1] = v;
+            matrix[0] = unit(cross(matrix[1], parent[2]), false);
+            matrix[2] = unit(cross(matrix[0], matrix[1]), false);
+        }
+        2 => {
+            matrix[2] = v;
+            matrix[1] = unit(cross(matrix[2], parent[0]), false);
+            matrix[0] = unit(cross(matrix[1], matrix[2]), false);
+        }
+        _ => {}
+    }
+    matrix[3] = parent[3];
+
+    matrix
+}

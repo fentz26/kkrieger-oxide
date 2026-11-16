@@ -302,6 +302,10 @@
     "overlay-blur.bin": {
       "bytes": 1081268,
       "sha256": "b63c4dd164f210fe06ca5d61d09b5b83131566e3e15c16808dfe4ea6e10e93e8"
+    },
+    "scene-rotate.bin": {
+      "bytes": 141316,
+      "sha256": "8d2a54d62935a72231c2afd308eb374fe733f401ac8b02ac2c7c5c1dfc8247d9"
     }
   }
 }
