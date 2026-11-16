@@ -21,6 +21,7 @@ struct Slot {
 
 enum State {
     Delay(delay::State),
+    Sample(super::sample::State),
     Physic(Physic),
     Splash(bool),
     Trigger(super::trigger::State),
@@ -74,6 +75,15 @@ impl Memory {
     pub fn monster(&mut self, operator: usize) -> Result<&mut Option<Monster>, Error> {
         match self.next(operator, || State::Monster(None))? {
             State::Monster(monster) => Ok(monster),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
+    }
+    pub fn sample(&mut self, operator: usize) -> Result<&mut super::sample::State, Error> {
+        match self.next(operator, || State::Sample(super::sample::State::default()))? {
+            State::Sample(state) => Ok(state),
             _ => Err(Error {
                 operator,
                 reason: "instance memory type differs during replay",

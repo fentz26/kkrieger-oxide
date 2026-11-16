@@ -52,6 +52,7 @@ pub struct ActorContext {
 
 pub struct Execution {
     pub vm: Vm,
+    pub audio: Option<Box<dyn super::sample::Output>>,
     pub game_camera: super::camera::Environment,
     pub current_camera: super::camera::Environment,
     pub pass_adjust: i32,
@@ -86,6 +87,7 @@ impl Execution {
     pub fn new(doc: &Document<'_>) -> Self {
         Self {
             vm: Vm::new(),
+            audio: None,
             game_camera: super::camera::Environment::default(),
             current_camera: super::camera::Environment::default(),
             pass_adjust: 0,
@@ -448,6 +450,31 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x0c => {
+                let params = p
+                    .get(..7)
+                    .ok_or_else(|| fail("truncated sample parameters"))?;
+                let switch = *self
+                    .switches
+                    .get(params[0] as usize)
+                    .ok_or_else(|| fail("sample switch out of range"))?;
+                let parameters = super::sample::Parameters {
+                    value: params[1] as i32,
+                    threshold: f32::from_bits(params[2]),
+                    sample: params[3] as i32,
+                    volume_db: f32::from_bits(params[4]),
+                    retrigger: f32::from_bits(params[5]),
+                    half_range: f32::from_bits(params[6]),
+                };
+                self.instances.sample(root)?.advance(
+                    parameters,
+                    switch,
+                    self.time_delta,
+                    parent[3],
+                    self.audio.as_deref_mut(),
+                );
+                self.exec_inputs(doc, root, parent)
+            }
             0xe3 => {
                 let params = p
                     .get(..6)

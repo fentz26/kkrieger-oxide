@@ -383,3 +383,9 @@ rotation, scaling, parent transforms and sub-threshold rotations. Only the
 x86 contiguous stack-parameter SRT layout is replaced with an explicit array.
 Tests compare camera float bits and confirm inputs are not executed. Regenerate
 with `python3 tools/verify_scene_camera.py`.
+
+`sample.bin` records 2,048 unchanged Misc_PlaySample calls, capturing platform
+playback handles, volume, retrigger state and positional audio updates. Velocity
+compares the three initialized components of the original vector. Sound device
+output and synthesizer samples are outside this fixture. Regenerate with
+`python3 tools/verify_sample.py`.

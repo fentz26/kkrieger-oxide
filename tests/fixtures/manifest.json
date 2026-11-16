@@ -310,6 +310,10 @@
     "scene-camera.bin": {
       "bytes": 118788,
       "sha256": "d9bbbd4281643bfe04bd28b47c3954e568e93297aa45792c249efb0555988ccf"
+    },
+    "sample.bin": {
+      "bytes": 253600,
+      "sha256": "65e541abb834cab6d400a0c7aaa32b2cd132ea4c5e613c2b399957bdd7c438e8"
     }
   }
 }
