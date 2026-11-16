@@ -110,6 +110,96 @@ pub struct Execution {
     effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
 }
 impl Execution {
+    /// Execute a deferred PartSystem effect after the backend selects its first
+    /// material pass. MODELVIEW is supplied before applying the operator matrix,
+    /// matching the effect's identity ModelSpace assignment in the source.
+    pub fn draw_particle_job(
+        &mut self,
+        doc: &Document<'_>,
+        job: &Job,
+        modelview: Matrix,
+        material_passes: Option<usize>,
+    ) -> Result<Vec<[[f32; 8]; 4]>, Error> {
+        let Job::Paint {
+            operator,
+            matrix,
+            effect_variables,
+            ..
+        } = job
+        else {
+            return Err(Error {
+                operator: 0,
+                reason: "particle draw requires a paint job",
+            });
+        };
+        let root = *operator;
+        let fail = |reason| Error {
+            operator: root,
+            reason,
+        };
+        let op = doc
+            .operators
+            .get(root)
+            .ok_or_else(|| fail("particle job operator out of range"))?;
+        if doc.classes[op.class].id != 0x64 {
+            return Err(fail("paint job is not a particle system"));
+        }
+        if let Some(snapshot) = effect_variables {
+            let end = snapshot
+                .start
+                .checked_add(snapshot.values.len())
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?;
+            self.vm
+                .variables
+                .get_mut(snapshot.start..end)
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?
+                .copy_from_slice(&snapshot.values);
+        }
+        let words = self
+            .parameters
+            .get_mut(root)
+            .ok_or_else(|| fail("execution document mismatch"))?;
+        let evaluation = self
+            .vm
+            .execute(
+                op,
+                words,
+                &doc.splines,
+                self.event_spline.and_then(|i| doc.splines.get(i)),
+            )
+            .map_err(|_| fail("particle animation failed"))?;
+        let result = (|| {
+            let p = words
+                .get(..12)
+                .ok_or_else(|| fail("truncated particle system parameters"))?;
+            let slot = p[0] as usize;
+            let parameters = super::particles::DrawParameters {
+                appearance: super::particles::Appearance {
+                    colors: [p[2], p[3], p[4]],
+                    sizes: std::array::from_fn(|i| f32::from_bits(p[5 + i])),
+                    middle: f32::from_bits(p[8]),
+                    fade: f32::from_bits(p[9]),
+                },
+                gravity: f32::from_bits(p[10]),
+                flags: p[11],
+            };
+            self.particles
+                .get_mut(slot)
+                .ok_or_else(|| fail("particle slot out of range"))?
+                .draw(
+                    &parameters,
+                    self.time_delta,
+                    *matrix,
+                    modelview,
+                    material_passes,
+                )
+                .map_err(fail)
+        })();
+        self.vm
+            .restore(evaluation.saved_variables)
+            .map_err(|_| fail("particle variable restore failed"))?;
+        result
+    }
     fn emit_overlay(&mut self, draw: super::overlay::Draw) {
         self.render_commands
             .push(RenderCommand::Overlay(self.overlay_draws.len()));
