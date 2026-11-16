@@ -95,6 +95,7 @@ pub struct Execution {
     pub clear_instances: bool,
     instances: Memory,
     parameters: Vec<Vec<u32>>,
+    output_counts: Vec<u32>,
     current_clip: Rect,
     visibility_history: Vec<Rect>,
 }
@@ -140,6 +141,17 @@ impl Execution {
             clear_instances: false,
             instances: Memory::default(),
             parameters: doc.operators.iter().map(|o| o.parameters.clone()).collect(),
+            output_counts: {
+                let mut counts = vec![0u32; doc.operators.len()];
+                for op in &doc.operators {
+                    for &source in op.inputs.iter().chain(op.links.iter().flatten()) {
+                        if let Some(count) = counts.get_mut(source) {
+                            *count = count.wrapping_add(1);
+                        }
+                    }
+                }
+                counts
+            },
             current_clip: Rect::UNIT,
             visibility_history: Vec::new(),
         }
@@ -483,7 +495,17 @@ impl Execution {
                 self.event_spline.and_then(|i| doc.splines.get(i)),
             )
             .map_err(|_| fail("scene animation failed"))?;
-        let p = p.clone();
+        let mut p = p.clone();
+        // KOp::Exec appends OutputCount after animation data. It is not an
+        // authored or animatable parameter and counts both input and link uses.
+        if doc.classes[op.class].convention & 0x0800_0000 != 0 {
+            // Published development viewport predates stereo and crop controls.
+            // Preserve its unshifted mono camera and full viewport extent.
+            if id == 0xf0 && doc.layout == crate::kx::Layout::Legacy3383 && p.len() == 18 {
+                p.extend([0, 1f32.to_bits(), 0, 0, 1f32.to_bits(), 1f32.to_bits()]);
+            }
+            p.push(self.output_counts[root]);
+        }
         let f = |i| {
             p.get(i)
                 .copied()
