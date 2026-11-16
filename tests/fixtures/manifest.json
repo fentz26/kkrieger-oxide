@@ -270,6 +270,10 @@
     "flush.bin": {
       "bytes": 14340,
       "sha256": "27cd1f0f840cc4db1ddb9336b90836b19ff3e9ac40ddbe6673f9b4ed275d330f"
+    },
+    "viewport-camera.bin": {
+      "bytes": 853944,
+      "sha256": "4a8cb93f67c2809e0653a8f3f3ab878d5d7dddcf3ea82b7aa658fc2f6f621ae1"
     }
   }
 }

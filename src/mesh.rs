@@ -247,6 +247,21 @@ pub fn srt_matrix(srt: &[f32; 9]) -> Matrix {
     m
 }
 
+// Original fsincos evaluates before storing its two single-precision results.
+pub fn euler_matrix_fsincos(angles: [f32; 3]) -> Matrix {
+    let pairs = angles.map(|a| {
+        let (s, c) = f64::from(a).sin_cos();
+        (s as f32, c as f32)
+    });
+    let [(sx, cx), (sy, cy), (sz, cz)] = pairs;
+    [
+        [cy * cz, cy * sz, -sy, 0.],
+        [-cx * sz + sx * sy * cz, cx * cz + sx * sy * sz, sx * cy, 0.],
+        [sx * sz + cx * sy * cz, -sx * cz + cx * sy * sz, cx * cy, 0.],
+        [0., 0., 0., 1.],
+    ]
+}
+
 pub fn euler_matrix(angles: [f32; 3]) -> Matrix {
     let (sx, cx) = angles[0].sin_cos();
     let (sy, cy) = angles[1].sin_cos();

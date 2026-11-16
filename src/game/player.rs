@@ -6,20 +6,7 @@ use crate::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-// Original fsincos evaluates before storing its two single-precision results.
-pub(super) fn orientation(angles: [f32; 3]) -> Matrix {
-    let pairs = angles.map(|a| {
-        let (s, c) = f64::from(a).sin_cos();
-        (s as f32, c as f32)
-    });
-    let [(sx, cx), (sy, cy), (sz, cz)] = pairs;
-    [
-        [cy * cz, cy * sz, -sy, 0.],
-        [-cx * sz + sx * sy * cz, cx * cz + sx * sy * sz, sx * cy, 0.],
-        [sx * sz + cx * sy * cz, -sx * cz + cx * sy * sz, cx * cy, 0.],
-        [0., 0., 0., 1.],
-    ]
-}
+pub(super) use crate::mesh::euler_matrix_fsincos as orientation;
 
 pub struct Motion {
     pub collider: Collider,

@@ -319,3 +319,10 @@ footstep timers, and preserved inventory/cooldown/motion fields. Regenerate
 with `python3 tools/verify_flush.py`. Rust root-replacement integration also
 checks zone rebinding, menu-to-game collision placement, first-start intro mode,
 shared handles, and weapon-event instance ownership.
+
+`viewport-camera.bin` records 1,024 original player-build IPP viewport camera
+blocks, including projection inheritance, orbit modes, fog, aspect correction,
+spline overrides, stereo target requests, clear flags, and per-eye cameras.
+It preserves degenerate normalization and zero focal-distance behavior. GPU
+painting and postprocessing are outside this fixture. Regenerate with
+`python3 tools/verify_viewport_camera.py`.

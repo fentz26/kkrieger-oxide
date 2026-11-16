@@ -10,6 +10,7 @@ pub mod exec;
 pub mod instance;
 pub mod menu;
 pub mod trigger;
+pub mod viewport;
 
 pub type Handle = Rc<RefCell<Scene>>;
 #[derive(Clone, Debug)]
