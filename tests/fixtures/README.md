@@ -415,3 +415,10 @@ sectors deliberately omitted from SectorJobs. Both views compare execution
 selection and clip rectangles for registered draw jobs; cached observers and
 portal endpoints remain traversable. Regenerate with
 `python3 tools/verify_cached_sectors.py`.
+
+`particle-billboard.bin` records 256 original PartSystem billboard evaluations,
+including all 32 vertex words per quad, color/size envelopes and rotations. The
+verifier extracts the original loop and SetVert; Fade64 uses the scalar MMX
+translation independently covered by bitmap fixtures. This verifies geometry
+and packing, not GPU rasterization or released x86 transcendental rounding.
+Regenerate with `python3 tools/verify_particle_billboard.py`.

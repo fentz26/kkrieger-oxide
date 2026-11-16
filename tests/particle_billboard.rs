@@ -50,3 +50,55 @@ fn undefined_authored_lifetime_division_returns_an_error() {
     };
     assert!(a.billboard(&p, [[1., 0., 0.], [0., 1., 0.]]).is_err());
 }
+
+#[test]
+fn native_original_billboards_match_all_vertex_words() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/particle-billboard.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let value = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        value
+    }
+    fn real(bytes: &mut &[u8]) -> f32 {
+        f32::from_bits(word(bytes))
+    }
+    assert_eq!(word(&mut bytes), 256);
+    for case in 0..256 {
+        let a = Appearance {
+            colors: std::array::from_fn(|_| word(&mut bytes)),
+            sizes: std::array::from_fn(|_| real(&mut bytes)),
+            middle: real(&mut bytes),
+            fade: real(&mut bytes),
+        };
+        let p = Particle {
+            position: std::array::from_fn(|_| real(&mut bytes)),
+            speed: [0.; 4],
+            time: word(&mut bytes) as i32,
+            max_time: word(&mut bytes) as i32,
+        };
+        let basis = std::array::from_fn(|_| std::array::from_fn(|_| real(&mut bytes)));
+        let vertices = a.billboard(&p, basis).unwrap();
+        for (index, value) in vertices.into_iter().flatten().enumerate() {
+            assert_eq!(
+                value.to_bits(),
+                word(&mut bytes),
+                "case {case}, word {index}"
+            );
+        }
+    }
+    assert!(bytes.is_empty());
+}
+
+#[test]
+fn billboard_axes_transpose_before_normalizing() {
+    let matrix = [
+        [0., 3., 7., 0.],
+        [4., 0., 8., 0.],
+        [0., 4., 9., 0.],
+        [100., 200., 300., 1.],
+    ];
+    assert_eq!(
+        kkrieger_oxide::scene::particles::billboard_basis(matrix),
+        [[0., 1., 0.], [0.6, 0., 0.8]]
+    );
+}

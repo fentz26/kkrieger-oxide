@@ -1,5 +1,18 @@
 //! Original persistent particle slots and PartEmitter simulation.
 use crate::{mesh::Matrix, random::Random};
+/// Original Trans3/Unit3 billboard axes. The caller chooses MODELVIEW or the
+/// operator transform according to the PartSystem flags before this step.
+pub fn billboard_basis(matrix: Matrix) -> [[f32; 3]; 2] {
+    std::array::from_fn(|axis| {
+        let mut vector = [matrix[0][axis], matrix[1][axis], matrix[2][axis]];
+        let length = vector[0] * vector[0] + vector[1] * vector[1] + vector[2] * vector[2];
+        let scale = (1. / f64::from(length).sqrt()) as f32;
+        for value in &mut vector {
+            *value *= scale;
+        }
+        vector
+    })
+}
 /// Authored PartSystem color, size and lifetime envelopes.
 pub struct Appearance {
     pub colors: [u32; 3],

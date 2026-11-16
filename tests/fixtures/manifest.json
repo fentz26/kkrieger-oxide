@@ -17,9 +17,113 @@
       "bytes": 41284,
       "sha256": "24056cafa683d58ecc65b1f5dce3eda34e36d533f3f75a2b80e4be437c4e9d8b"
     },
+    "cached-sectors.bin": {
+      "bytes": 116740,
+      "sha256": "749e99d33e0b8a34b9efe2a0720f9e94bd2d8c7d8da0233df85286b18cb0800c"
+    },
+    "camera-bridge.bin": {
+      "bytes": 58372,
+      "sha256": "0f9a4365371b9810d79566051db8f69a0a3d4f1c34ace5049d0a04b043c8a8a5"
+    },
+    "checkpoints.bin": {
+      "bytes": 100356,
+      "sha256": "ac0f837f0187ae7d31ecdebeca9a618d7b5b86f3dbaad590009d42df2f2465ec"
+    },
+    "collision-connectivity.bin": {
+      "bytes": 212136,
+      "sha256": "72608495f2a140752808b8651fca4f6196bcab5225993d5a17edf83fa330d272"
+    },
+    "collision-dynamic.bin": {
+      "bytes": 240644,
+      "sha256": "747d9e5c3ec751eff199ba0eebe100c2923158216385a8a4fa06189aaf53e612"
+    },
+    "collision-faces.bin": {
+      "bytes": 168372,
+      "sha256": "0c1b09c21ca62461636862409637683c49e53a18ee93ce6874fc167739354c3a"
+    },
+    "collision-movement.bin": {
+      "bytes": 236040,
+      "sha256": "450bab5f9bd7a16bb3cb65d3b8f7aaf53d919a28691d8f06fdeada279ea5567c"
+    },
+    "collision-queries.bin": {
+      "bytes": 430652,
+      "sha256": "fb8b9dc620c9579d071da6a223eddcb2013ba10bfd9060b0b51c839f46de4325"
+    },
+    "collision-ray.bin": {
+      "bytes": 761352,
+      "sha256": "3f8eb41c40f48e80c0d1ddb0e6ae91dd2fc1421caf7df0f4e4e2d6a2b3088a48"
+    },
+    "collision-sphere.bin": {
+      "bytes": 321496,
+      "sha256": "60864eb74a464401ba9bd5fbadb2038bed351e4f76b36d163698349cce9621a9"
+    },
+    "collision-world.bin": {
+      "bytes": 423812,
+      "sha256": "33a71f9ebfd54f43b3f7c0926ae30d0f519a0c1aafa00c80bfd5c6ff2b9c0a81"
+    },
+    "collision.bin": {
+      "bytes": 71604,
+      "sha256": "627f6ccf0256e64881cd538aae0d0fa5621a8b5861baa2d5571298bf86316508"
+    },
+    "delay.bin": {
+      "bytes": 3037192,
+      "sha256": "6d5c1f02a0b66600589c29826ea20583f9d5b558691243402472a147efe1398a"
+    },
+    "events.bin": {
+      "bytes": 110220,
+      "sha256": "ac195b5c626015646c55b345cd0106b8a23a9c3da2355c7ec0135f5ba82ff114"
+    },
+    "flush.bin": {
+      "bytes": 14340,
+      "sha256": "27cd1f0f840cc4db1ddb9336b90836b19ff3e9ac40ddbe6673f9b4ed275d330f"
+    },
+    "frame.bin": {
+      "bytes": 786192,
+      "sha256": "b38af8f3fe5e8281d2b0f203f2c56977ff1fb290ec8b3b4f1ba292bafa62dbd2"
+    },
+    "game-event-registration.bin": {
+      "bytes": 100660,
+      "sha256": "c782b33643bacf0e842bc0575aaa0c537cf02c6026aaf5778ad75a7641635a9b"
+    },
+    "game-events.bin": {
+      "bytes": 62984,
+      "sha256": "ca3308b17536d3a80bf8d3ccff7486daf1a93b56570f6002991cd5ebf724af41"
+    },
+    "game-parameters.bin": {
+      "bytes": 192008,
+      "sha256": "f4e970770eacd71f1cc3e882eac66ae0d142420b365530aeab5f93c12d9c28fc"
+    },
     "generators3383.bin": {
       "bytes": 1927212,
       "sha256": "74b2586137e57cc6ff047b88899514a0ee5d40b7d7a59c3bea3835f16dec8c30"
+    },
+    "input-keys.bin": {
+      "bytes": 460632,
+      "sha256": "45342010a181c143f52a8dc8952f31d32d78561956019902111506e3b8275af1"
+    },
+    "input-look.bin": {
+      "bytes": 114184,
+      "sha256": "acdc89407bdbdaefecf46c6fd0f33a95f6d5785c339449bd55416ea13ce5fdd8"
+    },
+    "lighting-lookup.bin": {
+      "bytes": 229376,
+      "sha256": "d49c896b3f3d3a3337cc7738da66d8c6f9391f5f94d043a131decf7a3ae70412"
+    },
+    "material-graph3383.bin": {
+      "bytes": 114964,
+      "sha256": "7bfc777ed26558f5b9b70d3e477b6ad194fbd3c96ab91f1f1194631da00953cf"
+    },
+    "material-uniforms.bin": {
+      "bytes": 93828,
+      "sha256": "cac259baed0a134903bb283d8a8f74bcd17a3119fbdb3a9db7985e38fcbcd5b3"
+    },
+    "material.bin": {
+      "bytes": 493572,
+      "sha256": "1957587c2c7706c4bf3e55db8d9274a7525354a6d64a6b8f5322fe1db818a9c8"
+    },
+    "menu.bin": {
+      "bytes": 1816004,
+      "sha256": "67c52ca282a7846781f4d7b69abeee0505856056ffea50eb6641c5211072ba5f"
     },
     "mesh-assembly.bin": {
       "bytes": 1119208,
@@ -71,162 +175,6 @@
       "bytes": 2892468,
       "sha256": "80d99778e26ccc824bd0f88ceb592b0aa1cb888e3bd6b703a3e92f1c4e65325c"
     },
-    "noise.bin": {
-      "bytes": 20004,
-      "sha256": "5dec04d18c674ef9b6cd8540e656f8622efa363bda29004b783f791593a7d06a"
-    },
-    "texture-graph3383.bin": {
-      "bytes": 3268,
-      "sha256": "99a29ed4bab062aa80a91e5a9ba52313b6e7a831e88214164accf5d032d4b20a"
-    },
-    "material.bin": {
-      "bytes": 493572,
-      "sha256": "1957587c2c7706c4bf3e55db8d9274a7525354a6d64a6b8f5322fe1db818a9c8"
-    },
-    "material-graph3383.bin": {
-      "bytes": 114964,
-      "sha256": "7bfc777ed26558f5b9b70d3e477b6ad194fbd3c96ab91f1f1194631da00953cf"
-    },
-    "prepared-mesh.bin": {
-      "bytes": 366976,
-      "sha256": "ff1b7a612bdcb836e7f9f7cd406aef64ba3cbb27f5799ad2a000825240e6fb30"
-    },
-    "lighting-lookup.bin": {
-      "bytes": 229376,
-      "sha256": "d49c896b3f3d3a3337cc7738da66d8c6f9391f5f94d043a131decf7a3ae70412"
-    },
-    "material-uniforms.bin": {
-      "bytes": 93828,
-      "sha256": "cac259baed0a134903bb283d8a8f74bcd17a3119fbdb3a9db7985e38fcbcd5b3"
-    },
-    "texture-upload.bin": {
-      "bytes": 126460,
-      "sha256": "c789c48e192a603b04214077cec7bcd2ff7098b8fc4dc96e22d4b9520cba7f1d"
-    },
-    "shadow.bin": {
-      "bytes": 161748,
-      "sha256": "e41fbd5c4fbec4c24f6ed44b83d17b31ac1c7c0f0b81552ce57a3f05077b6405"
-    },
-    "visibility.bin": {
-      "bytes": 232964,
-      "sha256": "f6807123cf4d4ecd122212732c4256600605a3442b7e621b5c3a25fee6e4be99"
-    },
-    "delay.bin": {
-      "bytes": 3037192,
-      "sha256": "6d5c1f02a0b66600589c29826ea20583f9d5b558691243402472a147efe1398a"
-    },
-    "collision.bin": {
-      "bytes": 71604,
-      "sha256": "627f6ccf0256e64881cd538aae0d0fa5621a8b5861baa2d5571298bf86316508"
-    },
-    "collision-dynamic.bin": {
-      "bytes": 240644,
-      "sha256": "747d9e5c3ec751eff199ba0eebe100c2923158216385a8a4fa06189aaf53e612"
-    },
-    "collision-queries.bin": {
-      "bytes": 430652,
-      "sha256": "fb8b9dc620c9579d071da6a223eddcb2013ba10bfd9060b0b51c839f46de4325"
-    },
-    "collision-connectivity.bin": {
-      "bytes": 212136,
-      "sha256": "72608495f2a140752808b8651fca4f6196bcab5225993d5a17edf83fa330d272"
-    },
-    "collision-faces.bin": {
-      "bytes": 168372,
-      "sha256": "0c1b09c21ca62461636862409637683c49e53a18ee93ce6874fc167739354c3a"
-    },
-    "collision-world.bin": {
-      "bytes": 423812,
-      "sha256": "33a71f9ebfd54f43b3f7c0926ae30d0f519a0c1aafa00c80bfd5c6ff2b9c0a81"
-    },
-    "collision-ray.bin": {
-      "bytes": 761352,
-      "sha256": "3f8eb41c40f48e80c0d1ddb0e6ae91dd2fc1421caf7df0f4e4e2d6a2b3088a48"
-    },
-    "collision-sphere.bin": {
-      "bytes": 321496,
-      "sha256": "60864eb74a464401ba9bd5fbadb2038bed351e4f76b36d163698349cce9621a9"
-    },
-    "collision-movement.bin": {
-      "bytes": 236040,
-      "sha256": "450bab5f9bd7a16bb3cb65d3b8f7aaf53d919a28691d8f06fdeada279ea5567c"
-    },
-    "game-parameters.bin": {
-      "bytes": 192008,
-      "sha256": "f4e970770eacd71f1cc3e882eac66ae0d142420b365530aeab5f93c12d9c28fc"
-    },
-    "game-events.bin": {
-      "bytes": 62984,
-      "sha256": "ca3308b17536d3a80bf8d3ccff7486daf1a93b56570f6002991cd5ebf724af41"
-    },
-    "player-motion.bin": {
-      "bytes": 249352,
-      "sha256": "1c4840f51bdfc73cc6dbb782553580a0bd83729d339a7e50ff0d2f2d5fc80059"
-    },
-    "player-actions.bin": {
-      "bytes": 61400,
-      "sha256": "ef153eb759a8363e15d28866ae7649814c59ed6823b72f02e486c4e1d6796281"
-    },
-    "weapon-state.bin": {
-      "bytes": 98600,
-      "sha256": "53114873428c681f42fc8f6cd2fdcae2fed05d18b57830f937477873b61688a6"
-    },
-    "shot-spawn.bin": {
-      "bytes": 31080,
-      "sha256": "b71b24fca0c3c0f3fee12bab04f6e2475cdc347e47a9cc446b3aa7ffd8f0d25e"
-    },
-    "shot-ai.bin": {
-      "bytes": 127720,
-      "sha256": "0ae0200c88b6929d1502a666584bda3d0b4d19ebc9e9def93b68f74d9155dc8c"
-    },
-    "monster-damage.bin": {
-      "bytes": 26632,
-      "sha256": "70402b70acf4e7ca19773053bdcab53e569b12e5e22313adaaf9fd47ddc88e72"
-    },
-    "splash.bin": {
-      "bytes": 59396,
-      "sha256": "30bbc535b0ef3b0d6ad4b2f6fceb87fe9531e2926911e5017ffdb42b8a712458"
-    },
-    "splash-trigger.bin": {
-      "bytes": 32776,
-      "sha256": "28234ebae23b91e6fd05b99ec681cdbf8ad8055c033527df13dd42735759913b"
-    },
-    "checkpoints.bin": {
-      "bytes": 100356,
-      "sha256": "ac0f837f0187ae7d31ecdebeca9a618d7b5b86f3dbaad590009d42df2f2465ec"
-    },
-    "zones.bin": {
-      "bytes": 5135112,
-      "sha256": "f7b352574c26ce4371c482102cd0d7113f74e9bee5234ab88dcd296f909a9233"
-    },
-    "events.bin": {
-      "bytes": 110220,
-      "sha256": "ac195b5c626015646c55b345cd0106b8a23a9c3da2355c7ec0135f5ba82ff114"
-    },
-    "trigger.bin": {
-      "bytes": 268856,
-      "sha256": "ba9b32d1d3132f8c4aa4d6a15f4ee1058fa870fcbca9d7349bcc6e2468ff0e27"
-    },
-    "game-event-registration.bin": {
-      "bytes": 100660,
-      "sha256": "c782b33643bacf0e842bc0575aaa0c537cf02c6026aaf5778ad75a7641635a9b"
-    },
-    "restart-camera.bin": {
-      "bytes": 183816,
-      "sha256": "611005363aa1e25e7b6fc6c9fb85dea8f70b34c5355f6520ae2e2892993d1cd8"
-    },
-    "input-keys.bin": {
-      "bytes": 460632,
-      "sha256": "45342010a181c143f52a8dc8952f31d32d78561956019902111506e3b8275af1"
-    },
-    "input-look.bin": {
-      "bytes": 114184,
-      "sha256": "acdc89407bdbdaefecf46c6fd0f33a95f6d5785c339449bd55416ea13ce5fdd8"
-    },
-    "monster-walk.bin": {
-      "bytes": 2204808,
-      "sha256": "2d31a4438c28c38bb6ff3e2c57e189d14ea1563e217f6ca30059b1bffaac1e2a"
-    },
     "monster-actor.bin": {
       "bytes": 239208,
       "sha256": "c6630c0d7afe831997442fc8c217d89883738a87e6622290bed4260732f00af2"
@@ -234,6 +182,10 @@
     "monster-ai.bin": {
       "bytes": 2521288,
       "sha256": "bd92428fa53dbfe7df1834a5fedded42b0672da7bc689a1807d318ea99019095"
+    },
+    "monster-damage.bin": {
+      "bytes": 26632,
+      "sha256": "70402b70acf4e7ca19773053bdcab53e569b12e5e22313adaaf9fd47ddc88e72"
     },
     "monster-magnet.bin": {
       "bytes": 356612,
@@ -243,97 +195,149 @@
       "bytes": 233288,
       "sha256": "97f6da72758ae09f8983bac4ef60d22df07dc237ac229bd99ec53600ccb54e0c"
     },
-    "tick-player.bin": {
-      "bytes": 65992,
-      "sha256": "6596bcd33f9b111a2daa299edca79fbe5fce7a0ae52c777a6464e52d55f394b6"
+    "monster-walk.bin": {
+      "bytes": 2204808,
+      "sha256": "2d31a4438c28c38bb6ff3e2c57e189d14ea1563e217f6ca30059b1bffaac1e2a"
     },
-    "menu.bin": {
-      "bytes": 1816004,
-      "sha256": "67c52ca282a7846781f4d7b69abeee0505856056ffea50eb6641c5211072ba5f"
-    },
-    "frame.bin": {
-      "bytes": 786192,
-      "sha256": "b38af8f3fe5e8281d2b0f203f2c56977ff1fb290ec8b3b4f1ba292bafa62dbd2"
-    },
-    "startup.bin": {
-      "bytes": 528608,
-      "sha256": "d159164b74c1f5d6e8a429d90324d04fd91115c3300bb98b2fcf28679e4fc357"
+    "noise.bin": {
+      "bytes": 20004,
+      "sha256": "5dec04d18c674ef9b6cd8540e656f8622efa363bda29004b783f791593a7d06a"
     },
     "nullable-player.bin": {
       "bytes": 14340,
       "sha256": "7dc3208d47c73c35fd43b91490279a4bc8955303c5d3fcc917ac80a58a49523c"
     },
-    "view.bin": {
-      "bytes": 134916,
-      "sha256": "17c840daf047bbc0b268fcb69ab3a093a48ef0a536f4755e15cf317aae274f43"
-    },
-    "flush.bin": {
-      "bytes": 14340,
-      "sha256": "27cd1f0f840cc4db1ddb9336b90836b19ff3e9ac40ddbe6673f9b4ed275d330f"
-    },
-    "viewport-camera.bin": {
-      "bytes": 853944,
-      "sha256": "4a8cb93f67c2809e0653a8f3f3ab878d5d7dddcf3ea82b7aa658fc2f6f621ae1"
-    },
-    "overlay-pool.bin": {
-      "bytes": 1475336,
-      "sha256": "0caba03cac853567e5e2a369c0e719b93f50320c1c42c75faf95fe92c435eded"
-    },
-    "overlay-copy.bin": {
-      "bytes": 759236,
-      "sha256": "bfdf02f188a9e34ab2da09227f56bd18bb3a7f09dce9260e175ebe5e29394d49"
+    "overlay-blur.bin": {
+      "bytes": 1081268,
+      "sha256": "b63c4dd164f210fe06ca5d61d09b5b83131566e3e15c16808dfe4ea6e10e93e8"
     },
     "overlay-color.bin": {
       "bytes": 1075376,
       "sha256": "40e1f598d807f6b36f4bafbd1eacc8bcc9423c2867f48f7566f557e566058e36"
     },
-    "overlay-merge.bin": {
-      "bytes": 1068136,
-      "sha256": "353d1c0afa2b212788a5318807ea8339d56d45a97e55be4ea3b53585d8d63d5a"
-    },
-    "overlay-select.bin": {
-      "bytes": 158984,
-      "sha256": "9f50bb07c8eeb89d8b3ea6d833eca911900a943f194b5a05bef54961dd55f510"
+    "overlay-copy.bin": {
+      "bytes": 759236,
+      "sha256": "bfdf02f188a9e34ab2da09227f56bd18bb3a7f09dce9260e175ebe5e29394d49"
     },
     "overlay-mask.bin": {
       "bytes": 1372536,
       "sha256": "b0ed4809745f5dc52b6069b30e957243d3863e92284f7d1f21a313bd0d94dd4c"
     },
-    "overlay-blur.bin": {
-      "bytes": 1081268,
-      "sha256": "b63c4dd164f210fe06ca5d61d09b5b83131566e3e15c16808dfe4ea6e10e93e8"
+    "overlay-merge.bin": {
+      "bytes": 1068136,
+      "sha256": "353d1c0afa2b212788a5318807ea8339d56d45a97e55be4ea3b53585d8d63d5a"
     },
-    "scene-rotate.bin": {
-      "bytes": 141316,
-      "sha256": "8d2a54d62935a72231c2afd308eb374fe733f401ac8b02ac2c7c5c1dfc8247d9"
-    },
-    "scene-camera.bin": {
-      "bytes": 118788,
-      "sha256": "d9bbbd4281643bfe04bd28b47c3954e568e93297aa45792c249efb0555988ccf"
-    },
-    "sample.bin": {
-      "bytes": 253600,
-      "sha256": "65e541abb834cab6d400a0c7aaa32b2cd132ea4c5e613c2b399957bdd7c438e8"
+    "overlay-pool.bin": {
+      "bytes": 1475336,
+      "sha256": "0caba03cac853567e5e2a369c0e719b93f50320c1c42c75faf95fe92c435eded"
     },
     "overlay-render-target.bin": {
       "bytes": 90092,
       "sha256": "042598c4219d7b9f833a69eb57fae147e1987d121f606431585df9cafd94b2a1"
     },
-    "projection.bin": {
-      "bytes": 51204,
-      "sha256": "a5d3258ca70b895008e400e507ecc21c12a2020f74c953e4d7bbb2e8df946938"
+    "overlay-select.bin": {
+      "bytes": 158984,
+      "sha256": "9f50bb07c8eeb89d8b3ea6d833eca911900a943f194b5a05bef54961dd55f510"
     },
-    "camera-bridge.bin": {
-      "bytes": 58372,
-      "sha256": "0f9a4365371b9810d79566051db8f69a0a3d4f1c34ace5049d0a04b043c8a8a5"
+    "particle-billboard.bin": {
+      "bytes": 53252,
+      "sha256": "7a7feeae29e858670c2e20cb6b4badfe2a4d7631d2bc9ab51f625b829e2259b5"
     },
     "particle-emitter.bin": {
       "bytes": 248840,
       "sha256": "68b987bb7bfac95a9dda6dbb66117bce62c881202f64bb3ad728dba9db6b7a31"
     },
-    "cached-sectors.bin": {
-      "bytes": 116740,
-      "sha256": "749e99d33e0b8a34b9efe2a0720f9e94bd2d8c7d8da0233df85286b18cb0800c"
+    "player-actions.bin": {
+      "bytes": 61400,
+      "sha256": "ef153eb759a8363e15d28866ae7649814c59ed6823b72f02e486c4e1d6796281"
+    },
+    "player-motion.bin": {
+      "bytes": 249352,
+      "sha256": "1c4840f51bdfc73cc6dbb782553580a0bd83729d339a7e50ff0d2f2d5fc80059"
+    },
+    "prepared-mesh.bin": {
+      "bytes": 366976,
+      "sha256": "ff1b7a612bdcb836e7f9f7cd406aef64ba3cbb27f5799ad2a000825240e6fb30"
+    },
+    "projection.bin": {
+      "bytes": 51204,
+      "sha256": "a5d3258ca70b895008e400e507ecc21c12a2020f74c953e4d7bbb2e8df946938"
+    },
+    "restart-camera.bin": {
+      "bytes": 183816,
+      "sha256": "611005363aa1e25e7b6fc6c9fb85dea8f70b34c5355f6520ae2e2892993d1cd8"
+    },
+    "sample.bin": {
+      "bytes": 253600,
+      "sha256": "65e541abb834cab6d400a0c7aaa32b2cd132ea4c5e613c2b399957bdd7c438e8"
+    },
+    "scene-camera.bin": {
+      "bytes": 118788,
+      "sha256": "d9bbbd4281643bfe04bd28b47c3954e568e93297aa45792c249efb0555988ccf"
+    },
+    "scene-rotate.bin": {
+      "bytes": 141316,
+      "sha256": "8d2a54d62935a72231c2afd308eb374fe733f401ac8b02ac2c7c5c1dfc8247d9"
+    },
+    "shadow.bin": {
+      "bytes": 161748,
+      "sha256": "e41fbd5c4fbec4c24f6ed44b83d17b31ac1c7c0f0b81552ce57a3f05077b6405"
+    },
+    "shot-ai.bin": {
+      "bytes": 127720,
+      "sha256": "0ae0200c88b6929d1502a666584bda3d0b4d19ebc9e9def93b68f74d9155dc8c"
+    },
+    "shot-spawn.bin": {
+      "bytes": 31080,
+      "sha256": "b71b24fca0c3c0f3fee12bab04f6e2475cdc347e47a9cc446b3aa7ffd8f0d25e"
+    },
+    "splash-trigger.bin": {
+      "bytes": 32776,
+      "sha256": "28234ebae23b91e6fd05b99ec681cdbf8ad8055c033527df13dd42735759913b"
+    },
+    "splash.bin": {
+      "bytes": 59396,
+      "sha256": "30bbc535b0ef3b0d6ad4b2f6fceb87fe9531e2926911e5017ffdb42b8a712458"
+    },
+    "startup.bin": {
+      "bytes": 528608,
+      "sha256": "d159164b74c1f5d6e8a429d90324d04fd91115c3300bb98b2fcf28679e4fc357"
+    },
+    "texture-graph3383.bin": {
+      "bytes": 3268,
+      "sha256": "99a29ed4bab062aa80a91e5a9ba52313b6e7a831e88214164accf5d032d4b20a"
+    },
+    "texture-upload.bin": {
+      "bytes": 126460,
+      "sha256": "c789c48e192a603b04214077cec7bcd2ff7098b8fc4dc96e22d4b9520cba7f1d"
+    },
+    "tick-player.bin": {
+      "bytes": 65992,
+      "sha256": "6596bcd33f9b111a2daa299edca79fbe5fce7a0ae52c777a6464e52d55f394b6"
+    },
+    "trigger.bin": {
+      "bytes": 268856,
+      "sha256": "ba9b32d1d3132f8c4aa4d6a15f4ee1058fa870fcbca9d7349bcc6e2468ff0e27"
+    },
+    "view.bin": {
+      "bytes": 134916,
+      "sha256": "17c840daf047bbc0b268fcb69ab3a093a48ef0a536f4755e15cf317aae274f43"
+    },
+    "viewport-camera.bin": {
+      "bytes": 853944,
+      "sha256": "4a8cb93f67c2809e0653a8f3f3ab878d5d7dddcf3ea82b7aa658fc2f6f621ae1"
+    },
+    "visibility.bin": {
+      "bytes": 232964,
+      "sha256": "f6807123cf4d4ecd122212732c4256600605a3442b7e621b5c3a25fee6e4be99"
+    },
+    "weapon-state.bin": {
+      "bytes": 98600,
+      "sha256": "53114873428c681f42fc8f6cd2fdcae2fed05d18b57830f937477873b61688a6"
+    },
+    "zones.bin": {
+      "bytes": 5135112,
+      "sha256": "f7b352574c26ce4371c482102cd0d7113f74e9bee5234ab88dcd296f909a9233"
     }
   }
 }
