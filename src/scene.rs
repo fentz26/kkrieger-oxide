@@ -10,6 +10,7 @@ pub mod effects;
 pub mod event;
 pub mod exec;
 pub mod instance;
+pub mod light;
 pub mod menu;
 pub mod overlay;
 pub mod paint;
