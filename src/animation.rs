@@ -9,6 +9,61 @@ type V4 = [f32; 4];
 type Result<T> = std::result::Result<T, Error>;
 const STACK: usize = 256;
 
+/// Original KOp::UpdateVar range: explicit LOADVAR instructions and the ranges
+/// of called inputs/links. KA_MATRIX does not extend this source-level range.
+pub fn effect_variable_range(
+    doc: &crate::kx::Document<'_>,
+    root: usize,
+) -> Result<Option<std::ops::Range<usize>>> {
+    let mut pending = vec![root];
+    let mut visited = vec![false; doc.operators.len()];
+    let mut range: Option<std::ops::Range<usize>> = None;
+    while let Some(index) = pending.pop() {
+        let op = doc
+            .operators
+            .get(index)
+            .ok_or(err(index, "effect dependency out of range"))?;
+        if visited[index] {
+            continue;
+        }
+        visited[index] = true;
+        let mut pc = 0;
+        loop {
+            let command = take(op.animation, &mut pc, 1)?[0];
+            if command == 1 {
+                break;
+            }
+            let count = match command {
+                0 | 7..=21 | 26..=28 => 0,
+                2..=6 | 0x80..=0xbf | 0xd0..=0xff => 1,
+                22 => 16,
+                23..=24 => 4,
+                25 => 2,
+                29 => 8,
+                _ => return Err(err(pc, "unknown effect animation opcode")),
+            };
+            let payload = take(op.animation, &mut pc, count)?;
+            if command == 2 {
+                let variable = payload[0] as usize;
+                if variable >= 32 {
+                    return Err(err(pc, "effect variable out of range"));
+                }
+                if let Some(r) = &mut range {
+                    r.start = r.start.min(variable);
+                    r.end = r.end.max(variable + 1);
+                } else {
+                    range = Some(variable..variable + 1);
+                }
+            }
+        }
+        pending.extend(op.inputs.iter().copied());
+        if doc.classes[op.class].convention & 0x1000_0000 == 0 {
+            pending.extend(op.links.iter().flatten().copied());
+        }
+    }
+    Ok(range)
+}
+
 impl Spline {
     pub fn evaluate(&self, time: f32) -> V4 {
         let mut value = [0.; 4];

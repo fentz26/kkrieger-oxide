@@ -15,12 +15,19 @@ use crate::{
 use std::{cell::RefCell, rc::Rc};
 
 #[derive(Clone, Debug)]
+pub struct EffectVariables {
+    pub start: usize,
+    pub values: Vec<[f32; 4]>,
+}
+
+#[derive(Clone, Debug)]
 pub enum Job {
     Paint {
         operator: usize,
         matrix: Matrix,
         time: f32,
         pass_adjust: i32,
+        effect_variables: Option<EffectVariables>,
     },
     Light {
         operator: usize,
@@ -100,6 +107,7 @@ pub struct Execution {
     output_counts: Vec<u32>,
     current_clip: Rect,
     visibility_history: std::collections::BTreeMap<usize, Rect>,
+    effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
 }
 impl Execution {
     fn emit_overlay(&mut self, draw: super::overlay::Draw) {
@@ -110,6 +118,7 @@ impl Execution {
     pub fn new(doc: &Document<'_>) -> Self {
         Self {
             vm: Vm::new(),
+            effect_ranges: std::collections::BTreeMap::new(),
             audio: None,
             particles: std::array::from_fn(|_| super::particles::System::default()),
             random: crate::random::Random::new(1),
@@ -571,11 +580,33 @@ impl Execution {
         for &input in &doc.operators[root].inputs {
             let class = doc.classes[doc.operators[input].class].id;
             if mesh_graph::implemented(class) || matches!(class, 0x61 | 0x64) {
+                let effect_variables =
+                    if matches!(class, 0x61 | 0x64) {
+                        if let std::collections::btree_map::Entry::Vacant(entry) =
+                            self.effect_ranges.entry(input)
+                        {
+                            let range = crate::animation::effect_variable_range(doc, input)
+                                .map_err(|_| Error {
+                                    operator: input,
+                                    reason: "invalid effect animation dependency",
+                                })?;
+                            entry.insert(range);
+                        }
+                        self.effect_ranges[&input]
+                            .as_ref()
+                            .map(|range| EffectVariables {
+                                start: range.start,
+                                values: self.vm.variables[range.clone()].to_vec(),
+                            })
+                    } else {
+                        None
+                    };
                 self.jobs.push(Job::Paint {
                     operator: input,
                     matrix,
                     time: self.vm.variables[0][0],
                     pass_adjust: self.pass_adjust,
+                    effect_variables,
                 });
             } else {
                 self.visit(doc, input, matrix)?;
