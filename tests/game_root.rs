@@ -6,7 +6,8 @@ use kkrieger_oxide::{
     random::Random,
     scene::{
         effects::Content,
-        exec::Execution,
+        exec::{Execution, Job},
+        light,
         overlay::{Pool, Viewport},
     },
     texture,
@@ -52,8 +53,33 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     let mut particle_quads = 0;
     let mut print_packets = 0;
     let mut print_vertices = 0;
+    let mut prepared_lights = 0;
+    let mut max_lights = 0;
     let mut draw_effects = |e: &mut Execution| {
         for pass in e.render_passes.clone() {
+            let [x0, y0, x1, y1] = pass.viewport.window;
+            let lighting =
+                light::Context::from_camera(&pass.camera, [x1 - x0, y1 - y0], true).unwrap();
+            let mut visible_lights = 0;
+            for job in &pass.jobs {
+                if !matches!(job, Job::Light { .. }) {
+                    continue;
+                }
+                if let Some(light) = lighting.prepare(job).unwrap() {
+                    visible_lights += 1;
+                    assert!(light.importance.is_finite() && light.amplify.is_finite());
+                    assert!(light.rect.into_iter().all(f32::is_finite));
+                    for frustum in [&light.shadow, &light.zfail] {
+                        assert!(
+                            frustum.planes[..frustum.count]
+                                .iter()
+                                .all(|p| p.equation.into_iter().all(f32::is_finite))
+                        );
+                    }
+                }
+            }
+            prepared_lights += visible_lights;
+            max_lights = max_lights.max(visible_lights);
             let packets = e
                 .draw_effect_pass(&d, &pass, &materials, &fonts.font_pages, 60.)
                 .unwrap();
@@ -137,6 +163,8 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     eprintln!(
         "authored particle packets={particle_packets} quads={particle_quads} Print packets={print_packets} vertices={print_vertices}"
     );
+    eprintln!("authored prepared lights={prepared_lights} max visible per pass={max_lights}");
+    assert!(prepared_lights > 0);
     assert!(print_packets > 0);
     assert!(print_vertices > 0);
     assert!(particle_packets > 0);
