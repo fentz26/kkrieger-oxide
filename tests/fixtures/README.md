@@ -444,3 +444,9 @@ The expansion loop is extracted unchanged from Exec_Effect_Print; output bytes,
 center markers and newline counts are compared. The corpus includes truncated
 tokens and escaped choice separators, but excludes source buffer overflows.
 Regenerate with `python3 tools/verify_print_format.py`.
+
+`paint-culling.bin` records 512 original sAABox Rotate34/IntersectsSphere and
+sFrustum FromViewProject/sCullBBox evaluations. Tests compare every transformed
+bound and plane word, near-vertex selectors, active plane counts and sphere /
+five-plane / full-frustum decisions. Includes zero extents and infinite
+projection matrices. Regenerate with `python3 tools/verify_paint_culling.py`.

@@ -37,3 +37,55 @@ fn original_culling_retains_epsilon_boundary_and_optional_far_plane() {
         5
     );
 }
+
+#[test]
+fn native_original_transformed_bounds_planes_and_culling_match() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/paint-culling.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let n = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        n
+    }
+    fn real(bytes: &mut &[u8]) -> f32 {
+        f32::from_bits(word(bytes))
+    }
+    assert_eq!(word(&mut bytes), 512);
+    for case in 0..512 {
+        let bounds = Bounds(std::array::from_fn(|_| {
+            std::array::from_fn(|_| real(&mut bytes))
+        }));
+        let matrix = std::array::from_fn(|_| std::array::from_fn(|_| real(&mut bytes)));
+        let projection = std::array::from_fn(|_| std::array::from_fn(|_| real(&mut bytes)));
+        let viewport = std::array::from_fn(|_| real(&mut bytes));
+        let center = std::array::from_fn(|_| real(&mut bytes));
+        let radius = real(&mut bytes);
+        let world = bounds.transformed(matrix);
+        let frustum = Frustum::from_view_projection(projection, viewport);
+        for v in world.0.into_iter().flatten() {
+            assert_eq!(v.to_bits(), word(&mut bytes), "case {case} bounds");
+        }
+        for plane in frustum.planes {
+            for v in plane.equation {
+                assert_eq!(v.to_bits(), word(&mut bytes), "case {case} plane");
+            }
+            assert_eq!(u32::from(plane.near_vertex), word(&mut bytes));
+        }
+        assert_eq!(frustum.count, word(&mut bytes) as usize);
+        assert_eq!(
+            world.intersects_sphere(center, radius),
+            word(&mut bytes) != 0,
+            "case {case} sphere"
+        );
+        assert_eq!(
+            world.culled(&frustum.planes[..5]),
+            word(&mut bytes) != 0,
+            "case {case} five-plane cull"
+        );
+        assert_eq!(
+            world.culled(&frustum.planes[..frustum.count]),
+            word(&mut bytes) != 0,
+            "case {case} frustum cull"
+        );
+    }
+    assert!(bytes.is_empty());
+}
