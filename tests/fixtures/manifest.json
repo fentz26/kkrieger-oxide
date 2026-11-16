@@ -366,6 +366,10 @@
     "light-visibility.bin": {
       "bytes": 100780,
       "sha256": "541d7336930b12837e897f14b472edf5737b78ceb49609e1ec0911149a86c4d9"
+    },
+    "beta-light-sort.bin": {
+      "bytes": 6468,
+      "sha256": "3a722f5fc34943ffe702b81f05218192aa44936eda4a2f5dfe867fa87ec8f125"
     }
   }
 }

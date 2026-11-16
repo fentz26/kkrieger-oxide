@@ -472,3 +472,11 @@ importance before insertion. Projected bounds, rejection decisions, importance
 and fade bits are compared. Selection order and weapon-light prioritization
 are outside this fixture's scope. Regenerate with
 `python3 tools/verify_light_visibility.py`.
+
+`beta-light-sort.bin` records 128 Unicorn executions of released beta code
+0x8174b5..0x817512, pinned by executable and routine hashes. It compares stable
+importance ordering and the explicit four-light count clamp for zero through
+32 candidates, including ties and non-finite values. This released routine is
+separate from the later published InsertLightJob algorithm. It does not verify
+beta importance calculation, complete light preparation or GPU rendering.
+Regenerate with `.reference/venv/bin/python tools/verify_beta_light_sort.py`.

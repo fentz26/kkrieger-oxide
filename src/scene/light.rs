@@ -1,6 +1,27 @@
 //! Original AddLightJob visibility and CalcSphereBounds projection.
 use super::culling::Frustum;
 use crate::mesh::Matrix;
+/// Released beta 0x8174b5..0x817512: stable descending pointer sort followed
+/// by a four-light clamp. Kept distinct from the later published InsertLightJob.
+pub fn beta_light_order(importance: &[f32]) -> Vec<usize> {
+    let mut order: Vec<_> = (0..importance.len()).collect();
+    if order.len() > 1 {
+        loop {
+            let mut changed = false;
+            for i in 0..order.len() - 1 {
+                if importance[order[i]] < importance[order[i + 1]] {
+                    order.swap(i, i + 1);
+                    changed = true;
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+    order.truncate(4);
+    order
+}
 pub struct Context {
     camera: super::camera::Environment,
     view: Matrix,
