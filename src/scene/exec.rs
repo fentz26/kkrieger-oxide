@@ -62,6 +62,8 @@ pub struct ActorContext {
 pub struct Execution {
     pub vm: Vm,
     pub audio: Option<Box<dyn super::sample::Output>>,
+    pub particles: [super::particles::System; 16],
+    random: crate::random::Random,
     pub game_camera: super::camera::Environment,
     pub current_camera: super::camera::Environment,
     pub pass_adjust: i32,
@@ -109,6 +111,8 @@ impl Execution {
         Self {
             vm: Vm::new(),
             audio: None,
+            particles: std::array::from_fn(|_| super::particles::System::default()),
+            random: crate::random::Random::new(1),
             game_camera: super::camera::Environment::default(),
             current_camera: super::camera::Environment::default(),
             pass_adjust: 0,
@@ -155,6 +159,66 @@ impl Execution {
             current_clip: Rect::UNIT,
             visibility_history: Vec::new(),
         }
+    }
+    /// Particle-system Init handlers reached by the selected root's precalc.
+    /// Other slots retain their existing arrays, as in the source global table.
+    pub fn prepare_particle_systems(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+    ) -> Result<(), Error> {
+        let mut visited = vec![false; doc.operators.len()];
+        let mut stack = vec![(root, false)];
+        while let Some((index, finish)) = stack.pop() {
+            let fail = |reason| Error {
+                operator: index,
+                reason,
+            };
+            let op = doc
+                .operators
+                .get(index)
+                .ok_or_else(|| fail("particle precalc operator out of range"))?;
+            if finish {
+                if doc.classes[op.class].id == 0x64 {
+                    let p = op
+                        .parameters
+                        .get(..2)
+                        .ok_or_else(|| fail("truncated particle system parameters"))?;
+                    let system = self
+                        .particles
+                        .get_mut(p[0] as usize)
+                        .ok_or_else(|| fail("particle slot out of range"))?;
+                    if p[1] as i32 <= 0 {
+                        return Err(fail("particle capacity must be positive"));
+                    }
+                    system.particles = Vec::new();
+                    system.capacity = p[1] as usize;
+                }
+            } else if !visited[index] {
+                visited[index] = true;
+                stack.push((index, true));
+                let dependencies: Vec<_> = op
+                    .inputs
+                    .iter()
+                    .chain(op.links.iter().flatten())
+                    .copied()
+                    .collect();
+                stack.extend(dependencies.into_iter().rev().map(|input| (input, false)));
+            }
+        }
+        Ok(())
+    }
+    /// Preserve the original shared random stream between gameplay and effects.
+    pub fn frame_with_random(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        random: &mut crate::random::Random,
+    ) -> Result<(), Error> {
+        std::mem::swap(&mut self.random, random);
+        let result = self.frame(doc, root);
+        std::mem::swap(&mut self.random, random);
+        result
     }
     pub fn new_player(doc: &Document<'_>) -> Self {
         let mut execution = Self::new(doc);
@@ -459,7 +523,7 @@ impl Execution {
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
         for &input in &doc.operators[root].inputs {
             let class = doc.classes[doc.operators[input].class].id;
-            if mesh_graph::implemented(class) || matches!(class, 0x61 | 0x63 | 0x64) {
+            if mesh_graph::implemented(class) || matches!(class, 0x61 | 0x64) {
                 self.jobs.push(Job::Paint {
                     operator: input,
                     matrix,
@@ -520,6 +584,33 @@ impl Execution {
         };
         let result = (|| match id {
             id if mesh_graph::implemented(id) => self.exec_inputs(doc, root, parent),
+            0x63 => {
+                let p = p
+                    .get(..17)
+                    .ok_or_else(|| fail("truncated particle emitter parameters"))?;
+                let system = self
+                    .particles
+                    .get_mut(p[0] as usize)
+                    .ok_or_else(|| fail("particle slot out of range"))?;
+                let parameters = super::particles::Parameters {
+                    mode: p[1],
+                    burst: p[2] as i32,
+                    lifetime: f32::from_bits(p[3]),
+                    rate: f32::from_bits(p[4]),
+                    speed: std::array::from_fn(|i| f32::from_bits(p[5 + i])),
+                    random_position: std::array::from_fn(|i| f32::from_bits(p[9 + i])),
+                    random_speed: std::array::from_fn(|i| f32::from_bits(p[13 + i])),
+                };
+                self.instances.emitter(root)?.emit(
+                    system,
+                    &parameters,
+                    parent,
+                    self.current_time,
+                    self.time_delta,
+                    &mut self.random,
+                );
+                Ok(())
+            }
             0x0d => {
                 for &input in &op.inputs {
                     match super::presentation_kind(doc, input)? {

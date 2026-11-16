@@ -57,10 +57,7 @@ fn make(doc: &Document<'_>, index: usize, cache: &[Option<Handle>]) -> Result<Ha
         let scene = new_scene();
         scene.borrow_mut().mesh = Some(index);
         Ok(scene)
-    } else if matches!(
-        doc.classes[doc.operators[index].class].id,
-        0x61 | 0x63 | 0x64
-    ) {
+    } else if matches!(doc.classes[doc.operators[index].class].id, 0x61 | 0x64) {
         let scene = new_scene();
         scene.borrow_mut().effect = Some(index);
         Ok(scene)
@@ -98,11 +95,11 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
         }
         needed[i] = true;
         let id = doc.classes[op.class].id;
-        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x63 | 0x64) {
+        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x64) {
             continue;
         }
         // Monster Init returns an empty scene after releasing its input caches.
-        if id == 0x11 {
+        if matches!(id, 0x11 | 0x63) {
             continue;
         }
         if id == 0x01 {
@@ -114,7 +111,7 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
     let mut cache: Vec<Option<Handle>> = vec![None; needed.len()];
     for (i, op) in doc.operators.iter().enumerate().filter(|(i, _)| needed[*i]) {
         let id = doc.classes[op.class].id;
-        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x63 | 0x64) {
+        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x64) {
             continue;
         }
         let input = |n: usize| -> Result<Handle, Error> {
@@ -146,7 +143,7 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
                 &cache,
             )?,
             0x02..=0x0c | 0x0e | 0x15 => input(0)?,
-            0x11 | 0x13 | 0x14 | 0xc4 => new_scene(),
+            0x11 | 0x13 | 0x14 | 0x63 | 0xc4 => new_scene(),
             0x10 | 0x12 => {
                 if op.inputs.is_empty() {
                     new_scene()
@@ -305,8 +302,8 @@ pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Optio
                     Object::Other
                 }
             }
-            0x11 | 0x13 | 0x14 | 0xc1 | 0xc4..=0xc9 | 0xcb | 0xce => Object::Scene(index),
-            0x61 | 0x63 | 0x64 => Object::Effect,
+            0x11 | 0x13 | 0x14 | 0x63 | 0xc1 | 0xc4..=0xc9 | 0xcb | 0xce => Object::Scene(index),
+            0x61 | 0x64 => Object::Effect,
             _ => {
                 if mesh_graph::implemented(id) {
                     Object::Mesh

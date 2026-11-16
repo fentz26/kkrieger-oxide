@@ -101,6 +101,14 @@ impl Simulation {
         execution.game_camera.zoom_y = aspect;
         Ok(())
     }
+    pub fn execute_scene(
+        &mut self,
+        execution: &mut Execution,
+        doc: &Document<'_>,
+        root: usize,
+    ) -> Result<(), crate::scene::Error> {
+        execution.frame_with_random(doc, root, &mut self.random)
+    }
     pub fn register_events(&mut self, execution: &mut Execution) -> Result<(), &'static str> {
         self.events.add_events(execution, &self.motion, &self.zones)
     }
