@@ -45,6 +45,8 @@ pub enum Job {
 /// Preserve scene/IPP execution ordering for the rendering backend.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RenderCommand {
+    /// Unbind the original blend material before reusing target textures.
+    ResetOverlay,
     Scene(usize),
     Overlay(usize),
 }
@@ -495,6 +497,36 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x0d => {
+                for &input in &op.inputs {
+                    match super::presentation_kind(doc, input)? {
+                        super::PresentationKind::Demo => self.visit(doc, input, parent)?,
+                        super::PresentationKind::Ipp => {
+                            self.render_commands.push(RenderCommand::ResetOverlay);
+                            self.overlay
+                                .as_mut()
+                                .ok_or_else(|| fail("postprocessing target pool missing"))?
+                                .reset();
+                            self.visit(doc, input, parent)?;
+                            let overlay = self
+                                .overlay
+                                .as_mut()
+                                .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                            if let Some(source) = overlay.last_output {
+                                let destination = overlay.allocate(None, super::overlay::SIZES, 1);
+                                if let Some(draw) = overlay
+                                    .copy(source, destination, 0, 0xffffffff, 1.)
+                                    .map_err(fail)?
+                                {
+                                    self.emit_overlay(draw);
+                                }
+                            }
+                        }
+                        super::PresentationKind::Other => {}
+                    }
+                }
+                Ok(())
+            }
             0xf0 => {
                 let Some(&scene) = op.inputs.first() else {
                     return Ok(());

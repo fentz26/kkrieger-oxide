@@ -320,3 +320,49 @@ pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Optio
         _ => None,
     })
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PresentationKind {
+    Demo,
+    Ipp,
+    Other,
+}
+/// Init handlers determine cached output class, independent of execution class.
+pub fn presentation_kind(doc: &Document<'_>, operator: usize) -> Result<PresentationKind, Error> {
+    let mut current = operator;
+    for _ in 0..=doc.operators.len() {
+        let op = doc.operators.get(current).ok_or(Error {
+            operator: current,
+            reason: "presentation operator out of range",
+        })?;
+        let class = doc
+            .classes
+            .get(op.class)
+            .ok_or(Error {
+                operator: current,
+                reason: "presentation class out of range",
+            })?
+            .id;
+        match class {
+            0x0d => return Ok(PresentationKind::Demo),
+            0xe2..=0xeb | 0xf0 => return Ok(PresentationKind::Ipp),
+            0x01 => {
+                let Some(link) = op.links.first().copied().flatten() else {
+                    return Ok(PresentationKind::Other);
+                };
+                current = link;
+            }
+            0x02..=0x0c | 0x0e | 0x10 | 0x12 | 0x15 => {
+                let Some(&input) = op.inputs.first() else {
+                    return Ok(PresentationKind::Other);
+                };
+                current = input;
+            }
+            _ => return Ok(PresentationKind::Other),
+        }
+    }
+    Err(Error {
+        operator,
+        reason: "presentation cache alias cycle",
+    })
+}
