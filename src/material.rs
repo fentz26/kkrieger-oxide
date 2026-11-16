@@ -56,6 +56,43 @@ pub struct Material {
     pub material11_insert: bool,
 }
 
+/// GenOverlayManager's original PS1.1 DefaultMat. It has no authored operator;
+/// the sentinel recipe identity must not be used as a document index.
+pub fn original_default(intro: bool) -> Rc<Material> {
+    let mut state = State::default();
+    state.words[0] = 0x300;
+    if intro {
+        state.words[28] = 0x00ff0000;
+        state.words[9] = 0x10;
+    } else {
+        state.words[2] = 5;
+        state.words[28] = 0x00c0c0c0;
+        state.words[29] = 0x00404040;
+        state.words[32] = 32f32.to_bits();
+        state.words[8] = 0x10;
+        state.words[9] = 0x40;
+    }
+    let mut parameters = [0; 64];
+    parameters[..48].copy_from_slice(&state.words);
+    Rc::new(Material {
+        passes: vec![Pass {
+            shader: Rc::new(Recipe {
+                operator: usize::MAX,
+                phase: Usage::Light,
+                parameters,
+                textures: [None; 8],
+                state: RefCell::new(state),
+            }),
+            usage: Usage::Light,
+            program: Program::Static,
+            render_pass: 0,
+            size: 1.,
+            aspect: 1.,
+        }],
+        material11_insert: false,
+    })
+}
+
 #[derive(Debug)]
 pub struct Error {
     pub operator: usize,
