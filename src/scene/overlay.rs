@@ -3,6 +3,7 @@ pub const SIZES: usize = 4;
 pub const PER_SIZE: usize = 3;
 pub const COUNT: usize = SIZES * PER_SIZE;
 pub const SCREEN: usize = COUNT;
+pub const DIMENSIONS: [[i32; 2]; SIZES] = [[16, 16], [512, 256], [16, 16], [1024, 512]];
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Viewport {
     pub screen: i32,
@@ -99,7 +100,7 @@ impl Pool {
         if target.size >= SIZES {
             return Ok(self.master);
         }
-        let [width, height] = [[16, 16], [512, 256], [16, 16], [1024, 512]][target.size];
+        let [width, height] = DIMENSIONS[target.size];
         let mut viewport = Viewport {
             screen: -1,
             render_target: target.texture.ok_or("overlay target has no texture")?,
@@ -420,5 +421,167 @@ impl Pool {
         }
         self.last_output = Some(output);
         Ok(vec![first, second])
+    }
+}
+
+pub struct Blend {
+    pub size: usize,
+    pub coordinate_mode: bool,
+    pub amplify: f32,
+    pub count: i32,
+}
+pub struct Blur {
+    pub size: usize,
+    pub radius: f32,
+    pub amplify: f32,
+    pub flags: u32,
+    pub stages: i32,
+    pub count: i32,
+}
+impl Pool {
+    pub fn blend4x(
+        &self,
+        source: usize,
+        destination: usize,
+        rects: &mut [[f32; 4]; 4],
+        coordinate_mode: bool,
+        amplify: f32,
+    ) -> Result<Vec<Draw>, &'static str> {
+        let source = self
+            .targets
+            .get(source)
+            .ok_or("overlay source out of range")?;
+        let Some(texture) = source.texture else {
+            return Ok(vec![]);
+        };
+        let viewport = self.viewport(destination)?;
+        if coordinate_mode {
+            let [width, height] = DIMENSIONS[source.size];
+            for rect in rects.iter_mut() {
+                for pair in 0..2 {
+                    rect[pair * 2] = rect[pair * 2] / width as f32 + pair as f32;
+                    rect[pair * 2 + 1] = rect[pair * 2 + 1] / height as f32 + pair as f32;
+                }
+            }
+        }
+        // Original x86 truncating float-to-int conversion, before sRange<int>.
+        let scaled = amplify * 64.;
+        let alpha = if (-2147483648.0..2147483648.0).contains(&scaled) {
+            scaled as i32
+        } else {
+            i32::MIN
+        };
+        let color = (alpha.clamp(0, 255) as u32) << 24;
+        Ok((0..2)
+            .map(|pass| Draw {
+                viewport,
+                environment: super::camera::Environment {
+                    orthogonal: 1,
+                    ..Default::default()
+                },
+                material: 4 + pass,
+                texture,
+                texture1: Some(texture),
+                texture2: None,
+                color,
+                color2: Some(u32::MAX),
+                vertices: fx_quad(
+                    Some(source.scale_uv),
+                    Some(rects[pass * 2]),
+                    Some(source.scale_uv),
+                    Some(rects[pass * 2 + 1]),
+                ),
+            })
+            .collect())
+    }
+    pub fn blend4x_operator(
+        &mut self,
+        owner: Option<usize>,
+        source: Option<usize>,
+        rects: &mut [[f32; 4]; 4],
+        parameters: &Blend,
+    ) -> Result<(Option<usize>, Vec<Draw>), &'static str> {
+        let Some(source) = source else {
+            return Ok((None, vec![]));
+        };
+        let size = if parameters.size == SIZES + 1 {
+            self.targets
+                .get(source)
+                .ok_or("overlay source out of range")?
+                .size
+        } else {
+            parameters.size
+        };
+        let output = self.allocate(owner, size, parameters.count);
+        let draws = self.blend4x(
+            source,
+            output,
+            rects,
+            parameters.coordinate_mode,
+            parameters.amplify,
+        )?;
+        self.free(source)?;
+        Ok((Some(output), draws))
+    }
+    pub fn blur_operator(
+        &mut self,
+        owner: usize,
+        parameters: &Blur,
+    ) -> Result<Vec<Draw>, &'static str> {
+        if let Some(cached) = self.find(Some(owner)) {
+            self.last_output = Some(cached);
+            return Ok(vec![]);
+        }
+        let mut radius = parameters.radius;
+        let mut count = 0;
+        loop {
+            radius *= 0.5;
+            count += 1;
+            if !(count < parameters.stages && radius > 0.5) {
+                break;
+            }
+        }
+        let kernels = [
+            [-1., -1.],
+            [1., -1.],
+            [-1., 1.],
+            [1., 1.],
+            [0., -1.],
+            [-1., 0.],
+            [1., 0.],
+            [0., 1.],
+        ];
+        let mut input = self.last_output;
+        let mut draws = vec![];
+        while count > 0 {
+            count -= 1;
+            let mut rects = std::array::from_fn(|index| {
+                let [x, y] = kernels[(parameters.flags as usize & 1) * 4 + index];
+                let x = x * radius;
+                let y = y * radius * 0.5;
+                [x, y, x, y]
+            });
+            let stage = Blend {
+                coordinate_mode: true,
+                amplify: if count > 0 && parameters.flags & 2 == 0 {
+                    1.
+                } else {
+                    parameters.amplify
+                },
+                size: if count > 0 && parameters.size == SIZES {
+                    0
+                } else {
+                    parameters.size
+                },
+                count: if count > 0 { 1 } else { parameters.count },
+            };
+            let (output, stage_draws) =
+                self.blend4x_operator((count == 0).then_some(owner), input, &mut rects, &stage)?;
+            input = output;
+            draws.extend(stage_draws);
+            radius *= 2.;
+        }
+        self.last_output = input;
+        Ok(draws)
     }
 }

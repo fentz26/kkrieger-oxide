@@ -448,6 +448,28 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xe3 => {
+                let params = p
+                    .get(..6)
+                    .ok_or_else(|| fail("truncated IPP blur parameters"))?;
+                self.exec_inputs(doc, root, parent)?;
+                let parameters = super::overlay::Blur {
+                    size: params[0] as usize,
+                    radius: f32::from_bits(params[1]),
+                    amplify: f32::from_bits(params[2]),
+                    flags: params[3],
+                    stages: params[4] as i32,
+                    count: params[5] as i32,
+                };
+                let draws = self
+                    .overlay
+                    .as_mut()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?
+                    .blur_operator(root, &parameters)
+                    .map_err(fail)?;
+                self.overlay_draws.extend(draws);
+                Ok(())
+            }
             0xe8 => {
                 let params = p
                     .get(..2)

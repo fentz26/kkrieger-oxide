@@ -366,3 +366,9 @@ color assignments are extracted from the original constructor; unspecified
 colors/textures use original LoadDefaults values. Missing/screen inputs and
 three-way aliases are included. GPU rasterization is outside this fixture.
 Regenerate with `python3 tools/verify_overlay_mask.py`.
+
+`overlay-blur.bin` records 512 original Blend4x calls and 2,048 staged blur
+executions, capturing modified sample rectangles, both graphics passes per
+stage, packed amplification, target references, screen fallback and cached
+outputs. Native graphics calls are captured; GPU pixels are not compared.
+Regenerate with `python3 tools/verify_overlay_blur.py`.
