@@ -10,7 +10,7 @@ use kkrieger_oxide::{
 };
 #[test]
 #[ignore = "generates the full authored collision world"]
-fn authored_gameplay_root_executes_its_first_cpu_frame() {
+fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     let root = d.roots[2].unwrap();
     let mut e = Execution::new_player(&d);
@@ -34,4 +34,42 @@ fn authored_gameplay_root_executes_its_first_cpu_frame() {
     assert_eq!(e.render_passes.len(), 2);
     assert!(sim.player_cell.is_some());
     assert_eq!(sim.motion.collider.position, position);
+    // Original refill/unlock inputs allow selecting an ammo-consuming weapon.
+    sim.key(&mut e, 109, [0, 0]).unwrap();
+    sim.key(&mut e, 110, [0, 0]).unwrap();
+    sim.key(&mut e, 50, [0, 0]).unwrap();
+    assert_eq!(e.game.weapon.next, 1);
+    assert!(e.game.events.shot[1].is_some());
+    let ammo = e.game.inventory.amounts;
+    e.finish_events();
+    sim.key(&mut e, 119, [0, 0]).unwrap();
+    sim.key(&mut e, kkrieger_oxide::game::input::MOUSE_LEFT, [0, 0])
+        .unwrap();
+    for step in 1..=30 {
+        let now = step * 10;
+        assert!(sim.tick(&mut e, &d, 1, now, [0, 0]).unwrap().ran);
+        sim.prepare_scene(&mut e, now * 64, now, 1., false).unwrap();
+        sim.execute_scene(&mut e, &d, root).unwrap();
+        assert_eq!(e.game.monsters.len(), 132);
+        assert_eq!(e.render_passes.len(), 2);
+        assert!(sim.player_cell.is_some());
+        assert!(sim.motion.collider.position.into_iter().all(f32::is_finite));
+        e.finish_events();
+    }
+    assert_eq!(sim.tick_count, 30);
+    assert!(sim.motion.collider.position[2] > position[2]);
+
+    assert!(
+        e.game.inventory.amounts[4..]
+            .iter()
+            .zip(&ammo[4..])
+            .any(|(after, before)| after < before),
+        "firing must consume ammunition: current={} next={} timer={} fire={} before={:?} after={:?}",
+        e.game.weapon.current,
+        e.game.weapon.next,
+        e.game.weapon.timer,
+        e.game.weapon.fire_key,
+        ammo,
+        e.game.inventory.amounts
+    );
 }
