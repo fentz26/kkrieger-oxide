@@ -13,6 +13,54 @@ pub struct Assets {
     pub materials: std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
     pub default_material: Rc<crate::material::Material>,
 }
+/// Prepare paint caches reached from a selected scene/demo root, including
+/// inactive branches precalculated by the original dependency graph.
+pub fn prepare_scene_assets(
+    doc: &crate::kx::Document<'_>,
+    root: usize,
+    intro: bool,
+) -> Result<Assets, Box<dyn std::error::Error>> {
+    use std::collections::BTreeSet;
+    let mut needed = vec![false; doc.operators.len()];
+    let mut pending = vec![root];
+    while let Some(index) = pending.pop() {
+        let op = doc.operators.get(index).ok_or(super::Error {
+            operator: index,
+            reason: "paint dependency index out of range",
+        })?;
+        if needed[index] {
+            continue;
+        }
+        needed[index] = true;
+        pending.extend(op.inputs.iter().copied());
+        pending.extend(op.links.iter().flatten().copied());
+    }
+    let mut meshes = BTreeSet::new();
+    let mut materials = BTreeSet::new();
+    for (index, op) in doc.operators.iter().enumerate().filter(|(i, _)| needed[*i]) {
+        let class = doc.classes[op.class].id;
+        // These Init handlers call MakeScene on their inputs. A raw mesh
+        // dependency of another mesh or a non-drawing operator is not a draw cache.
+        if matches!(class, 0xc0..=0xc3 | 0xc5 | 0xc7..=0xc9 | 0xcb | 0xce) {
+            for &input in &op.inputs {
+                if let Some(owner) = super::cache_mesh_identity(doc, input)? {
+                    meshes.insert(owner);
+                }
+            }
+        }
+        if let super::CachedObject::Effect(owner) = super::cached_object(doc, index)?
+            && let Some(material) = doc.operators[owner].links.first().copied().flatten()
+        {
+            materials.insert(material);
+        }
+    }
+    prepare_assets_with_materials(
+        doc,
+        &meshes.into_iter().collect::<Vec<_>>(),
+        &materials.into_iter().collect::<Vec<_>>(),
+        intro,
+    )
+}
 pub fn prepare_assets(
     doc: &crate::kx::Document<'_>,
     roots: &[usize],
