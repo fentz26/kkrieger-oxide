@@ -294,6 +294,10 @@
     "overlay-select.bin": {
       "bytes": 158984,
       "sha256": "9f50bb07c8eeb89d8b3ea6d833eca911900a943f194b5a05bef54961dd55f510"
+    },
+    "overlay-mask.bin": {
+      "bytes": 1372536,
+      "sha256": "b0ed4809745f5dc52b6069b30e957243d3863e92284f7d1f21a313bd0d94dd4c"
     }
   }
 }

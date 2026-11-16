@@ -358,3 +358,11 @@ captured as draw packets; GPU pixels are outside this fixture. Regenerate with
 input execution, negative/positive count adjustments, missing outputs, and
 screen references retained across manager Reset. Regenerate with
 `python3 tools/verify_overlay_select.py`.
+
+`overlay-mask.bin` records 4,096 unchanged Exec_IPP_Mask calls. Both ordered
+passes capture material/texture slots, default and mask colors, UV geometry,
+viewports, input callbacks, output state, and reference counts. The material
+color assignments are extracted from the original constructor; unspecified
+colors/textures use original LoadDefaults values. Missing/screen inputs and
+three-way aliases are included. GPU rasterization is outside this fixture.
+Regenerate with `python3 tools/verify_overlay_mask.py`.

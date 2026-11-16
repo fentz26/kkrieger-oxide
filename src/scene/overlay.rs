@@ -162,6 +162,7 @@ pub struct Draw {
     pub material: usize,
     pub texture: i32,
     pub texture1: Option<i32>,
+    pub texture2: Option<i32>,
     pub color: u32,
     pub color2: Option<u32>,
     pub vertices: [[f32; 8]; 4],
@@ -198,6 +199,7 @@ impl Pool {
             material,
             texture,
             texture1: None,
+            texture2: None,
             color,
             color2: None,
             vertices: fx_quad(Some(source.scale_uv), Some(uv), None, None),
@@ -279,6 +281,7 @@ impl Pool {
             material,
             texture,
             texture1: None,
+            texture2: None,
             color,
             color2: Some(amplify),
             vertices: fx_quad(Some(scale), None, None, None),
@@ -340,6 +343,7 @@ impl Pool {
             material,
             texture: textures[0],
             texture1: Some(textures[1]),
+            texture2: None,
             color: (parameters.alpha as u32).wrapping_shl(24),
             color2: Some(parameters.amplify),
             vertices: fx_quad(Some(scales[0]), None, Some(scales[1]), None),
@@ -349,5 +353,72 @@ impl Pool {
         }
         self.last_output = Some(output);
         Ok(Some(draw))
+    }
+}
+
+impl Pool {
+    /// Original mask draws (mask dot color) * B, then (1-mask dot color) * A.
+    pub fn mask_operator(
+        &mut self,
+        owner: usize,
+        sources: [usize; 3],
+        mut size: usize,
+        count: i32,
+    ) -> Result<Vec<Draw>, &'static str> {
+        if let Some(cached) = self.find(Some(owner)) {
+            self.last_output = Some(cached);
+            return Ok(vec![]);
+        }
+        let mut textures = [0; 3];
+        let mut scales = [[0.; 2]; 3];
+        for (index, source) in sources.into_iter().enumerate() {
+            let target = self
+                .targets
+                .get(source)
+                .ok_or("overlay source out of range")?;
+            let Some(texture) = target.texture else {
+                return Ok(vec![]);
+            };
+            textures[index] = texture;
+            scales[index] = target.scale_uv;
+        }
+        if size == SIZES + 1 {
+            size = self.targets[sources[0]].size;
+        }
+        let output = self.allocate(Some(owner), size, count);
+        let viewport = self.viewport(output)?;
+        let first = Draw {
+            viewport,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material: 25,
+            texture: textures[2],
+            texture1: Some(textures[1]),
+            texture2: None,
+            color: 0x408040,
+            color2: Some(u32::MAX),
+            vertices: fx_quad(Some(scales[2]), None, Some(scales[1]), None),
+        };
+        let second = Draw {
+            viewport,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material: 26,
+            texture: textures[2],
+            texture1: None,
+            texture2: Some(textures[0]),
+            color: 0x408040,
+            color2: Some(0xffffff),
+            vertices: fx_quad(Some(scales[2]), None, Some(scales[0]), None),
+        };
+        for source in sources {
+            self.free(source)?;
+        }
+        self.last_output = Some(output);
+        Ok(vec![first, second])
     }
 }
