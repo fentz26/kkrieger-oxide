@@ -4,8 +4,53 @@ use crate::mesh::Matrix;
 use std::rc::Rc;
 
 pub struct Asset {
-    pub mesh: crate::prepared_mesh::PreparedMesh,
+    pub mesh: Rc<crate::prepared_mesh::PreparedMesh>,
     pub materials: Vec<Rc<crate::material::Material>>,
+}
+pub struct Assets {
+    /// Keyed by canonical mesh cache identity, including aliased root requests.
+    pub meshes: std::collections::BTreeMap<usize, Asset>,
+    pub materials: std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
+    pub default_material: Rc<crate::material::Material>,
+}
+pub fn prepare_assets(
+    doc: &crate::kx::Document<'_>,
+    roots: &[usize],
+    intro: bool,
+) -> Result<Assets, Box<dyn std::error::Error>> {
+    use crate::mesh::MaterialSource;
+    use std::collections::{BTreeMap, BTreeSet};
+    let mut owners = BTreeSet::new();
+    for &root in roots {
+        let owner =
+            super::cache_mesh_identity(doc, root)?.ok_or("paint root does not cache a mesh")?;
+        owners.insert(owner);
+    }
+    let owners: Vec<_> = owners.into_iter().collect();
+    let prepared = crate::prepared_mesh::generate_many(doc, &owners)?;
+    let default_material = crate::material::original_default(intro);
+    let null_material = Rc::new(crate::material::Material::default());
+    let mut meshes = BTreeMap::new();
+    for (owner, mesh) in owners.into_iter().zip(prepared.meshes) {
+        let mut materials = Vec::with_capacity(mesh.materials.len());
+        for slot in &mesh.materials {
+            materials.push(match slot.source {
+                MaterialSource::Null => Rc::clone(&null_material),
+                MaterialSource::Default => Rc::clone(&default_material),
+                MaterialSource::Operator(index) => prepared
+                    .materials
+                    .get(&index)
+                    .cloned()
+                    .ok_or("prepared paint material is unavailable")?,
+            });
+        }
+        meshes.insert(owner, Asset { mesh, materials });
+    }
+    Ok(Assets {
+        meshes,
+        materials: prepared.materials,
+        default_material,
+    })
 }
 pub enum DrawKind {
     Effect,

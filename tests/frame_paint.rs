@@ -34,7 +34,7 @@ fn original_frame_sort_keeps_effects_before_meshes_and_reverses_job_lists() {
     let assets = BTreeMap::from([(
         0,
         Asset {
-            mesh: prepared,
+            mesh: Rc::new(prepared),
             materials: vec![Rc::new(material::Material::default()), material.clone()],
         },
     )]);
