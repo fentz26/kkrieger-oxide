@@ -362,6 +362,10 @@
     "light-frustum.bin": {
       "bytes": 187604,
       "sha256": "19bce5cda4e82d26c3b60fdd5df5b02a5d034b7a26b40b2489b45bf02c976d59"
+    },
+    "light-visibility.bin": {
+      "bytes": 100780,
+      "sha256": "541d7336930b12837e897f14b472edf5737b78ceb49609e1ec0911149a86c4d9"
     }
   }
 }

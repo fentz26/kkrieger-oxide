@@ -464,3 +464,11 @@ Normalize sequences with camera rotations, varied zoom/near planes, light
 positions around the near-plane epsilon and both two/six-plane results. Every
 active plane word, selector, count and box-culling result is compared at all
 three stages. Regenerate with `python3 tools/verify_light_frustum.py`.
+
+`light-visibility.bin` records 512 original CalcSphereBounds calls and 1,024
+AddLightJob calls across KKRIEGER and non-KKRIEGER fade configurations. Native
+InsertLightJob is replaced by a capture callback to isolate visibility and
+importance before insertion. Projected bounds, rejection decisions, importance
+and fade bits are compared. Selection order and weapon-light prioritization
+are outside this fixture's scope. Regenerate with
+`python3 tools/verify_light_visibility.py`.
