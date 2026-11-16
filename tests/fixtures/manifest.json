@@ -354,6 +354,10 @@
     "paint-culling.bin": {
       "bytes": 176132,
       "sha256": "e0a2c11807575fcf5fe67551a587bc117c14517444a7abe4c0da2b60df299764"
+    },
+    "mesh-paint.bin": {
+      "bytes": 90240,
+      "sha256": "90f20dda67871c7168ab8f97d05dacaca4f9d1e57f4fc11a1f0947e5f3deb983"
     }
   }
 }

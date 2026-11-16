@@ -450,3 +450,11 @@ sFrustum FromViewProject/sCullBBox evaluations. Tests compare every transformed
 bound and plane word, near-vertex selectors, active plane counts and sphere /
 five-plane / full-frustum decisions. Includes zero extents and infinite
 projection matrices. Regenerate with `python3 tools/verify_paint_culling.py`.
+
+`mesh-paint.bin` records 512 original BuildPaintJobs mesh-pass bodies with
+usage masks, animation flags, camera/shadow culling, light bounds, pass offsets
+and both original light capacities. Tests compare insert eligibility, all job
+keys, light identities and stencil modes. The host-pointer cast used for the
+material key is replaced by an explicit deterministic key input; allocation
+identity, animation evaluation and GPU submission are not verified here.
+Regenerate with `python3 tools/verify_mesh_paint.py`.
