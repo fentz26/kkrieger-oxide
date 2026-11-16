@@ -5,6 +5,7 @@ use std::{cell::RefCell, fmt, rc::Rc};
 
 pub mod camera;
 pub mod delay;
+pub mod effects;
 pub mod event;
 pub mod exec;
 pub mod instance;
