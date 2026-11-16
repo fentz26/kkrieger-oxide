@@ -42,6 +42,13 @@ pub enum Job {
     },
 }
 
+/// Preserve scene/IPP execution ordering for the rendering backend.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RenderCommand {
+    Scene(usize),
+    Overlay(usize),
+}
+
 #[derive(Clone)]
 pub struct ActorContext {
     pub world: Rc<RefCell<crate::collision::world::World>>,
@@ -59,6 +66,10 @@ pub struct Execution {
     pub aspect: f32,
     pub markers: [Matrix; 32],
     pub jobs: Vec<Job>,
+    pub render_passes: Vec<super::viewport::RenderPass>,
+    pub render_commands: Vec<RenderCommand>,
+    pub intro_stereo: bool,
+    pub observer_sector: Option<usize>,
     pub overlay: Option<super::overlay::Pool>,
     /// Backend texture viewports keyed by authored bitmap operator identity.
     pub render_textures: std::collections::BTreeMap<usize, super::overlay::Viewport>,
@@ -86,6 +97,11 @@ pub struct Execution {
     visibility_history: Vec<Rect>,
 }
 impl Execution {
+    fn emit_overlay(&mut self, draw: super::overlay::Draw) {
+        self.render_commands
+            .push(RenderCommand::Overlay(self.overlay_draws.len()));
+        self.overlay_draws.push(draw);
+    }
     pub fn new(doc: &Document<'_>) -> Self {
         Self {
             vm: Vm::new(),
@@ -96,6 +112,10 @@ impl Execution {
             aspect: 1.,
             markers: [identity(); 32],
             jobs: Vec::new(),
+            render_passes: Vec::new(),
+            render_commands: Vec::new(),
+            intro_stereo: false,
+            observer_sector: None,
             overlay: None,
             render_textures: std::collections::BTreeMap::new(),
             overlay_draws: Vec::new(),
@@ -255,6 +275,8 @@ impl Execution {
     pub fn frame(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
         self.jobs.clear();
         self.overlay_draws.clear();
+        self.render_passes.clear();
+        self.render_commands.clear();
         self.dynamic_cells.clear();
         self.game.monsters.begin_frame();
         self.next_monster_override = None;
@@ -268,6 +290,8 @@ impl Execution {
         if result.is_err() {
             self.jobs.clear();
             self.overlay_draws.clear();
+            self.render_passes.clear();
+            self.render_commands.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
         }
@@ -365,6 +389,8 @@ impl Execution {
         if result.is_err() {
             self.jobs.clear();
             self.overlay_draws.clear();
+            self.render_passes.clear();
+            self.render_commands.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
             self.visibility_history.clear();
@@ -469,6 +495,78 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xf0 => {
+                let Some(&scene) = op.inputs.first() else {
+                    return Ok(());
+                };
+                let overlay = self
+                    .overlay
+                    .as_mut()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                if let Some(cached) = overlay.find(Some(root)) {
+                    overlay.last_output = Some(cached);
+                    return Ok(());
+                }
+                let params = p
+                    .get(..25)
+                    .ok_or_else(|| fail("truncated IPP viewport parameters"))?;
+                if op.inputs.len() > 1 {
+                    return Err(fail("viewport camera spline execution has not been ported"));
+                }
+                let parameters = super::viewport::Parameters::from_words(params).map_err(fail)?;
+                self.jobs.clear();
+                self.current_camera = parameters.camera(&self.game_camera, self.aspect, None);
+                self.visit(doc, scene, parent)?;
+                let overlay = self.overlay.as_mut().unwrap();
+                let output = overlay.allocate(Some(root), params[0] as usize, params[24] as i32);
+                let viewport = super::viewport::crop(
+                    overlay.viewport(output).map_err(fail)?,
+                    std::array::from_fn(|i| f32::from_bits(params[20 + i])),
+                );
+                let passes = parameters.passes(
+                    &self.current_camera,
+                    self.intro_stereo,
+                    f32::from_bits(params[18]),
+                    f32::from_bits(params[19]),
+                );
+                for (pass, camera) in passes.cameras.into_iter().enumerate() {
+                    self.current_camera = camera;
+                    self.process_camera_sectors(
+                        doc,
+                        self.observer_sector,
+                        [
+                            viewport.window[2].wrapping_sub(viewport.window[0]),
+                            viewport.window[3].wrapping_sub(viewport.window[1]),
+                        ],
+                    )?;
+                    if !self.jobs.iter().any(|job| matches!(job, Job::Light { .. })) {
+                        self.jobs.push(Job::Light {
+                            operator: root,
+                            position: self.current_camera.space[3],
+                            flags: 0,
+                            color: 0x78787878,
+                            amplify: 1.,
+                            range: 32.,
+                            clip: Rect::UNIT,
+                        });
+                    }
+                    self.render_commands
+                        .push(RenderCommand::Scene(self.render_passes.len()));
+                    self.render_passes.push(super::viewport::RenderPass {
+                        viewport,
+                        camera: self.current_camera.clone(),
+                        clear_flags: passes.flags & 3,
+                        clear_color: params[2],
+                        paint_mode: (passes.flags >> 4) & 3,
+                        jobs: self.jobs.clone(),
+                        grab_stereo_target: passes.flags & 0x40 != 0 && pass == 0,
+                        blend_stereo_target: passes.flags & 0x40 != 0 && pass == 1,
+                        allocate_stereo_target: passes.allocate_stereo_target && pass == 0,
+                    });
+                }
+                self.overlay.as_mut().unwrap().last_output = Some(output);
+                Ok(())
+            }
             0xeb => {
                 let linked = op
                     .links
@@ -501,7 +599,7 @@ impl Execution {
                             .copy(source, destination, 0, 0xffffffff, 1.)
                             .map_err(fail)?
                         {
-                            self.overlay_draws.push(draw);
+                            self.emit_overlay(draw);
                         }
                     }
                     Ok(())
@@ -555,7 +653,9 @@ impl Execution {
                     .ok_or_else(|| fail("postprocessing target pool missing"))?
                     .blur_operator(root, &parameters)
                     .map_err(fail)?;
-                self.overlay_draws.extend(draws);
+                for draw in draws {
+                    self.emit_overlay(draw);
+                }
                 Ok(())
             }
             0xe8 => {
@@ -600,7 +700,9 @@ impl Execution {
                         .unwrap()
                         .mask_operator(root, sources, params[0] as usize, params[1] as i32)
                         .map_err(fail)?;
-                    self.overlay_draws.extend(draws);
+                    for draw in draws {
+                        self.emit_overlay(draw);
+                    }
                 }
                 Ok(())
             }
@@ -666,7 +768,7 @@ impl Execution {
                         .merge_operator(root, sources, &parameters)
                         .map_err(fail)?
                     {
-                        self.overlay_draws.push(draw);
+                        self.emit_overlay(draw);
                     }
                 }
                 Ok(())
@@ -698,7 +800,7 @@ impl Execution {
                         )
                         .map_err(fail)?
                     {
-                        self.overlay_draws.push(draw);
+                        self.emit_overlay(draw);
                     }
                 }
                 Ok(())
@@ -722,7 +824,7 @@ impl Execution {
                     )
                     .map_err(fail)?
                 {
-                    self.overlay_draws.push(draw);
+                    self.emit_overlay(draw);
                 }
                 Ok(())
             }

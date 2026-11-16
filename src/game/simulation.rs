@@ -71,6 +71,13 @@ impl Simulation {
         })
     }
     pub fn bind_scene(&self, execution: &mut Execution, time_reset: bool) {
+        execution.observer_sector = self.player_cell.and_then(|cell| {
+            self.world
+                .borrow()
+                .entries
+                .get(cell)
+                .and_then(|entry| entry.sector)
+        });
         execution.actors = Some(ActorContext {
             world: Rc::clone(&self.world),
             player_position: self.motion.collider.position,

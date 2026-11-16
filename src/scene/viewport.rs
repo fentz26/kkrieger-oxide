@@ -166,3 +166,35 @@ fn cross(a: [f32; 4], b: [f32; 4]) -> [f32; 3] {
         a[0] * b[1] - a[1] * b[0],
     ]
 }
+
+/// One original engine paint pass, before backend drawing and stereo blending.
+#[derive(Clone, Debug)]
+pub struct RenderPass {
+    pub viewport: super::overlay::Viewport,
+    pub camera: Environment,
+    pub clear_flags: u32,
+    pub clear_color: u32,
+    pub paint_mode: u32,
+    pub jobs: Vec<super::exec::Job>,
+    pub grab_stereo_target: bool,
+    pub blend_stereo_target: bool,
+    pub allocate_stereo_target: bool,
+}
+pub fn crop(
+    mut viewport: super::overlay::Viewport,
+    fractions: [f32; 4],
+) -> super::overlay::Viewport {
+    let [x0, y0, x1, y1] = viewport.window;
+    let width = x1.wrapping_sub(x0) as f32;
+    let height = y1.wrapping_sub(y0) as f32;
+    let window = [
+        (x0 as f32 + width * fractions[0]) as i32,
+        (y0 as f32 + height * fractions[1]) as i32,
+        (x0 as f32 + width * fractions[2]) as i32,
+        (y0 as f32 + height * fractions[3]) as i32,
+    ];
+    if window[0] < window[2] && window[1] < window[3] {
+        viewport.window = window;
+    }
+    viewport
+}
