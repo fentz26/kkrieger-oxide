@@ -3,6 +3,104 @@ use super::culling::{Bounds, Plane};
 use crate::mesh::Matrix;
 use std::rc::Rc;
 
+pub struct Asset {
+    pub mesh: crate::prepared_mesh::PreparedMesh,
+    pub materials: Vec<Rc<crate::material::Material>>,
+}
+pub enum DrawKind {
+    Effect,
+    Mesh(MeshPaint),
+}
+pub struct Queued {
+    pub scene_job: usize,
+    pub sort_key: u32,
+    pub kind: DrawKind,
+}
+pub struct FrameInsert {
+    pub scene_job: usize,
+    pub insert: InsertUse,
+}
+pub struct FramePlan {
+    pub jobs: Vec<Queued>,
+    pub inserts: Vec<FrameInsert>,
+}
+/// Original BuildPaintJobs/SortPaintJobs ordering for prepared static meshes
+/// and deferred effects. Geometry and effect execution remain at draw time.
+pub fn build_static_frame(
+    doc: &crate::kx::Document<'_>,
+    jobs: &[super::exec::Job],
+    assets: &std::collections::BTreeMap<usize, Asset>,
+    materials: &std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
+    view: &View<'_>,
+    mut material_key: impl FnMut(&Rc<crate::material::Material>, usize) -> u16,
+) -> Result<FramePlan, super::Error> {
+    let effects = super::effects::schedule_prepared(doc, jobs, materials)?;
+    let mut frame = FramePlan {
+        jobs: effects
+            .into_iter()
+            .map(|effect| Queued {
+                scene_job: effect.job,
+                sort_key: effect.sort_key,
+                kind: DrawKind::Effect,
+            })
+            .collect(),
+        inserts: Vec::new(),
+    };
+    // MeshJob, like EffectJob, is prepended by AddPaintJob. Effects are added
+    // to the final array first, so equal-key ties keep effects before meshes.
+    for (scene_job, job) in jobs.iter().enumerate().rev() {
+        let super::exec::Job::Paint {
+            operator,
+            matrix,
+            pass_adjust,
+            ..
+        } = job
+        else {
+            continue;
+        };
+        let fail = |reason| super::Error {
+            operator: *operator,
+            reason,
+        };
+        let op = doc
+            .operators
+            .get(*operator)
+            .ok_or_else(|| fail("paint job operator out of range"))?;
+        let id = doc.classes[op.class].id;
+        if matches!(id, 0x61 | 0x64) {
+            continue;
+        }
+        if !crate::mesh_graph::implemented(id) {
+            return Err(fail("paint job cache type has not been ported"));
+        }
+        let asset = assets
+            .get(operator)
+            .ok_or_else(|| fail("mesh paint asset has not been prepared"))?;
+        let instance = StaticInstance {
+            mesh: &asset.mesh,
+            materials: &asset.materials,
+            matrix: *matrix,
+            pass_adjust: *pass_adjust,
+        };
+        let built = build_static(&instance, view, &mut material_key).map_err(fail)?;
+        frame.inserts.extend(
+            built
+                .inserts
+                .into_iter()
+                .map(|insert| FrameInsert { scene_job, insert }),
+        );
+        frame
+            .jobs
+            .extend(built.jobs.into_iter().map(|paint| Queued {
+                scene_job,
+                sort_key: paint.paint.sort_key,
+                kind: DrawKind::Mesh(paint),
+            }));
+    }
+    frame.jobs.sort_by_key(|job| job.sort_key);
+    Ok(frame)
+}
+
 pub struct StaticInstance<'a> {
     pub mesh: &'a crate::prepared_mesh::PreparedMesh,
     /// Resolved original materials, including the unused slot zero.
