@@ -15,7 +15,7 @@ names = [
     "genmaterial.hpp", "_types.cpp", "_types.hpp", "player_kkrieger/kkrieger_oplist.cpp",
     "player_kkrieger/kkrieger_config.hpp", "player_kkrieger/kkrieger_main.cpp",
     "data/kkrieger3383.kx", "engine.cpp", "engine.hpp", "_start.hpp", "_start.cpp",
-    "_startdx.hpp", "materials/material11.cpp", "materials/material11.hpp", "genoverlay.cpp",
+    "_startdx.hpp", "materials/material11.cpp", "materials/material11.hpp", "genoverlay.cpp", "genoverlay.hpp",
     "materials/material11.psh", "materials/material11.vsh",
     "materials/material11ps.hpp", "materials/material11vs.hpp",
     "shadercodegen.cpp", "shadercodegen.hpp",

@@ -9,6 +9,7 @@ pub mod event;
 pub mod exec;
 pub mod instance;
 pub mod menu;
+pub mod overlay;
 pub mod trigger;
 pub mod viewport;
 

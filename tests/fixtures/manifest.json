@@ -274,6 +274,10 @@
     "viewport-camera.bin": {
       "bytes": 853944,
       "sha256": "4a8cb93f67c2809e0653a8f3f3ab878d5d7dddcf3ea82b7aa658fc2f6f621ae1"
+    },
+    "overlay-pool.bin": {
+      "bytes": 1475336,
+      "sha256": "0caba03cac853567e5e2a369c0e719b93f50320c1c42c75faf95fe92c435eded"
     }
   }
 }

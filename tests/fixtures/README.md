@@ -326,3 +326,10 @@ spline overrides, stereo target requests, clear flags, and per-eye cameras.
 It preserves degenerate normalization and zero focal-distance behavior. GPU
 painting and postprocessing are outside this fixture. Regenerate with
 `python3 tools/verify_viewport_camera.py`.
+
+`overlay-pool.bin` records 4,096 calls to unchanged player IPP target manager
+methods: Reset, Alloc, Get, Find, Free, PrepareViewport, SetMasterViewport, and
+GetMasterViewport. It includes target ownership/reference snapshots, allocation
+fallback, full-size texture UV scales, and viewport windows. Renderer material
+unbind/bind requests are recorded separately from the Rust allocation pool.
+Regenerate with `python3 tools/verify_overlay_pool.py`.
