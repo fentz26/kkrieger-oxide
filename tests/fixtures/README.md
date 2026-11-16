@@ -399,3 +399,7 @@ Regenerate with `python3 tools/verify_overlay_render_target.py`.
 including perspective/normalized modes, infinite-far depth, half-pixel offsets,
 and zero dimensions or far clips. Compare original matrix float bits before
 backend clip-space conversion. Regenerate with `python3 tools/verify_projection.py`.
+
+`camera-bridge.bin` records 256 original TransR/Mul4 camera-to-projection
+combinations. Tests compare view and view-projection float bits before backend
+clip-space conversion. Regenerate with `python3 tools/verify_camera_bridge.py`.

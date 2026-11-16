@@ -90,6 +90,27 @@ pub fn rotate(parent: Matrix, camera: Matrix, direction: [f32; 3], axis: i32) ->
 }
 
 impl Environment {
+    /// Feed the same camera transform into portal culling and shader constants.
+    pub fn material_environment(
+        &self,
+        viewport: [i32; 2],
+    ) -> Result<crate::material::uniforms::Environment, &'static str> {
+        let world_to_camera = crate::material::uniforms::trans_r(self.space);
+        let projection = self.projection(viewport)?;
+        Ok(crate::material::uniforms::Environment {
+            model: self.model,
+            view_projection: crate::material::uniforms::mul4(world_to_camera, projection),
+            world_to_camera,
+            camera: self.space,
+            light_position: self.light_position,
+            light_color: self.light_color,
+            light_amplify: self.light_amplify,
+            light_range: self.light_range,
+            fog_start: self.fog_start,
+            fog_end: self.fog_end,
+            fog_color: self.fog_color,
+        })
+    }
     /// Original intro-build projection. The renderer applies API clip-space
     /// conversion separately; these values also drive engine portal culling.
     pub fn projection(&self, viewport: [i32; 2]) -> Result<Matrix, &'static str> {

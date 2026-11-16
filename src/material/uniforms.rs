@@ -32,7 +32,7 @@ pub struct Constants {
 fn transpose(a: Matrix) -> Matrix {
     std::array::from_fn(|r| std::array::from_fn(|c| a[c][r]))
 }
-fn mul4(a: Matrix, b: Matrix) -> Matrix {
+pub(crate) fn mul4(a: Matrix, b: Matrix) -> Matrix {
     std::array::from_fn(|r| {
         std::array::from_fn(|c| {
             b[0][c] * a[r][0] + b[1][c] * a[r][1] + b[2][c] * a[r][2] + b[3][c] * a[r][3]
@@ -42,7 +42,7 @@ fn mul4(a: Matrix, b: Matrix) -> Matrix {
 fn rotate34(m: Matrix, v: [f32; 4]) -> [f32; 4] {
     std::array::from_fn(|c| m[0][c] * v[0] + m[1][c] * v[1] + m[2][c] * v[2] + m[3][c])
 }
-fn trans_r(m: Matrix) -> Matrix {
+pub(crate) fn trans_r(m: Matrix) -> Matrix {
     let mut result = m;
     for (r, row) in result.iter_mut().enumerate().take(3) {
         for (c, value) in row.iter_mut().enumerate().take(3) {

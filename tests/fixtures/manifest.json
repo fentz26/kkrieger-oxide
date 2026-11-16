@@ -322,6 +322,10 @@
     "projection.bin": {
       "bytes": 51204,
       "sha256": "a5d3258ca70b895008e400e507ecc21c12a2020f74c953e4d7bbb2e8df946938"
+    },
+    "camera-bridge.bin": {
+      "bytes": 58372,
+      "sha256": "0f9a4365371b9810d79566051db8f69a0a3d4f1c34ace5049d0a04b043c8a8a5"
     }
   }
 }
