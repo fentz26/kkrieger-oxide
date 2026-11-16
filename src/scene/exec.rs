@@ -519,6 +519,7 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            id if mesh_graph::implemented(id) => self.exec_inputs(doc, root, parent),
             0x0d => {
                 for &input in &op.inputs {
                     match super::presentation_kind(doc, input)? {
