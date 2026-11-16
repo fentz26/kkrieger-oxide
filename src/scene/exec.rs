@@ -110,6 +110,95 @@ pub struct Execution {
     effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
 }
 impl Execution {
+    /// Execute Print at its deferred paint position, using its captured
+    /// animation range and the live game inventory/switch values.
+    pub fn draw_print_job(
+        &mut self,
+        doc: &Document<'_>,
+        job: &Job,
+        context: &super::print::Context<'_>,
+    ) -> Result<Option<super::print::Draw>, Error> {
+        let Job::Paint {
+            operator,
+            matrix,
+            effect_variables,
+            ..
+        } = job
+        else {
+            return Err(Error {
+                operator: 0,
+                reason: "Print draw requires a paint job",
+            });
+        };
+        let root = *operator;
+        let fail = |reason| Error {
+            operator: root,
+            reason,
+        };
+        let op = doc
+            .operators
+            .get(root)
+            .ok_or_else(|| fail("Print job operator out of range"))?;
+        if doc.classes[op.class].id != 0x61 {
+            return Err(fail("paint job is not Print"));
+        }
+        if let Some(snapshot) = effect_variables {
+            let end = snapshot
+                .start
+                .checked_add(snapshot.values.len())
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?;
+            self.vm
+                .variables
+                .get_mut(snapshot.start..end)
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?
+                .copy_from_slice(&snapshot.values);
+        }
+        let words = self
+            .parameters
+            .get_mut(root)
+            .ok_or_else(|| fail("execution document mismatch"))?;
+        let evaluation = self
+            .vm
+            .execute(
+                op,
+                words,
+                &doc.splines,
+                self.event_spline.and_then(|i| doc.splines.get(i)),
+            )
+            .map_err(|_| fail("Print animation failed"))?;
+        let result = (|| {
+            let layout = super::print::Layout::from_words(words).map_err(fail)?;
+            if context.material_passes.unwrap_or(0) == 0 {
+                return Ok(None);
+            }
+            let page = ((layout.flags >> 4) & 7) as u8;
+            let letters = &context
+                .pages
+                .get(&page)
+                .ok_or_else(|| fail("Print font atlas has not been prepared"))?
+                .letters;
+            let text = op
+                .strings
+                .first()
+                .ok_or_else(|| fail("missing Print string"))?;
+            let values = super::print::Values {
+                inventory: &self.game.inventory,
+                current_weapon: self.game.weapon.current,
+                switches: &self.switches,
+                fps: context.fps,
+            };
+            let geometry = layout.generate(text, &values, letters).map_err(fail)?;
+            Ok(Some(super::print::Draw {
+                page,
+                environment: layout.environment(context.camera, *matrix),
+                geometry,
+            }))
+        })();
+        self.vm
+            .restore(evaluation.saved_variables)
+            .map_err(|_| fail("Print variable restore failed"))?;
+        result
+    }
     /// Generate the particle portion of a viewport pass in original effect
     /// order. Meshes and Print remain separate consumers of the same sort keys.
     pub fn draw_particle_pass(

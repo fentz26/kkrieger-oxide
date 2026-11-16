@@ -1,6 +1,18 @@
 //! Original EffectPrintInfo glyph metrics and TSPACE3 geometry.
 use crate::bitmap::Letter;
 
+pub struct Context<'a> {
+    pub camera: &'a super::camera::Environment,
+    pub pages: &'a std::collections::BTreeMap<u8, crate::bitmap::FontPage>,
+    pub material_passes: Option<usize>,
+    pub fps: f32,
+}
+pub struct Draw {
+    pub page: u8,
+    pub environment: super::camera::Environment,
+    pub geometry: Geometry,
+}
+
 pub struct Values<'a> {
     pub inventory: &'a crate::game::Inventory,
     pub current_weapon: usize,
