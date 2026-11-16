@@ -20,6 +20,11 @@ pub struct Appearance {
     pub middle: f32,
     pub fade: f32,
 }
+pub struct DrawParameters {
+    pub appearance: Appearance,
+    pub gravity: f32,
+    pub flags: u32,
+}
 impl Appearance {
     /// Produce the original TSPACE3 quad using transposed, normalized camera
     /// axes (or the operator axes when PartSystem flag 1 is set).
@@ -102,14 +107,56 @@ pub struct System {
     pub capacity: usize,
 }
 impl System {
+    /// Original PartSystem effect pass. Missing materials and materials without
+    /// passes leave particle state untouched. Only the first pass is used.
+    pub fn draw(
+        &mut self,
+        parameters: &DrawParameters,
+        slices: i32,
+        operator_transform: Matrix,
+        modelview: Matrix,
+        material_passes: Option<usize>,
+    ) -> Result<Vec<[[f32; 8]; 4]>, &'static str> {
+        if material_passes.unwrap_or(0) == 0 || self.particles.is_empty() {
+            return Ok(Vec::new());
+        }
+        let matrix = if parameters.flags & 1 != 0 {
+            operator_transform
+        } else {
+            modelview
+        };
+        let basis = billboard_basis(matrix);
+        let mut quads = Vec::with_capacity(self.particles.len());
+        self.try_draw_and_advance(slices, parameters.gravity, |particle| {
+            quads.push(parameters.appearance.billboard(particle, basis)?);
+            Ok(())
+        })?;
+        Ok(quads)
+    }
     /// Execute the original PartSystem draw loop after its material/pass gate.
     /// The callback receives the particle before integration, including particles
     /// that expire during this draw. Invisible systems must not enter this loop.
     pub fn draw_and_advance(&mut self, slices: i32, gravity: f32, mut draw: impl FnMut(&Particle)) {
+        let result: Result<(), std::convert::Infallible> =
+            self.try_draw_and_advance(slices, gravity, |particle| {
+                draw(particle);
+                Ok(())
+            });
+        match result {
+            Ok(()) => (),
+            Err(impossible) => match impossible {},
+        }
+    }
+    fn try_draw_and_advance<E>(
+        &mut self,
+        slices: i32,
+        gravity: f32,
+        mut draw: impl FnMut(&Particle) -> Result<(), E>,
+    ) -> Result<(), E> {
         let mut i = 0;
         while i < self.particles.len() {
             let particle = &mut self.particles[i];
-            draw(particle);
+            draw(particle)?;
             for axis in 0..4 {
                 particle.position[axis] += particle.speed[axis] * slices as f32;
             }
@@ -123,6 +170,7 @@ impl System {
                 i += 1;
             }
         }
+        Ok(())
     }
 }
 #[derive(Default)]
