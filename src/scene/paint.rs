@@ -18,6 +18,14 @@ pub fn prepare_assets(
     roots: &[usize],
     intro: bool,
 ) -> Result<Assets, Box<dyn std::error::Error>> {
+    prepare_assets_with_materials(doc, roots, &[], intro)
+}
+pub fn prepare_assets_with_materials(
+    doc: &crate::kx::Document<'_>,
+    roots: &[usize],
+    extra_material_roots: &[usize],
+    intro: bool,
+) -> Result<Assets, Box<dyn std::error::Error>> {
     use crate::mesh::MaterialSource;
     use std::collections::{BTreeMap, BTreeSet};
     let mut owners = BTreeSet::new();
@@ -27,7 +35,8 @@ pub fn prepare_assets(
         owners.insert(owner);
     }
     let owners: Vec<_> = owners.into_iter().collect();
-    let prepared = crate::prepared_mesh::generate_many(doc, &owners)?;
+    let prepared =
+        crate::prepared_mesh::generate_many_with_materials(doc, &owners, extra_material_roots)?;
     let default_material = crate::material::original_default(intro);
     let null_material = Rc::new(crate::material::Material::default());
     let mut meshes = BTreeMap::new();

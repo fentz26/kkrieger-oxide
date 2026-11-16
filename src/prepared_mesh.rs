@@ -299,6 +299,16 @@ pub fn generate_many(
     doc: &crate::kx::Document<'_>,
     roots: &[usize],
 ) -> Result<Assets, Box<dyn std::error::Error>> {
+    generate_many_with_materials(doc, roots, &[])
+}
+
+/// Prepare geometry and extra effect-material roots through one shared material
+/// batch, preserving cache identity when meshes and effects use the same pass.
+pub fn generate_many_with_materials(
+    doc: &crate::kx::Document<'_>,
+    roots: &[usize],
+    extra_material_roots: &[usize],
+) -> Result<Assets, Box<dyn std::error::Error>> {
     use crate::{material, mesh::MaterialSource, mesh_graph};
     use std::{
         collections::{BTreeMap, BTreeSet},
@@ -312,6 +322,7 @@ pub fn generate_many(
             MaterialSource::Operator(i) => Some(i),
             _ => None,
         })
+        .chain(extra_material_roots.iter().copied())
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect();

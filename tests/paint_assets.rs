@@ -97,3 +97,45 @@ fn authored_mesh_exports_resolve_all_paint_material_slots() {
         assets.materials.len()
     );
 }
+
+#[test]
+fn mesh_and_additional_effect_material_roots_share_live_shader_state() {
+    use kkrieger_oxide::{mesh::MaterialSource, scene::paint::prepare_assets_with_materials};
+    let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let mesh = d
+        .operators
+        .iter()
+        .position(|o| d.classes[o.class].id == 0x96 && o.animation == [1])
+        .unwrap();
+    let shared = d.operators[mesh].links[0].unwrap();
+    let other = d
+        .operators
+        .iter()
+        .enumerate()
+        .find(|(i, o)| *i != shared && d.classes[o.class].id == 0xd0)
+        .unwrap()
+        .0;
+    let assets =
+        prepare_assets_with_materials(&d, &[mesh], &[shared, other, shared], true).unwrap();
+    assert!(assets.materials.contains_key(&other));
+    let asset = &assets.meshes[&mesh];
+    let slot = asset
+        .mesh
+        .materials
+        .iter()
+        .position(|m| m.source == MaterialSource::Operator(shared))
+        .unwrap();
+    assert!(Rc::ptr_eq(
+        &asset.materials[slot],
+        &assets.materials[&shared]
+    ));
+    assets.materials[&shared].passes[0]
+        .shader
+        .state
+        .borrow_mut()
+        .words[28] = 0x12345678;
+    assert_eq!(
+        asset.materials[slot].passes[0].shader.state.borrow().words[28],
+        0x12345678
+    );
+}
