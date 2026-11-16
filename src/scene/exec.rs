@@ -60,6 +60,8 @@ pub struct Execution {
     pub markers: [Matrix; 32],
     pub jobs: Vec<Job>,
     pub overlay: Option<super::overlay::Pool>,
+    /// Backend texture viewports keyed by authored bitmap operator identity.
+    pub render_textures: std::collections::BTreeMap<usize, super::overlay::Viewport>,
     pub overlay_draws: Vec<super::overlay::Draw>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
@@ -95,6 +97,7 @@ impl Execution {
             markers: [identity(); 32],
             jobs: Vec::new(),
             overlay: None,
+            render_textures: std::collections::BTreeMap::new(),
             overlay_draws: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
@@ -450,6 +453,48 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xeb => {
+                let linked = op
+                    .links
+                    .first()
+                    .copied()
+                    .flatten()
+                    .ok_or_else(|| fail("render target bitmap link missing"))?;
+                let viewport = *self
+                    .render_textures
+                    .get(&linked)
+                    .ok_or_else(|| fail("render target bitmap not prepared"))?;
+                if viewport.render_target == -1 {
+                    return Ok(());
+                }
+                let overlay = self
+                    .overlay
+                    .as_mut()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                let saved = overlay.master;
+                overlay.set_master(viewport);
+                let result = (|| {
+                    self.exec_inputs(doc, root, parent)?;
+                    let overlay = self
+                        .overlay
+                        .as_mut()
+                        .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                    if let Some(source) = overlay.last_output {
+                        let destination = overlay.allocate(None, super::overlay::SIZES, 1);
+                        if let Some(draw) = overlay
+                            .copy(source, destination, 0, 0xffffffff, 1.)
+                            .map_err(fail)?
+                        {
+                            self.overlay_draws.push(draw);
+                        }
+                    }
+                    Ok(())
+                })();
+                if let Some(overlay) = &mut self.overlay {
+                    overlay.set_master(saved);
+                }
+                result
+            }
             0x0c => {
                 let params = p
                     .get(..7)
