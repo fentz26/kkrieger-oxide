@@ -1,4 +1,4 @@
-//! Scalar equivalents of the original mesh Perlin's x87 PC=24, RC=down.
+//! Scalar equivalents of original x87 PC=24, RC=down arithmetic.
 //! Keep the process floating-point environment unchanged on every platform.
 
 #[inline]
@@ -33,6 +33,17 @@ pub(crate) fn sub_down(a: f32, b: f32) -> f32 {
 #[inline]
 pub(crate) fn mul_down(a: f32, b: f32) -> f32 {
     let exact = f64::from(a) * f64::from(b);
+    let rounded = exact as f32;
+    if f64::from(rounded) > exact {
+        rounded.next_down()
+    } else {
+        rounded
+    }
+}
+
+#[inline]
+pub(crate) fn div_down(a: f32, b: f32) -> f32 {
+    let exact = f64::from(a) / f64::from(b);
     let rounded = exact as f32;
     if f64::from(rounded) > exact {
         rounded.next_down()

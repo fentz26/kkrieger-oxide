@@ -480,3 +480,11 @@ importance ordering and the explicit four-light count clamp for zero through
 separate from the later published InsertLightJob algorithm. It does not verify
 beta importance calculation, complete light preparation or GPU rendering.
 Regenerate with `.reference/venv/bin/python tools/verify_beta_light_sort.py`.
+
+`beta-light-importance.bin` records 512 Unicorn executions of released beta
+code 0x8173d1..0x81744d with explicit x87 control word 0x143f. Executable and
+routine hashes are pinned. Tests compare importance and faded amplification
+bits for supplied distances, including the 35/45-unit boundaries. This excludes
+distance calculation and proof of global floating-point state throughout the
+complete released renderer. Regenerate with
+`.reference/venv/bin/python tools/verify_beta_light_importance.py`.

@@ -1,6 +1,30 @@
 //! Original AddLightJob visibility and CalcSphereBounds projection.
 use super::culling::Frustum;
 use crate::mesh::Matrix;
+pub struct BetaImportance {
+    pub importance: f32,
+    pub amplify: f32,
+}
+/// Released beta light calculation for an already-computed distance, with the
+/// explicit single-precision downward x87 control word 0x143f.
+pub fn beta_importance(distance: f32, range: f32, amplify: f32) -> BetaImportance {
+    use crate::rounding::{div_down, mul_down, sub_down};
+    let denominator = if distance > 0.1 { distance } else { 0.1 };
+    let importance = if distance >= 45. {
+        0.
+    } else {
+        div_down(range, denominator)
+    };
+    let amplify = if (35. ..45.).contains(&distance) {
+        mul_down(mul_down(sub_down(45., distance), amplify), 0.1)
+    } else {
+        amplify
+    };
+    BetaImportance {
+        importance,
+        amplify,
+    }
+}
 /// Released beta 0x8174b5..0x817512: stable descending pointer sort followed
 /// by a four-light clamp. Kept distinct from the later published InsertLightJob.
 pub fn beta_light_order(importance: &[f32]) -> Vec<usize> {
