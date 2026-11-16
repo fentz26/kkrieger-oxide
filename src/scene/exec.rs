@@ -988,7 +988,26 @@ impl Execution {
                 self.exec_inputs(doc, root, matrix)
             }
             0xc6 => {
-                self.game_camera.space = multiply(srt()?, parent);
+                let values = p
+                    .get(..9)
+                    .ok_or_else(|| fail("truncated camera transform"))?;
+                let values: [f32; 9] = std::array::from_fn(|index| f32::from_bits(values[index]));
+                let mut local = if values[3..6].iter().all(|angle| angle.abs() < 1e-6) {
+                    identity()
+                } else {
+                    crate::mesh::euler_matrix_fsincos([
+                        values[3] * std::f32::consts::TAU,
+                        values[4] * std::f32::consts::TAU,
+                        values[5] * std::f32::consts::TAU,
+                    ])
+                };
+                for (vector, scale) in local[..3].iter_mut().zip(values) {
+                    for value in &mut vector[..3] {
+                        *value *= scale;
+                    }
+                }
+                local[3] = [values[6], values[7], values[8], 1.];
+                self.game_camera.space = multiply(local, parent);
                 Ok(())
             }
             0xcb => {

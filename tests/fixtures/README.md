@@ -377,3 +377,9 @@ Regenerate with `python3 tools/verify_overlay_blur.py`.
 execution boundary, including degenerate directions, parent transforms, camera
 fallback and stack restoration. NaN results are compared by classification.
 Regenerate with `python3 tools/verify_scene_rotate.py`.
+
+`scene-camera.bin` records 512 original player scene-camera handlers with
+rotation, scaling, parent transforms and sub-threshold rotations. Only the
+x86 contiguous stack-parameter SRT layout is replaced with an explicit array.
+Tests compare camera float bits and confirm inputs are not executed. Regenerate
+with `python3 tools/verify_scene_camera.py`.
