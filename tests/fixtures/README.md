@@ -394,3 +394,8 @@ output and synthesizer samples are outside this fixture. Regenerate with
 calls with captured copy commands, input callbacks, master viewports, selected
 outputs, references and UV scales. GPU rasterization is outside this fixture.
 Regenerate with `python3 tools/verify_overlay_render_target.py`.
+
+`projection.bin` records 512 unchanged intro-build MakeProjectionMatrix calls,
+including perspective/normalized modes, infinite-far depth, half-pixel offsets,
+and zero dimensions or far clips. Compare original matrix float bits before
+backend clip-space conversion. Regenerate with `python3 tools/verify_projection.py`.

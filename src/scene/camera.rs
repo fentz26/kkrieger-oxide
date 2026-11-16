@@ -88,3 +88,27 @@ pub fn rotate(parent: Matrix, camera: Matrix, direction: [f32; 3], axis: i32) ->
 
     matrix
 }
+
+impl Environment {
+    /// Original intro-build projection. The renderer applies API clip-space
+    /// conversion separately; these values also drive engine portal culling.
+    pub fn projection(&self, viewport: [i32; 2]) -> Result<Matrix, &'static str> {
+        let shift_x = 1. / viewport[0] as f32;
+        let shift_y = 1. / viewport[1] as f32;
+        match self.orthogonal {
+            0 => Ok([
+                [self.zoom_x, 0., 0., 0.],
+                [0., self.zoom_y, 0., 0.],
+                [self.center_x, self.center_y, 1., 1.],
+                [-shift_x, shift_y, -self.near_clip, 0.],
+            ]),
+            1 => Ok([
+                [self.zoom_x, 0., 0., 0.],
+                [0., self.zoom_y, 0., 0.],
+                [0., 0., 1. / self.far_clip, 0.],
+                [-shift_x, shift_y, 0., 1.],
+            ]),
+            _ => Err("projection mode not supported by the original intro build"),
+        }
+    }
+}

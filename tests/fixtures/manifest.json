@@ -318,6 +318,10 @@
     "overlay-render-target.bin": {
       "bytes": 90092,
       "sha256": "042598c4219d7b9f833a69eb57fae147e1987d121f606431585df9cafd94b2a1"
+    },
+    "projection.bin": {
+      "bytes": 51204,
+      "sha256": "a5d3258ca70b895008e400e507ecc21c12a2020f74c953e4d7bbb2e8df946938"
     }
   }
 }
