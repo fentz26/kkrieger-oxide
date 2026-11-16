@@ -403,3 +403,9 @@ backend clip-space conversion. Regenerate with `python3 tools/verify_projection.
 `camera-bridge.bin` records 256 original TransR/Mul4 camera-to-projection
 combinations. Tests compare view and view-projection float bits before backend
 clip-space conversion. Regenerate with `python3 tools/verify_camera_bridge.py`.
+
+`particle-emitter.bin` records 512 original PartEmitter calls across capacities,
+burst and mode flags, clock wraparound and negative deltas. Particle state and
+the following random word are compared. This source-level native fixture does
+not establish released x86 binary argument-evaluation ordering or particle
+rasterization parity. Regenerate with `python3 tools/verify_particle_emitter.py`.

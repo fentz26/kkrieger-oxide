@@ -326,6 +326,10 @@
     "camera-bridge.bin": {
       "bytes": 58372,
       "sha256": "0f9a4365371b9810d79566051db8f69a0a3d4f1c34ace5049d0a04b043c8a8a5"
+    },
+    "particle-emitter.bin": {
+      "bytes": 248840,
+      "sha256": "68b987bb7bfac95a9dda6dbb66117bce62c881202f64bb3ad728dba9db6b7a31"
     }
   }
 }

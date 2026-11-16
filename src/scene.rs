@@ -10,6 +10,7 @@ pub mod exec;
 pub mod instance;
 pub mod menu;
 pub mod overlay;
+pub mod particles;
 pub mod sample;
 pub mod trigger;
 pub mod viewport;
