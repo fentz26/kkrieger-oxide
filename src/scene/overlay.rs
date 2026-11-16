@@ -80,6 +80,17 @@ impl Pool {
         }
         Ok(())
     }
+    /// Exec_IPP_Select adjusts even screen references; Free deliberately does not.
+    pub fn select(&mut self, count: i32) -> Result<(), &'static str> {
+        if let Some(output) = self.last_output {
+            let target = self
+                .targets
+                .get_mut(output)
+                .ok_or("overlay output out of range")?;
+            target.references = target.references.wrapping_add(count.wrapping_sub(1));
+        }
+        Ok(())
+    }
     pub fn viewport(&self, index: usize) -> Result<Viewport, &'static str> {
         let target = self
             .targets

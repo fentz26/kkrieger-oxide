@@ -353,3 +353,8 @@ UV sets, packed alpha/amplification, and per-target reference counts. Aliased
 inputs preserve the source's two separate Free calls. Graphics calls are
 captured as draw packets; GPU pixels are outside this fixture. Regenerate with
 `python3 tools/verify_overlay_merge.py`.
+
+`overlay-select.bin` records 2,048 unchanged Exec_IPP_Select calls, including
+input execution, negative/positive count adjustments, missing outputs, and
+screen references retained across manager Reset. Regenerate with
+`python3 tools/verify_overlay_select.py`.

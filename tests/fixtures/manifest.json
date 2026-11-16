@@ -290,6 +290,10 @@
     "overlay-merge.bin": {
       "bytes": 1068136,
       "sha256": "353d1c0afa2b212788a5318807ea8339d56d45a97e55be4ea3b53585d8d63d5a"
+    },
+    "overlay-select.bin": {
+      "bytes": 158984,
+      "sha256": "9f50bb07c8eeb89d8b3ea6d833eca911900a943f194b5a05bef54961dd55f510"
     }
   }
 }

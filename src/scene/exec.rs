@@ -448,6 +448,18 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0xea => {
+                let count = *p
+                    .first()
+                    .ok_or_else(|| fail("truncated IPP select parameters"))?
+                    as i32;
+                self.exec_inputs(doc, root, parent)?;
+                self.overlay
+                    .as_mut()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?
+                    .select(count)
+                    .map_err(fail)
+            }
             0xe7 => {
                 let params = p
                     .get(..5)
