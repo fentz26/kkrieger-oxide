@@ -2,6 +2,17 @@
 use super::{Error, exec::Job};
 use crate::kx::Document;
 
+pub enum Content {
+    Print(Box<super::print::Draw>),
+    Particles(Vec<[[f32; 8]; 4]>),
+}
+pub struct Draw {
+    pub operator: usize,
+    pub sort_key: u32,
+    pub material: Option<usize>,
+    pub content: Content,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scheduled {
     /// Index in the scene's original job array, retaining its animation snapshot.
@@ -57,5 +68,45 @@ pub fn schedule(
         });
     }
     scheduled.sort_by_key(|entry| entry.sort_key);
+    Ok(scheduled)
+}
+
+/// Resolve and validate prepared material metadata before executing any effect.
+pub fn schedule_prepared(
+    doc: &Document<'_>,
+    jobs: &[Job],
+    materials: &std::collections::BTreeMap<usize, std::rc::Rc<crate::material::Material>>,
+) -> Result<Vec<Scheduled>, Error> {
+    use crate::material::Usage;
+    let scheduled = schedule(doc, jobs, |index| {
+        let first = materials.get(&index)?.passes.first()?;
+        let usage = match first.usage {
+            Usage::Base => 0,
+            Usage::PreLight => 1,
+            Usage::Ambient => 2,
+            Usage::Shadow => 3,
+            Usage::Light => 4,
+            Usage::PostLight => 5,
+            Usage::PostLight2 => 6,
+            Usage::Other => 7,
+            Usage::Explicit(value) => value,
+        };
+        Some((first.render_pass, usage))
+    })?;
+    // A linked material absent from the prepared cache is an integration
+    // error, distinct from an authored null material or an empty pass list.
+    for entry in &scheduled {
+        let Job::Paint { operator, .. } = &jobs[entry.job] else {
+            unreachable!()
+        };
+        if let Some(material) = doc.operators[*operator].links.first().copied().flatten()
+            && !materials.contains_key(&material)
+        {
+            return Err(Error {
+                operator: *operator,
+                reason: "effect material has not been prepared",
+            });
+        }
+    }
     Ok(scheduled)
 }

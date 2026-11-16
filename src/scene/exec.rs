@@ -110,6 +110,57 @@ pub struct Execution {
     effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
 }
 impl Execution {
+    /// Execute both authored effect types in the engine's stable paint order.
+    /// Sort keys are retained for merging with mesh paint jobs at submission.
+    pub fn draw_effect_pass(
+        &mut self,
+        doc: &Document<'_>,
+        pass: &super::viewport::RenderPass,
+        materials: &std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
+        pages: &std::collections::BTreeMap<u8, crate::bitmap::FontPage>,
+        fps: f32,
+    ) -> Result<Vec<super::effects::Draw>, Error> {
+        let scheduled = super::effects::schedule_prepared(doc, &pass.jobs, materials)?;
+        let modelview = crate::material::uniforms::trans_r(pass.camera.space);
+        let mut draws = Vec::new();
+        for entry in scheduled {
+            let job = &pass.jobs[entry.job];
+            let Job::Paint { operator, .. } = job else {
+                unreachable!()
+            };
+            let op = &doc.operators[*operator];
+            let material = op.links.first().copied().flatten();
+            let material_passes = material
+                .and_then(|index| materials.get(&index))
+                .map(|m| m.passes.len());
+            let content = if doc.classes[op.class].id == 0x61 {
+                let context = super::print::Context {
+                    camera: &pass.camera,
+                    pages,
+                    material_passes,
+                    fps,
+                };
+                let Some(draw) = self.draw_print_job(doc, job, &context)? else {
+                    continue;
+                };
+                super::effects::Content::Print(Box::new(draw))
+            } else {
+                super::effects::Content::Particles(self.draw_particle_job(
+                    doc,
+                    job,
+                    modelview,
+                    material_passes,
+                )?)
+            };
+            draws.push(super::effects::Draw {
+                operator: *operator,
+                sort_key: entry.sort_key,
+                material,
+                content,
+            });
+        }
+        Ok(draws)
+    }
     /// Execute Print at its deferred paint position, using its captured
     /// animation range and the live game inventory/switch values.
     pub fn draw_print_job(
@@ -207,37 +258,7 @@ impl Execution {
         pass: &super::viewport::RenderPass,
         materials: &std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
     ) -> Result<Vec<super::effects::ParticleDraw>, Error> {
-        use crate::material::Usage;
-        let scheduled = super::effects::schedule(doc, &pass.jobs, |index| {
-            let first = materials.get(&index)?.passes.first()?;
-            let usage = match first.usage {
-                Usage::Base => 0,
-                Usage::PreLight => 1,
-                Usage::Ambient => 2,
-                Usage::Shadow => 3,
-                Usage::Light => 4,
-                Usage::PostLight => 5,
-                Usage::PostLight2 => 6,
-                Usage::Other => 7,
-                Usage::Explicit(value) => value,
-            };
-            Some((first.render_pass, usage))
-        })?;
-        // A linked material absent from the prepared cache is an integration
-        // error, distinct from an authored null material or an empty pass list.
-        for entry in &scheduled {
-            let Job::Paint { operator, .. } = &pass.jobs[entry.job] else {
-                unreachable!()
-            };
-            if let Some(material) = doc.operators[*operator].links.first().copied().flatten()
-                && !materials.contains_key(&material)
-            {
-                return Err(Error {
-                    operator: *operator,
-                    reason: "effect material has not been prepared",
-                });
-            }
-        }
+        let scheduled = super::effects::schedule_prepared(doc, &pass.jobs, materials)?;
         let modelview = crate::material::uniforms::trans_r(pass.camera.space);
         let mut packets = Vec::new();
         for entry in scheduled {
