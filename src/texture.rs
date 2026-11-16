@@ -5,7 +5,15 @@ use crate::{
     kx::{Document, Layout},
     random::Noise,
 };
-use std::{fmt, rc::Rc};
+use std::{collections::BTreeMap, fmt, rc::Rc};
+
+#[derive(Default)]
+pub struct Generated {
+    pub images: Vec<Rc<Bitmap>>,
+    /// Original Bitmap_Text writes KEnvironment::Letters during precalculation,
+    /// independently of whether its bitmap survives as an output texture.
+    pub font_pages: BTreeMap<u8, bitmap::FontPage>,
+}
 
 #[derive(Debug)]
 pub struct Error {
@@ -49,6 +57,15 @@ pub fn generate_many(
     roots: &[usize],
     size_offset: i32,
 ) -> Result<Vec<Rc<Bitmap>>, Error> {
+    Ok(generate_many_with_fonts(doc, roots, size_offset)?.images)
+}
+
+/// Retain font-atlas environment side effects as well as the requested images.
+pub fn generate_many_with_fonts(
+    doc: &Document<'_>,
+    roots: &[usize],
+    size_offset: i32,
+) -> Result<Generated, Error> {
     let error = |i: usize, reason| Error {
         operator: i,
         class: doc
@@ -59,7 +76,7 @@ pub fn generate_many(
         reason,
     };
     if roots.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Generated::default());
     }
     for &root in roots {
         if root >= doc.operators.len() {
@@ -104,6 +121,7 @@ pub fn generate_many(
     let mut cache: Vec<Option<Rc<Bitmap>>> = (0..doc.operators.len()).map(|_| None).collect();
     let noise = Noise::new();
     let mut fonts = FontBook::new();
+    let mut font_pages = BTreeMap::new();
     let last = *roots.iter().max().unwrap();
     for i in 0..=last {
         if !needed[i] {
@@ -367,6 +385,12 @@ pub fn generate_many(
             }
             _ => return Err(error(i, "operator has not been ported")),
         };
+        if id == 0x31
+            && op.parameters.get(5).is_some_and(|flags| flags & 0x70 != 0)
+            && let Some(page) = &result.font_page
+        {
+            font_pages.insert(page.page, (**page).clone());
+        }
         // Every KX call retains the cached input and adds a call reference.
         // CheckBitmap therefore copies/allocates at operator boundaries.
         // GenBitmap::Copy copies pixels only: constructor defaults reset
@@ -379,7 +403,7 @@ pub fn generate_many(
         }
         cache[i] = Some(result);
     }
-    roots
+    let images = roots
         .iter()
         .map(|&root| {
             cache[root]
@@ -387,7 +411,8 @@ pub fn generate_many(
                 .cloned()
                 .ok_or(error(root, "empty evaluation result"))
         })
-        .collect()
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(Generated { images, font_pages })
 }
 
 #[cfg(test)]
