@@ -148,6 +148,56 @@ pub struct Geometry {
     pub indices: Vec<u16>,
 }
 impl Layout {
+    pub fn from_words(words: &[u32]) -> Result<Self, &'static str> {
+        let p = words.get(..6).ok_or("truncated Print parameters")?;
+        Ok(Self {
+            flags: p[0],
+            size: [f32::from_bits(p[1]), f32::from_bits(p[2])],
+            space: [f32::from_bits(p[3]), f32::from_bits(p[4])],
+            radius: f32::from_bits(p[5]),
+        })
+    }
+    pub fn environment(
+        &self,
+        camera: &super::camera::Environment,
+        model: crate::mesh::Matrix,
+    ) -> super::camera::Environment {
+        if self.flags & 4 != 0 {
+            let mut environment = super::camera::Environment {
+                orthogonal: 1,
+                ..super::camera::Environment::default()
+            };
+            environment.model[3][0] = -1.;
+            environment.model[3][1] = 1.;
+            environment
+        } else {
+            super::camera::Environment {
+                model,
+                ..camera.clone()
+            }
+        }
+    }
+    /// Run the source formatter and geometry phases with the selected atlas's
+    /// metrics. Newlines advance individually to preserve float rounding.
+    pub fn generate(
+        &self,
+        text: &[u8],
+        values: &Values<'_>,
+        letters: &[Letter; 256],
+    ) -> Result<Geometry, &'static str> {
+        let mut geometry = Geometry::default();
+        let mut y = 0.;
+        if self.flags & 2 != 0 {
+            y += self.size[1] / 2.;
+        }
+        for line in format_lines(text, values)? {
+            self.append_line(&line.text, line.center, y, letters, &mut geometry);
+            for _ in 0..line.newlines {
+                y -= self.size[1] + self.space[1];
+            }
+        }
+        Ok(geometry)
+    }
     fn character_width(&self, byte: u8, letters: &[Letter; 256]) -> f32 {
         let letter = letters[byte as usize];
         let height = letter.uv[3] - letter.uv[1];
