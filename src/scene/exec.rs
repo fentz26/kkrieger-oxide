@@ -843,7 +843,8 @@ impl Execution {
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
         for &input in &doc.operators[root].inputs {
             let class = doc.classes[doc.operators[input].class].id;
-            if mesh_graph::implemented(class) || matches!(class, 0x61 | 0x64) {
+            let mesh = super::cache_mesh_identity(doc, input)?;
+            if mesh.is_some() || matches!(class, 0x61 | 0x64) {
                 let effect_variables =
                     if matches!(class, 0x61 | 0x64) {
                         if let std::collections::btree_map::Entry::Vacant(entry) =
@@ -866,7 +867,7 @@ impl Execution {
                         None
                     };
                 self.jobs.push(Job::Paint {
-                    operator: input,
+                    operator: mesh.unwrap_or(input),
                     matrix,
                     time: self.vm.variables[0][0],
                     pass_adjust: self.pass_adjust,
@@ -1624,7 +1625,17 @@ impl Execution {
                 }
                 Ok(())
             }
-            0x02 | 0x03 | 0xc1 => self.inputs(doc, root, parent),
+            0x01 => {
+                let link = op
+                    .links
+                    .first()
+                    .copied()
+                    .flatten()
+                    .ok_or_else(|| fail("missing load link"))?;
+                self.visit(doc, link, parent)
+            }
+            0x02 | 0x03 => self.exec_inputs(doc, root, parent),
+            0xc1 => self.inputs(doc, root, parent),
             0xc0 | 0xc3 => self.inputs(doc, root, multiply(srt()?, parent)),
             0xc2 => {
                 let count = *p.get(9).ok_or_else(|| fail("missing instance count"))? as i32;

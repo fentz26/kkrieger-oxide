@@ -58,11 +58,11 @@ fn new_scene() -> Handle {
     Rc::new(RefCell::new(Scene::default()))
 }
 fn make(doc: &Document<'_>, index: usize, cache: &[Option<Handle>]) -> Result<Handle, Error> {
-    if mesh_graph::implemented(doc.classes[doc.operators[index].class].id) {
+    if let Some(owner) = cache_mesh_identity(doc, index)? {
         let scene = new_scene();
-        scene.borrow_mut().mesh = Some(index);
+        scene.borrow_mut().mesh = Some(owner);
         Ok(scene)
-    } else if matches!(doc.classes[doc.operators[index].class].id, 0x61 | 0x64) {
+    } else if matches!(cached_object(doc, index)?, CachedObject::Effect(_)) {
         let scene = new_scene();
         scene.borrow_mut().effect = Some(index);
         Ok(scene)
@@ -100,7 +100,10 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
         }
         needed[i] = true;
         let id = doc.classes[op.class].id;
-        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x64) {
+        if matches!(
+            cached_object(doc, i)?,
+            CachedObject::Mesh(_) | CachedObject::Effect(_)
+        ) {
             continue;
         }
         // Monster Init returns an empty scene after releasing its input caches.
@@ -116,7 +119,10 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
     let mut cache: Vec<Option<Handle>> = vec![None; needed.len()];
     for (i, op) in doc.operators.iter().enumerate().filter(|(i, _)| needed[*i]) {
         let id = doc.classes[op.class].id;
-        if mesh_graph::implemented(id) || matches!(id, 0x61 | 0x64) {
+        if matches!(
+            cached_object(doc, i)?,
+            CachedObject::Mesh(_) | CachedObject::Effect(_)
+        ) {
             continue;
         }
         let input = |n: usize| -> Result<Handle, Error> {
@@ -240,14 +246,15 @@ pub fn initialize_with_sectors(doc: &Document<'_>, roots: &[usize]) -> Result<In
 
 /// Cache identity for scene-valued aliases, mirroring the Init handlers. Mesh
 /// and effect wrappers create new scenes; aliases retain their source identity.
-pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Option<usize>, Error> {
-    #[derive(Clone, Copy)]
-    enum Object {
-        Scene(usize),
-        Mesh,
-        Effect,
-        Other,
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CachedObject {
+    Scene(usize),
+    Mesh(usize),
+    Effect(usize),
+    Other,
+}
+pub fn cached_object(doc: &Document<'_>, operator: usize) -> Result<CachedObject, Error> {
+    use CachedObject as Object;
     fn resolve(doc: &Document<'_>, index: usize, depth: usize) -> Result<Object, Error> {
         let fail = |reason| Error {
             operator: index,
@@ -290,7 +297,7 @@ pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Optio
                 if let Some(&i) = op.inputs.first() {
                     match input(i)? {
                         Object::Scene(identity) => Object::Scene(identity),
-                        Object::Mesh | Object::Effect => Object::Scene(index),
+                        Object::Mesh(_) | Object::Effect(_) => Object::Scene(index),
                         Object::Other => Object::Other,
                     }
                 } else {
@@ -308,18 +315,28 @@ pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Optio
                 }
             }
             0x11 | 0x13 | 0x14 | 0x63 | 0xc1 | 0xc4..=0xc9 | 0xcb | 0xce => Object::Scene(index),
-            0x61 | 0x64 => Object::Effect,
+            0x61 | 0x64 => Object::Effect(index),
             _ => {
                 if mesh_graph::implemented(id) {
-                    Object::Mesh
+                    Object::Mesh(index)
                 } else {
                     Object::Other
                 }
             }
         })
     }
-    Ok(match resolve(doc, operator, 0)? {
-        Object::Scene(index) => Some(index),
+    resolve(doc, operator, 0)
+}
+
+pub fn cache_scene_identity(doc: &Document<'_>, operator: usize) -> Result<Option<usize>, Error> {
+    Ok(match cached_object(doc, operator)? {
+        CachedObject::Scene(index) => Some(index),
+        _ => None,
+    })
+}
+pub fn cache_mesh_identity(doc: &Document<'_>, operator: usize) -> Result<Option<usize>, Error> {
+    Ok(match cached_object(doc, operator)? {
+        CachedObject::Mesh(index) => Some(index),
         _ => None,
     })
 }
