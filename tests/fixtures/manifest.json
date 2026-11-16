@@ -338,6 +338,10 @@
     "zones.bin": {
       "bytes": 5135112,
       "sha256": "f7b352574c26ce4371c482102cd0d7113f74e9bee5234ab88dcd296f909a9233"
+    },
+    "effect-schedule.bin": {
+      "bytes": 57352,
+      "sha256": "e948aff19e7febe0a15894f3b4fb1b4a2af7ef8e575f4eb81edc339a7cef411f"
     }
   }
 }

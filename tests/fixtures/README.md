@@ -422,3 +422,10 @@ verifier extracts the original loop and SetVert; Fade64 uses the scalar MMX
 translation independently covered by bitmap fixtures. This verifies geometry
 and packing, not GPU rasterization or released x86 transcendental rounding.
 Regenerate with `python3 tools/verify_particle_billboard.py`.
+
+`effect-schedule.bin` records 32 original Engine effect BuildPaintJobs and
+SortPaintJobs calls over 2,048 jobs. Both source bodies are extracted unchanged;
+mesh-job construction is excluded. Initial effect metadata models Print's
+MakeEffect and PartSystem's distinct initialization. Tests compare every job
+identity and sort key, including stable ties and clamped pass adjustments.
+Regenerate with `python3 tools/verify_effect_schedule.py`.

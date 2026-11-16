@@ -50,3 +50,40 @@ fn absent_material_and_signed_pass_adjustments_follow_original_clamping() {
         [0x00070000, 0x00070000, 0xff070000]
     );
 }
+
+#[test]
+fn native_original_effect_build_and_radix_sort_match() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/effect-schedule.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let n = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        n
+    }
+    let mut d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let particle = d.classes.iter().position(|c| c.id == 0x64).unwrap();
+    let print = d.classes.iter().position(|c| c.id == 0x61).unwrap();
+    assert_eq!(word(&mut bytes), 32);
+    assert_eq!(word(&mut bytes), 64);
+    for case in 0..32 {
+        let mut jobs = Vec::new();
+        let mut materials = Vec::new();
+        for (i, op) in d.operators.iter_mut().take(64).enumerate() {
+            let kind = word(&mut bytes);
+            let present = word(&mut bytes) != 0;
+            let pass = word(&mut bytes);
+            let usage = word(&mut bytes);
+            let adjust = word(&mut bytes) as i32;
+            op.class = if kind == 0x61 { print } else { particle };
+            op.links = vec![present.then_some(64 + i)];
+            materials.push((pass, usage));
+            jobs.push(paint(i, adjust));
+        }
+        let scheduled = schedule(&d, &jobs, |id| Some(materials[id - 64])).unwrap();
+        assert_eq!(scheduled.len(), 64);
+        for entry in scheduled {
+            assert_eq!(entry.job, word(&mut bytes) as usize, "case {case}");
+            assert_eq!(entry.sort_key, word(&mut bytes), "case {case}");
+        }
+    }
+    assert!(bytes.is_empty());
+}
