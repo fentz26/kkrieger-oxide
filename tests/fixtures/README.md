@@ -409,3 +409,9 @@ burst and mode flags, clock wraparound and negative deltas. Particle state and
 the following random word are compared. This source-level native fixture does
 not establish released x86 binary argument-evaluation ordering or particle
 rasterization parity. Regenerate with `python3 tools/verify_particle_emitter.py`.
+
+`cached-sectors.bin` records 64 original portal visibility graphs with cached
+sectors deliberately omitted from SectorJobs. Both views compare execution
+selection and clip rectangles for registered draw jobs; cached observers and
+portal endpoints remain traversable. Regenerate with
+`python3 tools/verify_cached_sectors.py`.

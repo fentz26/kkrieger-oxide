@@ -330,6 +330,10 @@
     "particle-emitter.bin": {
       "bytes": 248840,
       "sha256": "68b987bb7bfac95a9dda6dbb66117bce62c881202f64bb3ad728dba9db6b7a31"
+    },
+    "cached-sectors.bin": {
+      "bytes": 116740,
+      "sha256": "749e99d33e0b8a34b9efe2a0720f9e94bd2d8c7d8da0233df85286b18cb0800c"
     }
   }
 }

@@ -99,7 +99,7 @@ pub struct Execution {
     parameters: Vec<Vec<u32>>,
     output_counts: Vec<u32>,
     current_clip: Rect,
-    visibility_history: Vec<Rect>,
+    visibility_history: std::collections::BTreeMap<usize, Rect>,
 }
 impl Execution {
     fn emit_overlay(&mut self, draw: super::overlay::Draw) {
@@ -157,7 +157,7 @@ impl Execution {
                 counts
             },
             current_clip: Rect::UNIT,
-            visibility_history: Vec::new(),
+            visibility_history: std::collections::BTreeMap::new(),
         }
     }
     /// Particle-system Init handlers reached by the selected root's precalc.
@@ -413,7 +413,7 @@ impl Execution {
                 _ => None,
             })
             .collect();
-        let ids: BTreeMap<_, _> = sectors
+        let mut ids: BTreeMap<_, _> = sectors
             .iter()
             .enumerate()
             .map(|(i, (id, _, _))| (*id, i))
@@ -429,6 +429,20 @@ impl Execution {
                 operator: observer.unwrap_or(0),
                 reason,
             };
+            // Portal endpoints refer to cached scene identities, including
+            // scenes which have no SectorJob in this particular view.
+            if let Some(observer) = observer {
+                let next = ids.len();
+                ids.entry(observer).or_insert(next);
+                for job in &self.jobs {
+                    if let Job::Portal { portal, .. } = job {
+                        for &id in portal.sectors.iter().chain(portal.between.iter()) {
+                            let next = ids.len();
+                            ids.entry(id).or_insert(next);
+                        }
+                    }
+                }
+            }
             let index = |id: usize| {
                 ids.get(&id)
                     .copied()
@@ -446,15 +460,23 @@ impl Execution {
                 }
             }
             let observer = observer.map(index).transpose()?;
+            let mut previous = vec![Rect([1e15, 1e15, -1e15, -1e15]); ids.len()];
+            for (&id, &index) in &ids {
+                if let Some(&bounds) = self.visibility_history.get(&id) {
+                    previous[index] = bounds;
+                }
+            }
             let visible = visibility::compute_with_history(
-                sectors.len(),
+                ids.len(),
                 &portals,
                 observer,
                 projection,
-                &self.visibility_history,
+                &previous,
             )
             .map_err(fail)?;
-            self.visibility_history = visible.iter().map(|s| s.bounds).collect();
+            for (&id, &index) in &ids {
+                self.visibility_history.insert(id, visible[index].bounds);
+            }
             for (i, &(_, input, matrix)) in sectors.iter().enumerate().rev() {
                 if visible[i].execute {
                     self.current_clip = visible[i].bounds;

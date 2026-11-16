@@ -79,3 +79,50 @@ fn current_camera_drives_portal_clip_rectangles_in_deferred_sector_execution() {
         }
     }
 }
+
+#[test]
+fn cached_sector_without_draw_job_can_connect_observer_to_registered_sector() {
+    let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    doc.events.clear();
+    doc.classes = vec![Class {
+        id: 0xc4,
+        convention: 0,
+        packing: &[],
+    }];
+    doc.operators.truncate(1);
+    let op = &mut doc.operators[0];
+    op.class = 0;
+    op.animation = &[1];
+    op.inputs.clear();
+    op.links.clear();
+    op.parameters = vec![0; 11];
+    op.parameters[9] = 1f32.to_bits();
+    op.parameters[10] = 32f32.to_bits();
+    let mut e = Execution::new(&doc);
+    e.jobs = vec![
+        Job::Sector {
+            operator: 20,
+            input: 0,
+            matrix: identity(),
+        },
+        Job::Portal {
+            operator: 30,
+            portal: Portal::new(
+                [10, 20],
+                None,
+                [[-0.5, -0.5, 2.], [0.5, 0.5, 3.]],
+                identity(),
+                1,
+            ),
+        },
+    ];
+    e.process_camera_sectors(&doc, Some(10), [640, 360])
+        .unwrap();
+    assert_eq!(
+        e.jobs
+            .iter()
+            .filter(|job| matches!(job, Job::Light { .. }))
+            .count(),
+        1
+    );
+}
