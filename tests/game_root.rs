@@ -5,9 +5,11 @@ use kkrieger_oxide::{
     material,
     random::Random,
     scene::{
+        effects::Content,
         exec::Execution,
         overlay::{Pool, Viewport},
     },
+    texture,
 };
 #[test]
 #[ignore = "generates the full authored collision world"]
@@ -26,8 +28,67 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
         .copied()
         .zip(material::generate_many(&d, &material_roots).unwrap())
         .collect();
+    let mut needed = vec![false; d.operators.len()];
+    let mut pending = vec![root];
+    while let Some(i) = pending.pop() {
+        if needed[i] {
+            continue;
+        }
+        needed[i] = true;
+        pending.extend(d.operators[i].inputs.iter().copied());
+        pending.extend(d.operators[i].links.iter().flatten().copied());
+    }
+    let font_roots: Vec<_> = d
+        .operators
+        .iter()
+        .enumerate()
+        .filter(|(i, op)| {
+            needed[*i] && d.classes[op.class].id == 0x31 && op.parameters[5] & 0x70 != 0
+        })
+        .map(|(i, _)| i)
+        .collect();
+    let fonts = texture::generate_many_with_fonts(&d, &font_roots, 0).unwrap();
     let mut particle_packets = 0;
     let mut particle_quads = 0;
+    let mut print_packets = 0;
+    let mut print_vertices = 0;
+    let mut draw_effects = |e: &mut Execution| {
+        for pass in e.render_passes.clone() {
+            let packets = e
+                .draw_effect_pass(&d, &pass, &materials, &fonts.font_pages, 60.)
+                .unwrap();
+            for packet in packets {
+                match packet.content {
+                    Content::Particles(quads) => {
+                        particle_packets += 1;
+                        particle_quads += quads.len();
+                        for quad in quads {
+                            assert!(
+                                quad.iter()
+                                    .all(|v| v[..3].iter().chain(&v[6..]).all(|f| f.is_finite()))
+                            );
+                        }
+                    }
+                    Content::Print(draw) => {
+                        print_packets += 1;
+                        print_vertices += draw.geometry.vertices.len();
+                        assert!(
+                            draw.geometry
+                                .vertices
+                                .iter()
+                                .all(|v| v[..3].iter().chain(&v[6..]).all(|f| f.is_finite()))
+                        );
+                        assert!(
+                            draw.geometry
+                                .indices
+                                .iter()
+                                .all(|&i| usize::from(i) < draw.geometry.vertices.len())
+                        );
+                    }
+                }
+            }
+        }
+    };
     let mut e = Execution::new_player(&d);
     e.prepare_game_operators(&d, root).unwrap();
     let position = e.game.parameters.start_position;
@@ -45,17 +106,7 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     ));
     sim.prepare_scene(&mut e, 0, 0, 1., false).unwrap();
     sim.execute_scene(&mut e, &d, root).unwrap();
-    for pass in e.render_passes.clone() {
-        let packets = e.draw_particle_pass(&d, &pass, &materials).unwrap();
-        particle_packets += packets.len();
-        particle_quads += packets.iter().map(|p| p.quads.len()).sum::<usize>();
-        for quad in packets.iter().flat_map(|p| &p.quads) {
-            assert!(
-                quad.iter()
-                    .all(|v| v[..3].iter().chain(&v[6..]).all(|f| f.is_finite()))
-            );
-        }
-    }
+    draw_effects(&mut e);
     assert_eq!(e.game.monsters.len(), 132);
     assert_eq!(e.render_passes.len(), 2);
     assert!(sim.player_cell.is_some());
@@ -76,24 +127,18 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
         assert!(sim.tick(&mut e, &d, 1, now, [0, 0]).unwrap().ran);
         sim.prepare_scene(&mut e, now * 64, now, 1., false).unwrap();
         sim.execute_scene(&mut e, &d, root).unwrap();
-        for pass in e.render_passes.clone() {
-            let packets = e.draw_particle_pass(&d, &pass, &materials).unwrap();
-            particle_packets += packets.len();
-            particle_quads += packets.iter().map(|p| p.quads.len()).sum::<usize>();
-            for quad in packets.iter().flat_map(|p| &p.quads) {
-                assert!(
-                    quad.iter()
-                        .all(|v| v[..3].iter().chain(&v[6..]).all(|f| f.is_finite()))
-                );
-            }
-        }
+        draw_effects(&mut e);
         assert_eq!(e.game.monsters.len(), 132);
         assert_eq!(e.render_passes.len(), 2);
         assert!(sim.player_cell.is_some());
         assert!(sim.motion.collider.position.into_iter().all(f32::is_finite));
         e.finish_events();
     }
-    eprintln!("authored particle packets={particle_packets} quads={particle_quads}");
+    eprintln!(
+        "authored particle packets={particle_packets} quads={particle_quads} Print packets={print_packets} vertices={print_vertices}"
+    );
+    assert!(print_packets > 0);
+    assert!(print_vertices > 0);
     assert!(particle_packets > 0);
     assert!(particle_quads > 0);
     assert_eq!(sim.tick_count, 30);
