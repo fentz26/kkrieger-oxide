@@ -844,6 +844,29 @@ impl Execution {
         for &input in &doc.operators[root].inputs {
             let class = doc.classes[doc.operators[input].class].id;
             let mesh = super::cache_mesh_identity(doc, input)?;
+            if mesh.is_some()
+                && let Some(id) = self.current_event
+            {
+                let event = self
+                    .events
+                    .events
+                    .get(&id)
+                    .ok_or(Error {
+                        operator: input,
+                        reason: "scene current event missing",
+                    })?
+                    .borrow();
+                let distance = event.cull_distance;
+                if distance > 0 {
+                    let delta: [f32; 3] = std::array::from_fn(|axis| {
+                        matrix[3][axis] - self.game_camera.space[3][axis]
+                    });
+                    let squared = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
+                    if (distance.wrapping_mul(distance) as f32) < squared {
+                        continue;
+                    }
+                }
+            }
             if mesh.is_some() || matches!(class, 0x61 | 0x64) {
                 let effect_variables =
                     if matches!(class, 0x61 | 0x64) {
