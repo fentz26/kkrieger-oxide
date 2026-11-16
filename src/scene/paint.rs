@@ -1,6 +1,90 @@
 //! Original mesh material-pass expansion within Engine::BuildPaintJobs.
 use super::culling::{Bounds, Plane};
 use crate::mesh::Matrix;
+use std::rc::Rc;
+
+pub struct StaticInstance<'a> {
+    pub mesh: &'a crate::prepared_mesh::PreparedMesh,
+    /// Resolved original materials, including the unused slot zero.
+    pub materials: &'a [Rc<crate::material::Material>],
+    pub matrix: Matrix,
+    pub pass_adjust: i32,
+}
+pub struct MeshPaint {
+    pub material_slot: usize,
+    pub pass: usize,
+    pub geometry_job: usize,
+    pub paint: Paint,
+}
+pub struct InsertUse {
+    pub material_slot: usize,
+    pub render_pass: u8,
+}
+pub struct StaticPaint {
+    pub jobs: Vec<MeshPaint>,
+    pub inserts: Vec<InsertUse>,
+}
+/// Expand a non-bone-animated mesh in original material/pass order. Material
+/// keys must resolve existing pass identities, including shared allocations.
+pub fn build_static(
+    instance: &StaticInstance<'_>,
+    view: &View<'_>,
+    mut material_key: impl FnMut(&Rc<crate::material::Material>, usize) -> u16,
+) -> Result<StaticPaint, &'static str> {
+    let mesh = instance.mesh;
+    if instance.materials.len() != mesh.materials.len()
+        || mesh.pass_jobs.len() != mesh.materials.len()
+    {
+        return Err("paint material slot count mismatch");
+    }
+    let mut output = StaticPaint {
+        jobs: Vec::new(),
+        inserts: Vec::new(),
+    };
+    for (slot, material) in instance.materials.iter().enumerate().skip(1) {
+        if mesh.pass_jobs[slot].len() != material.passes.len() {
+            return Err("paint pass-to-geometry mapping mismatch");
+        }
+        for (pass_index, pass) in material.passes.iter().enumerate() {
+            let geometry_job = mesh.pass_jobs[slot][pass_index];
+            let geometry = mesh
+                .jobs
+                .get(geometry_job)
+                .ok_or("paint geometry job out of range")?;
+            if geometry.material != slot || geometry.program != pass.program {
+                return Err("paint geometry material or program mismatch");
+            }
+            let candidate = Candidate {
+                bounds: Bounds(geometry.bounds),
+                matrix: instance.matrix,
+                animated: false,
+                usage: pass.usage.as_raw(),
+                render_pass: pass.render_pass as i32,
+                mesh_pass: mesh.materials[slot].pass,
+                pass_adjust: instance.pass_adjust,
+                material_key: material_key(material, pass_index),
+            };
+            let built = build(&candidate, view)?;
+            if material.material11_insert
+                && let Some(render_pass) = built.render_pass
+            {
+                output.inserts.push(InsertUse {
+                    material_slot: slot,
+                    render_pass,
+                });
+            }
+            output
+                .jobs
+                .extend(built.jobs.into_iter().map(|paint| MeshPaint {
+                    material_slot: slot,
+                    pass: pass_index,
+                    geometry_job,
+                    paint,
+                }));
+        }
+    }
+    Ok(output)
+}
 pub struct Candidate {
     pub bounds: Bounds,
     /// Final world/bone matrix selected by the mesh animation stage.

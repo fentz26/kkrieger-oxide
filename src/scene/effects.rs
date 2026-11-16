@@ -77,20 +77,9 @@ pub fn schedule_prepared(
     jobs: &[Job],
     materials: &std::collections::BTreeMap<usize, std::rc::Rc<crate::material::Material>>,
 ) -> Result<Vec<Scheduled>, Error> {
-    use crate::material::Usage;
     let scheduled = schedule(doc, jobs, |index| {
         let first = materials.get(&index)?.passes.first()?;
-        let usage = match first.usage {
-            Usage::Base => 0,
-            Usage::PreLight => 1,
-            Usage::Ambient => 2,
-            Usage::Shadow => 3,
-            Usage::Light => 4,
-            Usage::PostLight => 5,
-            Usage::PostLight2 => 6,
-            Usage::Other => 7,
-            Usage::Explicit(value) => value,
-        };
+        let usage = first.usage.as_raw();
         Some((first.render_pass, usage))
     })?;
     // A linked material absent from the prepared cache is an integration

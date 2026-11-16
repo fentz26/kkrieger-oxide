@@ -170,6 +170,19 @@ pub fn generate_many(doc: &Document<'_>, roots: &[usize]) -> Result<Vec<Rc<Mater
 }
 
 impl Usage {
+    pub fn as_raw(self) -> u32 {
+        match self {
+            Self::Base => 0,
+            Self::PreLight => 1,
+            Self::Ambient => 2,
+            Self::Shadow => 3,
+            Self::Light => 4,
+            Self::PostLight => 5,
+            Self::PostLight2 => 6,
+            Self::Other => 7,
+            Self::Explicit(value) => value,
+        }
+    }
     pub fn from_raw(value: u32) -> Self {
         match value {
             0 => Self::Base,
