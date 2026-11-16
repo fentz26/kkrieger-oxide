@@ -358,6 +358,10 @@
     "mesh-paint.bin": {
       "bytes": 90240,
       "sha256": "90f20dda67871c7168ab8f97d05dacaca4f9d1e57f4fc11a1f0947e5f3deb983"
+    },
+    "light-frustum.bin": {
+      "bytes": 187604,
+      "sha256": "19bce5cda4e82d26c3b60fdd5df5b02a5d034b7a26b40b2489b45bf02c976d59"
     }
   }
 }

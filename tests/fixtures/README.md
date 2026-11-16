@@ -458,3 +458,9 @@ keys, light identities and stencil modes. The host-pointer cast used for the
 material key is replaced by an explicit deterministic key input; allocation
 identity, animation evaluation and GPU submission are not verified here.
 Regenerate with `python3 tools/verify_mesh_paint.py`.
+
+`light-frustum.bin` records 512 original ZFailVolume, EnlargeToInclude and
+Normalize sequences with camera rotations, varied zoom/near planes, light
+positions around the near-plane epsilon and both two/six-plane results. Every
+active plane word, selector, count and box-culling result is compared at all
+three stages. Regenerate with `python3 tools/verify_light_frustum.py`.

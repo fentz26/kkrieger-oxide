@@ -113,3 +113,58 @@ fn original_frustum_enlargement_and_normalization_preserve_selectors() {
     frustum.normalize();
     assert_eq!(frustum.planes.map(|p| p.near_vertex), selectors);
 }
+
+#[test]
+fn native_original_light_frustum_sequences_match_all_active_planes() {
+    let mut bytes: &[u8] = include_bytes!("fixtures/light-frustum.bin");
+    fn word(bytes: &mut &[u8]) -> u32 {
+        let n = u32::from_le_bytes(bytes[..4].try_into().unwrap());
+        *bytes = &bytes[4..];
+        n
+    }
+    fn real(bytes: &mut &[u8]) -> f32 {
+        f32::from_bits(word(bytes))
+    }
+    fn check(frustum: &Frustum, bytes: &mut &[u8], case: usize, stage: usize) {
+        assert_eq!(
+            frustum.count,
+            word(bytes) as usize,
+            "case {case} stage {stage} count"
+        );
+        for plane in &frustum.planes[..frustum.count] {
+            for value in plane.equation {
+                assert_eq!(
+                    value.to_bits(),
+                    word(bytes),
+                    "case {case} stage {stage} plane"
+                );
+            }
+            assert_eq!(
+                u32::from(plane.near_vertex),
+                word(bytes),
+                "case {case} stage {stage} selector"
+            );
+        }
+        assert_eq!(
+            Bounds([[-1.; 3], [1.; 3]]).culled(&frustum.planes[..frustum.count]),
+            word(bytes) != 0,
+            "case {case} stage {stage} cull"
+        );
+    }
+    assert_eq!(word(&mut bytes), 512);
+    for case in 0..512 {
+        let light = std::array::from_fn(|_| real(&mut bytes));
+        let view = std::array::from_fn(|_| std::array::from_fn(|_| real(&mut bytes)));
+        let near = real(&mut bytes);
+        let zoom = std::array::from_fn(|_| real(&mut bytes));
+        let viewport = std::array::from_fn(|_| real(&mut bytes));
+        let point = std::array::from_fn(|_| real(&mut bytes));
+        let mut frustum = Frustum::zfail_volume(light, view, near, zoom, viewport);
+        check(&frustum, &mut bytes, case, 0);
+        frustum.enlarge_to_include(point);
+        check(&frustum, &mut bytes, case, 1);
+        frustum.normalize();
+        check(&frustum, &mut bytes, case, 2);
+    }
+    assert!(bytes.is_empty());
+}
