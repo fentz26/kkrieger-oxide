@@ -12,6 +12,30 @@ pub struct System {
     pub particles: Vec<Particle>,
     pub capacity: usize,
 }
+impl System {
+    /// Execute the original PartSystem draw loop after its material/pass gate.
+    /// The callback receives the particle before integration, including particles
+    /// that expire during this draw. Invisible systems must not enter this loop.
+    pub fn draw_and_advance(&mut self, slices: i32, gravity: f32, mut draw: impl FnMut(&Particle)) {
+        let mut i = 0;
+        while i < self.particles.len() {
+            let particle = &mut self.particles[i];
+            draw(particle);
+            for axis in 0..4 {
+                particle.position[axis] += particle.speed[axis] * slices as f32;
+            }
+            let triangular = slices.wrapping_mul(slices.wrapping_add(1)) / 2;
+            particle.position[1] -= triangular as f32 * gravity / 31623.;
+            particle.speed[1] -= slices as f32 * gravity / 31623.;
+            particle.time = particle.time.wrapping_add(slices);
+            if particle.time > particle.max_time {
+                self.particles.swap_remove(i);
+            } else {
+                i += 1;
+            }
+        }
+    }
+}
 #[derive(Default)]
 pub struct Emitter {
     pub burst_count: i32,
