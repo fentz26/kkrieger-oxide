@@ -167,6 +167,19 @@ impl Execution {
         doc: &Document<'_>,
         root: usize,
     ) -> Result<(), Error> {
+        self.prepare_game_init(doc, root, false)
+    }
+    /// Original game-side Init handlers reached by the selected root precalc.
+    /// Scene/mesh/material cache construction remains with their own preparers.
+    pub fn prepare_game_operators(&mut self, doc: &Document<'_>, root: usize) -> Result<(), Error> {
+        self.prepare_game_init(doc, root, true)
+    }
+    fn prepare_game_init(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        initialize_start: bool,
+    ) -> Result<(), Error> {
         let mut visited = vec![false; doc.operators.len()];
         let mut stack = vec![(root, false)];
         while let Some((index, finish)) = stack.pop() {
@@ -179,6 +192,18 @@ impl Execution {
                 .get(index)
                 .ok_or_else(|| fail("particle precalc operator out of range"))?;
             if finish {
+                if initialize_start && doc.classes[op.class].id == 0x10 {
+                    let p = op
+                        .parameters
+                        .get(29..32)
+                        .ok_or_else(|| fail("truncated game start position"))?;
+                    self.game.parameters.start_position = [
+                        f32::from_bits(p[0]),
+                        f32::from_bits(p[1]),
+                        f32::from_bits(p[2]),
+                        1.,
+                    ];
+                }
                 if doc.classes[op.class].id == 0x64 {
                     let p = op
                         .parameters
