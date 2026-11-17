@@ -58,6 +58,17 @@ pub enum RenderCommand {
     Overlay(usize),
 }
 
+/// Called at the original render position, before the executing operator's
+/// scoped variables are restored. Implementations may execute deferred effects.
+pub trait Renderer {
+    fn render(
+        &mut self,
+        execution: &mut Execution,
+        doc: &Document<'_>,
+        command: RenderCommand,
+    ) -> Result<(), Error>;
+}
+
 #[derive(Clone)]
 pub struct ActorContext {
     pub world: Rc<RefCell<crate::collision::world::World>>,
@@ -69,6 +80,7 @@ pub struct ActorContext {
 pub struct Execution {
     pub vm: Vm,
     pub audio: Option<Box<dyn super::sample::Output>>,
+    pub renderer: Option<Box<dyn Renderer>>,
     pub particles: [super::particles::System; 16],
     random: crate::random::Random,
     pub game_camera: super::camera::Environment,
@@ -491,10 +503,23 @@ impl Execution {
             .map_err(|_| fail("particle variable restore failed"))?;
         result
     }
-    fn emit_overlay(&mut self, draw: super::overlay::Draw) {
-        self.render_commands
-            .push(RenderCommand::Overlay(self.overlay_draws.len()));
+    fn emit_render(&mut self, doc: &Document<'_>, command: RenderCommand) -> Result<(), Error> {
+        self.render_commands.push(command);
+        let Some(mut renderer) = self.renderer.take() else {
+            return Ok(());
+        };
+        let result = renderer.render(self, doc, command);
+        self.renderer = Some(renderer);
+        result
+    }
+    fn emit_overlay(
+        &mut self,
+        doc: &Document<'_>,
+        draw: super::overlay::Draw,
+    ) -> Result<(), Error> {
+        let index = self.overlay_draws.len();
         self.overlay_draws.push(draw);
+        self.emit_render(doc, RenderCommand::Overlay(index))
     }
     pub fn new(doc: &Document<'_>) -> Self {
         Self {
@@ -503,6 +528,7 @@ impl Execution {
             effect_context: None,
             effect_output: Vec::new(),
             audio: None,
+            renderer: None,
             particles: std::array::from_fn(|_| super::particles::System::default()),
             random: crate::random::Random::new(1),
             game_camera: super::camera::Environment::default(),
@@ -1106,7 +1132,7 @@ impl Execution {
                     match super::presentation_kind(doc, input)? {
                         super::PresentationKind::Demo => self.visit(doc, input, parent)?,
                         super::PresentationKind::Ipp => {
-                            self.render_commands.push(RenderCommand::ResetOverlay);
+                            self.emit_render(doc, RenderCommand::ResetOverlay)?;
                             self.overlay
                                 .as_mut()
                                 .ok_or_else(|| fail("postprocessing target pool missing"))?
@@ -1122,7 +1148,7 @@ impl Execution {
                                     .copy(source, destination, 0, 0xffffffff, 1.)
                                     .map_err(fail)?
                                 {
-                                    self.emit_overlay(draw);
+                                    self.emit_overlay(doc, draw)?;
                                 }
                             }
                         }
@@ -1186,8 +1212,7 @@ impl Execution {
                             clip: Rect::UNIT,
                         });
                     }
-                    self.render_commands
-                        .push(RenderCommand::Scene(self.render_passes.len()));
+                    let pass_index = self.render_passes.len();
                     self.render_passes.push(super::viewport::RenderPass {
                         viewport,
                         camera: self.current_camera.clone(),
@@ -1199,6 +1224,7 @@ impl Execution {
                         blend_stereo_target: passes.flags & 0x40 != 0 && pass == 1,
                         allocate_stereo_target: passes.allocate_stereo_target && pass == 0,
                     });
+                    self.emit_render(doc, RenderCommand::Scene(pass_index))?;
                 }
                 self.overlay.as_mut().unwrap().last_output = Some(output);
                 Ok(())
@@ -1235,7 +1261,7 @@ impl Execution {
                             .copy(source, destination, 0, 0xffffffff, 1.)
                             .map_err(fail)?
                         {
-                            self.emit_overlay(draw);
+                            self.emit_overlay(doc, draw)?;
                         }
                     }
                     Ok(())
@@ -1290,7 +1316,7 @@ impl Execution {
                     .blur_operator(root, &parameters)
                     .map_err(fail)?;
                 for draw in draws {
-                    self.emit_overlay(draw);
+                    self.emit_overlay(doc, draw)?;
                 }
                 Ok(())
             }
@@ -1337,7 +1363,7 @@ impl Execution {
                         .mask_operator(root, sources, params[0] as usize, params[1] as i32)
                         .map_err(fail)?;
                     for draw in draws {
-                        self.emit_overlay(draw);
+                        self.emit_overlay(doc, draw)?;
                     }
                 }
                 Ok(())
@@ -1404,7 +1430,7 @@ impl Execution {
                         .merge_operator(root, sources, &parameters)
                         .map_err(fail)?
                     {
-                        self.emit_overlay(draw);
+                        self.emit_overlay(doc, draw)?;
                     }
                 }
                 Ok(())
@@ -1436,7 +1462,7 @@ impl Execution {
                         )
                         .map_err(fail)?
                     {
-                        self.emit_overlay(draw);
+                        self.emit_overlay(doc, draw)?;
                     }
                 }
                 Ok(())
@@ -1460,7 +1486,7 @@ impl Execution {
                     )
                     .map_err(fail)?
                 {
-                    self.emit_overlay(draw);
+                    self.emit_overlay(doc, draw)?;
                 }
                 Ok(())
             }

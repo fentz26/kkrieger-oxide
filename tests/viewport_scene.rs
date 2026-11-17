@@ -150,7 +150,29 @@ fn unsupported_child_or_spline_does_not_leave_render_packets() {
 
 #[test]
 fn viewport_scene_precedes_its_parent_postprocessing_copy() {
-    use kkrieger_oxide::scene::exec::RenderCommand;
+    use kkrieger_oxide::scene::{
+        Error,
+        exec::{RenderCommand, Renderer},
+    };
+    use std::{cell::RefCell, rc::Rc};
+    struct Capture(Rc<RefCell<Vec<RenderCommand>>>);
+    impl Renderer for Capture {
+        fn render(
+            &mut self,
+            execution: &mut Execution,
+            _: &Document<'_>,
+            command: RenderCommand,
+        ) -> Result<(), Error> {
+            if let RenderCommand::Scene(_) = command {
+                assert!(execution.overlay_draws.is_empty());
+            }
+            if let RenderCommand::Overlay(index) = command {
+                assert_eq!(execution.overlay_draws[index].texture, 109);
+            }
+            self.0.borrow_mut().push(command);
+            Ok(())
+        }
+    }
     let (template, mut old) = setup();
     let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     doc.events.clear();
@@ -176,15 +198,70 @@ fn viewport_scene_precedes_its_parent_postprocessing_copy() {
     doc.operators[2].parameters = template.operators[1].parameters.clone();
     let mut e = Execution::new(&doc);
     e.overlay = old.overlay.take();
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    e.renderer = Some(Box::new(Capture(Rc::clone(&seen))));
     e.frame(&doc, 0).unwrap();
     assert_eq!(
         e.render_commands,
         vec![RenderCommand::Scene(0), RenderCommand::Overlay(0)]
     );
+    assert_eq!(*seen.borrow(), e.render_commands);
+    seen.borrow_mut().clear();
     assert_eq!(e.overlay.as_ref().unwrap().last_output, Some(12));
     assert_eq!(e.overlay_draws[0].texture, 109);
     assert_eq!(e.overlay.as_ref().unwrap().targets[9].references, 1);
     e.frame(&doc, 0).unwrap();
     assert_eq!(e.render_commands, vec![RenderCommand::Overlay(0)]);
     assert!(e.render_passes.is_empty());
+    assert_eq!(*seen.borrow(), e.render_commands);
+}
+
+#[test]
+fn synchronous_renderer_sees_viewport_scope_and_survives_backend_error() {
+    use kkrieger_oxide::scene::{
+        Error,
+        exec::{RenderCommand, Renderer},
+    };
+    use std::{cell::RefCell, rc::Rc};
+    struct Capture(Rc<RefCell<Vec<f32>>>, bool);
+    impl Renderer for Capture {
+        fn render(
+            &mut self,
+            execution: &mut Execution,
+            _: &Document<'_>,
+            command: RenderCommand,
+        ) -> Result<(), Error> {
+            if let RenderCommand::Scene(index) = command {
+                assert_eq!(execution.render_passes[index].jobs.len(), 1);
+                self.0.borrow_mut().push(execution.vm.variables[5][0]);
+                if self.1 {
+                    self.1 = false;
+                    return Err(Error {
+                        operator: 0,
+                        reason: "test renderer failure",
+                    });
+                }
+            }
+            Ok(())
+        }
+    }
+    let (mut doc, mut execution) = setup();
+    doc.operators[0].animation = &[24, 0, 0, 0, 64, 0x8f, 5, 1];
+    // Reconstruct cached parameter/animation state after changing the document.
+    let pool = execution.overlay.take();
+    execution = Execution::new(&doc);
+    execution.overlay = pool;
+    execution.vm.variables[5] = [3.; 4];
+    let seen = Rc::new(RefCell::new(Vec::new()));
+    execution.renderer = Some(Box::new(Capture(Rc::clone(&seen), true)));
+    assert_eq!(
+        execution.frame(&doc, 0).unwrap_err().reason,
+        "test renderer failure"
+    );
+    assert!(execution.renderer.is_some());
+    assert_eq!(execution.vm.variables[5], [3.; 4]);
+    execution.overlay.as_mut().unwrap().reset();
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(*seen.borrow(), [2., 2.]);
+    assert_eq!(execution.vm.variables[5], [3.; 4]);
 }
