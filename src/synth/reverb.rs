@@ -1,0 +1,145 @@
+//! Original ViruZ II stereo Schroeder reverb and low/high-cut state.
+use super::rate::Rate;
+pub const LENGTHS: [usize; 12] = [
+    1309, 1635, 1811, 1926, 220, 74, 1327, 1631, 1833, 1901, 205, 77,
+];
+const fn offsets() -> [usize; 12] {
+    let mut result = [0; 12];
+    let mut i = 1;
+    while i < 12 {
+        result[i] = result[i - 1] + LENGTHS[i - 1];
+        i += 1;
+    }
+    result
+}
+const OFFSETS: [usize; 12] = offsets();
+const HISTORY_SIZE: usize = OFFSETS[11] + LENGTHS[11];
+#[derive(Clone, Copy)]
+pub struct Parameters {
+    pub time: f32,
+    pub high_cut: f32,
+    pub low_cut: f32,
+    pub volume: f32,
+}
+pub struct Reverb {
+    pub gains: [f32; 6],
+    pub input_gain: f32,
+    pub damping: f32,
+    pub low_cut: f32,
+    pub positions: [u32; 12],
+    pub lowpass: [f32; 8],
+    pub highpass: [f32; 2],
+    pub history: Box<[f32]>,
+}
+impl Default for Reverb {
+    fn default() -> Self {
+        Self {
+            gains: [0.; 6],
+            input_gain: 0.,
+            damping: 0.,
+            low_cut: 0.,
+            positions: [0; 12],
+            lowpass: [0.; 8],
+            highpass: [0.; 2],
+            history: vec![0.; HISTORY_SIZE].into_boxed_slice(),
+        }
+    }
+}
+impl Reverb {
+    pub fn init(&mut self) {
+        self.gains = [0.; 6];
+        self.input_gain = 0.;
+        self.damping = 0.;
+        self.low_cut = 0.;
+        self.reset();
+    }
+    pub fn reset(&mut self) {
+        self.positions = [0; 12];
+        self.lowpass = [0.; 8];
+        self.highpass = [0.; 2];
+        self.history.fill(0.);
+    }
+    // Keep the original ROM table decimal literals.
+    #[allow(clippy::excessive_precision)]
+    pub fn set(&mut self, p: Parameters, rate: &Rate) {
+        let time = 64. / (p.time + 1.);
+        let exponent = (time * time) * rate.linear_frequency;
+        self.gains = [
+            0.966384599f32,
+            0.958186359,
+            0.953783929,
+            0.950933178,
+            0.994260075,
+            0.998044717,
+        ]
+        .map(|base| f64::from(base).powf(f64::from(exponent)) as f32);
+        self.damping = (p.high_cut * (1. / 128.)) * rate.linear_frequency;
+        self.input_gain = p.volume * (1. / 128.);
+        let low = p.low_cut * (1. / 128.);
+        let low = low * low;
+        self.low_cut = (low * low) * rate.linear_frequency;
+    }
+    fn advance(&mut self, line: usize) {
+        self.positions[line] += 1;
+        if self.positions[line] as usize == LENGTHS[line] {
+            self.positions[line] = 0;
+        }
+    }
+    // Preserve the assembly's source-first mix addition order.
+    #[allow(clippy::assign_op_pattern)]
+    pub fn process(&mut self, mix: &mut [[f32; 2]], input: &[f32]) -> Result<(), &'static str> {
+        if input.len() < mix.len() {
+            return Err("V2 reverb auxiliary input too short");
+        }
+        if self
+            .positions
+            .iter()
+            .zip(LENGTHS)
+            .any(|(&position, length)| position as usize >= length)
+        {
+            return Err("invalid V2 reverb delay position");
+        }
+        for (output, &input) in mix.iter_mut().zip(input) {
+            let input = input * self.input_gain + f32::from_bits(0x36800000);
+            for (side, out) in output.iter_mut().enumerate() {
+                let mut sum = 0.;
+                for comb in 0..4 {
+                    let line = side * 6 + comb;
+                    let index = OFFSETS[line] + self.positions[line] as usize;
+                    let delayed = self.history[index] * self.gains[comb];
+                    let value = if comb & 1 == 0 {
+                        delayed + input
+                    } else {
+                        delayed - input
+                    };
+                    let filter = side * 4 + comb;
+                    let value =
+                        (value - self.lowpass[filter]) * self.damping + self.lowpass[filter];
+                    self.lowpass[filter] = value;
+                    self.history[index] = value;
+                    if comb == 0 {
+                        sum = value;
+                    } else {
+                        sum += value;
+                    }
+                    self.advance(line);
+                }
+                for allpass in 0..2 {
+                    let line = side * 6 + 4 + allpass;
+                    let index = OFFSETS[line] + self.positions[line] as usize;
+                    let delayed = self.history[index];
+                    let gain = self.gains[4 + allpass];
+                    let value = sum + delayed * gain;
+                    self.history[index] = value;
+                    sum = delayed - value * gain;
+                    self.advance(line);
+                }
+                self.highpass[side] += (sum - self.highpass[side]) * self.low_cut;
+                *out = (sum - self.highpass[side]) + *out;
+            }
+        }
+        // TODO: reproduce the x87 underflow-status check that resets the tail.
+        // The finite normal-range path is checked against the original assembly.
+        Ok(())
+    }
+}

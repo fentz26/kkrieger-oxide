@@ -7,6 +7,8 @@ def voice_code(address=0x1000000,sections=()):
  text=source[source.index('fastatan:'):source.index('; table for mod sources')]
  for start,end in sections:text+='\n'+source[source.index(start):source.index(end,source.index(start))]
  fields={'COMPDLEN':5700}
+ for name,value in re.findall(r'^(\w+)\s+equ\s+(\d+)',text,re.M):fields[name]=int(value)
+ text=re.sub(r'^\w+\s+equ[^\n]*','',text,flags=re.M)
  def product(expression):
   value=1
   for part in expression.split('*'):value*=int(part) if part.isdigit() else fields[part]
@@ -34,10 +36,11 @@ def voice_code(address=0x1000000,sections=()):
   line=re.sub(r'\b(dword|qword|word|byte)\s+\[',r'\1 ptr [',line)
   line=re.sub(r'\bbyte\s+(-?\d+)',r'\1',line)
   line=re.sub(r'\bst([0-7])\b',r'st(\1)',line).replace('cs:','')
+  line=re.sub(r'fxch\s+st\(0\),\s*', 'fxch ',line)
   line=re.sub(r'\b(?:short|near)\s+','',line)
   line=re.sub(r'^(mov\s+\w+,\s*)(vcebuf2?|chanbuf|mixbuf|aux[ab12]buf)\b',r'\1offset \2',line)
   if re.search(r'\bdd\s',line):
-   label,data=re.split(r'\bdd\s+',line,maxsplit=1);line=(label.strip()+': ' if label.strip() else '')+'.long '+data.rstrip(',')
+   label,data=re.split(r'\bdd\s+',line,maxsplit=1);line=(label.strip()+': ' if label.strip() else '')+'.long '+','.join(str(int.from_bytes(struct.pack('<f',float(v)),'little')) if re.fullmatch(r'-?\d+\.\d+',v.strip()) else v.strip() for v in data.rstrip(',').split(','))
   elif re.fullmatch(r'\w+\.\w+',line):line+=':'
   lines.append(line)
  for name,kind,value in re.findall(r'^((?:fc|SR|dcoffset)\w*)\s+(dd|dq)\s+([^;\r\n]+)',source,re.M):

@@ -22,3 +22,5 @@ pub mod delay;
 pub mod compressor;
 
 pub mod channel;
+
+pub mod reverb;

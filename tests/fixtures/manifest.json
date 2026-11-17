@@ -474,6 +474,10 @@
     "synth-channel.bin": {
       "bytes": 1527292,
       "sha256": "8ebb2fc4b01385a70b4cb946fbcf9716958430b84ec0b08b1948ac4e33909373"
+    },
+    "synth-reverb.bin": {
+      "bytes": 1275788,
+      "sha256": "c82483ab28d6cc16f32dfefd0f2b97a5048572f2779152d5045d512d74619ed3"
     }
   }
 }
