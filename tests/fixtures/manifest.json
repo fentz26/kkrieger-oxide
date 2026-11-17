@@ -482,6 +482,10 @@
     "synth-reverb-underflow.bin": {
       "bytes": 13920,
       "sha256": "1d19525bdefb1a62af584d8f884b79a212d329b329f15bf27789097ca5fa774c"
+    },
+    "synth-master.bin": {
+      "bytes": 1190964,
+      "sha256": "d77cbec2cbedd22313c6f0f117cbae7da00594316dfee8d883248abbdd9856cf"
     }
   }
 }

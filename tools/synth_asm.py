@@ -2,10 +2,11 @@
 import pathlib,re,struct
 from x86_asm import assemble
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-def voice_code(address=0x1000000,sections=()):
+def voice_code(address=0x1000000,sections=(),extra_text="",preamble=()):
  source=(ROOT/'.reference/fr_public/werkkzeug3_kkrieger/_viruz2a.asm').read_text(encoding='cp1252')
  text=source[source.index('fastatan:'):source.index('; table for mod sources')]
  for start,end in sections:text+='\n'+source[source.index(start):source.index(end,source.index(start))]
+ text+='\n'+extra_text
  fields={'COMPDLEN':5700}
  for name,value in re.findall(r'^(\w+)\s+equ\s+(\d+)',text,re.M):fields[name]=int(value)
  text=re.sub(r'^\w+\s+equ[^\n]*','',text,flags=re.M)
@@ -24,7 +25,7 @@ def voice_code(address=0x1000000,sections=()):
    if f[2]:offset+=product(f[3])*(4 if f[2]=='resd' else 1)
   return ''
  text=re.sub(r'struc\s+(\w+)\s*\n(.*?)endstruc',structure,text,flags=re.S)
- lines=['.set icnoisemul,196314165','.set icnoiseadd,907633515','.set LOWEST,0x39000000']+[f'.set {name},{offset}' for name,offset in fields.items()];scope=''
+ lines=['.set icnoisemul,196314165','.set icnoiseadd,907633515','.set LOWEST,0x39000000']+[f'.set {name},{offset}' for name,offset in fields.items()]+list(preamble);scope=''
  for line in text.splitlines():
   line=line.split(';')[0].strip()
   if not line or line.startswith(('section','global','V2Perf','%','_')):continue

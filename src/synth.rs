@@ -24,3 +24,5 @@ pub mod compressor;
 pub mod channel;
 
 pub mod reverb;
+
+pub mod master;

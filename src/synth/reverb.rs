@@ -1,5 +1,5 @@
 //! Original ViruZ II stereo Schroeder reverb and low/high-cut state.
-use super::rate::Rate;
+use super::{math::Float, rate::Rate};
 pub const LENGTHS: [usize; 12] = [
     1309, 1635, 1811, 1926, 220, 74, 1327, 1631, 1833, 1901, 205, 77,
 ];
@@ -147,59 +147,5 @@ impl Reverb {
             self.reset();
         }
         Ok(())
-    }
-}
-
-// x87 PC24 rounds arithmetic to 24 significant bits but retains its wide
-// exponent range until a float store. Keeping tiny intermediates avoids both
-// premature flushes and incorrect tail recovery on exact subnormal stores.
-#[derive(Clone, Copy)]
-struct Float(f64);
-impl From<f32> for Float {
-    fn from(value: f32) -> Self {
-        Self(f64::from(value))
-    }
-}
-impl Float {
-    #[inline]
-    fn rounded(value: f64) -> Self {
-        let magnitude = value.abs();
-        if magnitude >= f64::from(f32::MIN_POSITIVE) && magnitude <= f64::from(f32::MAX) {
-            Self(f64::from(value as f32))
-        } else if value == 0. || !value.is_finite() {
-            Self(value)
-        } else {
-            let bits = value.to_bits();
-            Self(f64::from_bits(
-                bits.wrapping_add(0x0fffffff + ((bits >> 29) & 1)) & !0x1fffffff,
-            ))
-        }
-    }
-    #[inline]
-    fn store(self, underflow: &mut bool) -> f32 {
-        let value = self.0 as f32;
-        *underflow |= self.0.abs() < f64::from(f32::MIN_POSITIVE) && self.0 != f64::from(value);
-        value
-    }
-}
-impl std::ops::Add for Float {
-    type Output = Self;
-    #[inline]
-    fn add(self, rhs: Self) -> Self {
-        Self::rounded(self.0 + rhs.0)
-    }
-}
-impl std::ops::Sub for Float {
-    type Output = Self;
-    #[inline]
-    fn sub(self, rhs: Self) -> Self {
-        Self::rounded(self.0 - rhs.0)
-    }
-}
-impl std::ops::Mul for Float {
-    type Output = Self;
-    #[inline]
-    fn mul(self, rhs: Self) -> Self {
-        Self::rounded(self.0 * rhs.0)
     }
 }
