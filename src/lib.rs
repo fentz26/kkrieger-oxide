@@ -34,3 +34,6 @@ pub mod synth;
 pub mod vfx;
 
 pub mod sample_playback;
+
+#[cfg(target_os = "macos")]
+pub mod audio_output;
