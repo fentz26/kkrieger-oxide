@@ -422,6 +422,14 @@
     "synth-envelope-set.bin": {
       "bytes": 30724,
       "sha256": "9f863154fe876b7defbe5ebaa65bd55fde37bbfcaccbf6cedbdae10b6cb5c663"
+    },
+    "synth-lfo.bin": {
+      "bytes": 403976,
+      "sha256": "466895d3ed5fde941a828b035158f9afbda3129902848dbe7fe99faff184a9cb"
+    },
+    "synth-fast-sine.bin": {
+      "bytes": 16388,
+      "sha256": "105778dcb3ceb23410bc3ad75adc434c7c90bd320b1170b49839d83f69a480df"
     }
   }
 }
