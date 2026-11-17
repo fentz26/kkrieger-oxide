@@ -438,6 +438,10 @@
     "synth-oscillator-set.bin": {
       "bytes": 63492,
       "sha256": "a5464fbaa08387daeb63914c73a01163e33f32fbd8f52eadc0334648fe499ffe"
+    },
+    "synth-oscillator-render.bin": {
+      "bytes": 784360,
+      "sha256": "3255a2c26d49d1d4073634bda27729e7205dbe816e2e714ea7f974f61677686f"
     }
   }
 }

@@ -6,6 +6,10 @@ pub fn fast_sine(value: f32) -> f32 {
     } else if x > std::f32::consts::FRAC_PI_2 {
         x = (std::f64::consts::PI - f64::from(x)) as f32;
     }
+    sine_polynomial(x)
+}
+
+pub(crate) fn sine_polynomial(x: f32) -> f32 {
     let squared = x * x;
     let c = (-0.00018542f64 * f64::from(squared)) as f32;
     let b = (f64::from(c) + 0.0083143f64) as f32;
