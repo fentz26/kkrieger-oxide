@@ -34,3 +34,5 @@ pub mod midi;
 pub mod controls;
 
 pub mod engine;
+
+pub mod speech;

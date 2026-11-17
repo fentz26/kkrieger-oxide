@@ -502,6 +502,10 @@
     "synth-frame-clear.bin": {
       "bytes": 67228,
       "sha256": "8af4a2a87db17f416b3deb5d3bf6ff928ddd1c6c3f2ed2627d485a97a31fda89"
+    },
+    "synth-speech-dsp.bin": {
+      "bytes": 684460,
+      "sha256": "be00a46d2cc14dd975fd983ee9e5b901c209424cee908c385a43a66893ed3479"
     }
   }
 }
