@@ -83,7 +83,7 @@ struct Graphics {
     scene: gpu_scene::Scene,
     targets: gpu_target::Targets,
     present: gpu_present::Present,
-    copies: gpu_overlay::Copies,
+    copies: gpu_overlay::Overlays,
     fps: f32,
 }
 struct Bridge(Rc<RefCell<Graphics>>);
@@ -121,10 +121,19 @@ impl Renderer for Bridge {
             let source = targets
                 .texture(-1, draw.texture)
                 .ok_or_else(|| fail("overlay source target has not been rendered"))?;
+            let mut sources = vec![source];
+            if let Some(texture) = draw.texture1 {
+                sources.push(
+                    targets
+                        .texture(-1, texture)
+                        .ok_or_else(|| fail("second overlay target has not been rendered"))?,
+                );
+            }
+
             targets
                 .begin(&mut **ctx, draw.viewport, dimensions, 0, 0)
                 .map_err(fail)?;
-            let result = copies.draw(&mut **ctx, &draw, source);
+            let result = copies.draw_sources(&mut **ctx, &draw, &sources);
             ctx.end_render_pass();
             return result.map_err(|error| {
                 eprintln!("{error}");
@@ -226,7 +235,7 @@ impl App {
         let mut ctx = window::new_rendering_backend();
         let scene = gpu_scene::Scene::new(&mut *ctx, resources, 24)?;
         let present = gpu_present::Present::new(&mut *ctx)?;
-        let copies = gpu_overlay::Copies::new(&mut *ctx, 24)?;
+        let copies = gpu_overlay::Overlays::new(&mut *ctx, 24)?;
         let graphics = Rc::new(RefCell::new(Graphics {
             ctx,
             scene,

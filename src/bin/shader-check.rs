@@ -54,6 +54,7 @@ fn main() {
                 verify_inserts(&mut *ctx);
                 verify_targets(&mut *ctx);
                 verify_overlay_copy(&mut *ctx);
+                verify_overlay_blur(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -1129,7 +1130,7 @@ fn verify_targets(ctx: &mut dyn RenderingBackend) {
 
 fn verify_overlay_copy(ctx: &mut dyn RenderingBackend) {
     use kkrieger_oxide::{
-        gpu_overlay::Copies,
+        gpu_overlay::Overlays,
         gpu_target::Targets,
         scene::{
             camera::Environment,
@@ -1166,7 +1167,7 @@ fn verify_overlay_copy(ctx: &mut dyn RenderingBackend) {
         ..viewport
     };
     let output = targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
-    let mut copies = Copies::new(ctx, 24).unwrap();
+    let mut copies = Overlays::new(ctx, 24).unwrap();
     let mut draw = Draw {
         viewport: destination,
         environment: Environment {
@@ -1228,5 +1229,121 @@ fn verify_overlay_copy(ctx: &mut dyn RenderingBackend) {
     targets.delete(ctx);
     println!(
         "Original six IPP copy blends, color/alpha modulation, and target orientation read back correctly"
+    );
+}
+
+fn verify_overlay_blur(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        gpu_overlay::Overlays,
+        gpu_target::Targets,
+        scene::{
+            camera::Environment,
+            overlay::{Draw, Viewport, fx_quad},
+        },
+    };
+    let viewport = Viewport {
+        screen: -1,
+        render_target: 200,
+        window: [0, 0, 32, 32],
+    };
+    let second = Viewport {
+        render_target: 201,
+        ..viewport
+    };
+    let destination = Viewport {
+        render_target: 202,
+        ..viewport
+    };
+    let mut targets = Targets::default();
+    let source = targets
+        .begin(ctx, viewport, [32, 32], 3, 0x80402010)
+        .unwrap();
+    ctx.end_render_pass();
+    let source1 = targets.begin(ctx, second, [32, 32], 3, 0x40204060).unwrap();
+    ctx.end_render_pass();
+    let output = targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    ctx.end_render_pass();
+    let mut overlays = Overlays::new(ctx, 24).unwrap();
+    let mut draw = Draw {
+        viewport: destination,
+        environment: Environment {
+            orthogonal: 1,
+            ..Default::default()
+        },
+        material: 4,
+        texture: 200,
+        texture1: Some(201),
+        texture2: None,
+        color: 0x40000000,
+        color2: Some(u32::MAX),
+        vertices: fx_quad(None, None, None, None),
+    };
+    let mut pixels = vec![0; 32 * 32 * 4];
+    for pass in 0..2 {
+        draw.material = 4 + pass;
+        targets
+            .begin(ctx, destination, [32, 32], if pass == 0 { 3 } else { 0 }, 0)
+            .unwrap();
+        overlays
+            .draw_sources(ctx, &draw, &[source, source1])
+            .unwrap();
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(output, &mut pixels);
+        for (channel, sum) in [96., 96., 112., 192.].into_iter().enumerate() {
+            let expected: f32 = sum * (64. / 255.) * (pass + 1) as f32;
+            assert!(
+                pixels[(16 * 32 + 16) * 4 + channel].abs_diff(expected.round() as u8) <= 2,
+                "blur pass {pass} channel {channel}"
+            );
+        }
+    }
+    // Independent UV1 must sample the vertically mirrored source rather than
+    // reusing UV0. This also covers the two bindings referencing one target.
+    targets
+        .begin(ctx, viewport, [32, 32], 3, 0xffff0000)
+        .unwrap();
+    ctx.end_render_pass();
+    targets
+        .begin(
+            ctx,
+            Viewport {
+                window: [8, 4, 24, 12],
+                ..viewport
+            },
+            [32, 32],
+            1,
+            0xff0000ff,
+        )
+        .unwrap();
+    ctx.end_render_pass();
+    let mut original = vec![0; pixels.len()];
+    ctx.texture_read_pixels(source, &mut original);
+    draw.material = 4;
+    draw.texture1 = Some(200);
+    draw.vertices = fx_quad(None, None, None, Some([0., 1., 1., 0.]));
+    targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    overlays
+        .draw_sources(ctx, &draw, &[source, source])
+        .unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(output, &mut pixels);
+    for y in 0..32 {
+        for x in 0..32 {
+            for channel in 0..4 {
+                let index = (y * 32 + x) * 4 + channel;
+                let mirrored = ((31 - y) * 32 + x) * 4 + channel;
+                let expected = ((original[index] as f32 + original[mirrored] as f32) * (64. / 255.))
+                    .round() as u8;
+                assert!(
+                    pixels[index].abs_diff(expected) <= 2,
+                    "independent blur UV1 at {x},{y} channel {channel}"
+                );
+            }
+        }
+    }
+    overlays.delete(ctx);
+    targets.delete(ctx);
+    println!(
+        "Original two-pass blur weights, alpha accumulation, and independent UV sets read back correctly"
     );
 }

@@ -1,4 +1,4 @@
-//! Original GENOVER_TEX1 and six IPP Copy materials on the double-UV quad path.
+//! Original IPP copy and two-sample blur materials on double-UV GPU quads.
 use crate::{
     gpu_mesh::{EffectJob, Material},
     material::State,
@@ -19,12 +19,35 @@ pub fn copy_state(mode: usize, color: u32) -> Result<State, &'static str> {
     state.textures[0] = Some(0);
     Ok(state)
 }
-pub struct Copies {
+pub fn material_state(material: usize, color: u32) -> Result<State, &'static str> {
+    if matches!(material, 4 | 5) {
+        let mut state = State::default();
+        state.words[0] = 0x20002 | if material == 5 { 0x2000 } else { 0 };
+        state.words[4] = 0x101;
+        state.words[5] = 0x111;
+        state.words[11] = 0x18;
+        state.words[12] = 0x28;
+        state.words[23] = 0xe0;
+        state.words[28] = color;
+        state.textures = [Some(0), Some(1), None, None];
+        Ok(state)
+    } else {
+        let mode = if material == 6 {
+            0
+        } else {
+            material
+                .checked_sub(27)
+                .ok_or("overlay material has not been ported")?
+        };
+        copy_state(mode, color)
+    }
+}
+pub struct Overlays {
     depth_bits: u32,
     quad: EffectJob,
     materials: BTreeMap<usize, Material>,
 }
-impl Copies {
+impl Overlays {
     pub fn new(ctx: &mut dyn RenderingBackend, depth_bits: u32) -> Result<Self, &'static str> {
         Ok(Self {
             depth_bits,
@@ -40,17 +63,27 @@ impl Copies {
         draw: &Draw,
         source: TextureId,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if draw.texture1.is_some() || draw.texture2.is_some() {
-            return Err("multi-texture overlay requires its original material".into());
+        self.draw_sources(ctx, draw, &[source])
+    }
+    pub fn draw_sources(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        draw: &Draw,
+        sources: &[TextureId],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let state = material_state(draw.material, draw.color)?;
+        let required = state.textures.iter().flatten().count();
+        if sources.len() != required
+            || draw.texture1.is_some() != (required == 2)
+            || draw.texture2.is_some()
+        {
+            return Err("overlay source count does not match original material".into());
         }
         let mode = if draw.material == 6 {
-            0
+            27
         } else {
             draw.material
-                .checked_sub(27)
-                .ok_or("overlay is not an original copy material")?
         };
-        let state = copy_state(mode, draw.color)?;
         if let std::collections::btree_map::Entry::Vacant(entry) = self.materials.entry(mode) {
             entry.insert(Material::compile_double(ctx, &state, self.depth_bits)?);
         }
@@ -60,11 +93,18 @@ impl Copies {
             vertex[7] = 1. - vertex[7];
         }
         self.quad.update(ctx, &vertices, &[0, 1, 2, 0, 2, 3])?;
-        ctx.texture_set_filter(source, FilterMode::Linear, MipmapFilterMode::None);
-        ctx.texture_set_wrap(source, TextureWrap::Repeat, TextureWrap::Repeat);
+        for (stage, &source) in sources.iter().enumerate() {
+            ctx.texture_set_filter(source, FilterMode::Linear, MipmapFilterMode::None);
+            let wrap = if state.words[4 + stage] & 0x100 != 0 {
+                TextureWrap::Clamp
+            } else {
+                TextureWrap::Repeat
+            };
+            ctx.texture_set_wrap(source, wrap, wrap);
+        }
         let [x0, y0, x1, y1] = draw.viewport.window;
         let environment = draw.environment.material_environment([x1 - x0, y1 - y0])?;
-        self.materials[&mode].draw_double(ctx, &self.quad, &[source], &state, &environment)?;
+        self.materials[&mode].draw_double(ctx, &self.quad, sources, &state, &environment)?;
         Ok(())
     }
     pub fn delete(self, ctx: &mut dyn RenderingBackend) {
