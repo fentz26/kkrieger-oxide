@@ -19,6 +19,8 @@ use std::{
 enum Command {
     Tick(Tick, i32),
     Play(Sound, [f32; 4]),
+    PauseMusic,
+    RestartMusic,
 }
 pub struct Output {
     requests: Sender<Command>,
@@ -85,6 +87,16 @@ impl Output {
             .send(Command::Play(sound, position))
             .map_err(|_| "audio worker stopped")
     }
+    pub fn pause_music(&self) -> Result<(), &'static str> {
+        self.requests
+            .send(Command::PauseMusic)
+            .map_err(|_| "audio worker stopped")
+    }
+    pub fn restart_music(&self) -> Result<(), &'static str> {
+        self.requests
+            .send(Command::RestartMusic)
+            .map_err(|_| "audio worker stopped")
+    }
     pub fn check(&self) -> Result<(), &'static str> {
         if self.failed.load(Ordering::Acquire) {
             Err("native music playback failed")
@@ -127,6 +139,12 @@ fn run(
             for command in commands.try_iter() {
                 match command {
                     Command::Tick(tick, now) => effects.tick(&tick, now),
+                    Command::PauseMusic => music.pause(),
+                    Command::RestartMusic => {
+                        if music.restart().is_err() {
+                            failed.store(true, Ordering::Release);
+                        }
+                    }
                     Command::Play(sound, position) => {
                         effects.play(sound, position);
                     }

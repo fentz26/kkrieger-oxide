@@ -225,6 +225,7 @@ pub struct App {
     music: kkrieger_oxide::music::output::Output,
     doc: Document<'static>,
     root: usize,
+    root_slot: usize,
     execution: Execution,
     simulation: Simulation,
     graphics: Rc<RefCell<Graphics>>,
@@ -274,6 +275,7 @@ impl App {
             music,
             doc,
             root,
+            root_slot: 0,
             execution,
             simulation,
             graphics,
@@ -319,7 +321,9 @@ impl App {
             return Ok(());
         }
         let root = self.doc.roots[selection.index].ok_or("selected player root missing")?;
-        if root != self.root {
+        if selection.index != self.root_slot {
+            #[cfg(target_os = "macos")]
+            self.music.pause_music()?;
             self.execution.reset_view();
             self.execution.init_frame(0, 0, false);
             let resources = gpu_scene::Resources::prepare(&self.doc, root, true, 0)?;
@@ -338,6 +342,9 @@ impl App {
             ctx.commit_frame();
             std::mem::replace(scene, replacement).delete(&mut **ctx);
             self.root = root;
+            self.root_slot = selection.index;
+            #[cfg(target_os = "macos")]
+            self.music.restart_music()?;
         }
         self.execution.aspect = 2.;
         self.graphics.borrow_mut().fps = frame.fps;

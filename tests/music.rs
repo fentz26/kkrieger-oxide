@@ -41,3 +41,26 @@ fn intro_handler_quantizes_pcm_and_reopens_after_entire_callback() {
     assert_eq!(music.timer, 0); // overshoot discarded, not carried into next loop
     assert_eq!(music.player.backend.resets, 4); // Open Reset then Play Reset
 }
+
+#[test]
+fn root_transition_silences_music_then_reopens_without_resetting_handler_timer() {
+    let doc =
+        kkrieger_oxide::kx::Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let bytes = convert(doc.song).unwrap();
+    let song = Song::parse(&bytes).unwrap();
+    let mut music = Music::new(&song, Constant::default()).unwrap();
+    music.render(&mut [[0.0; 2]; 100]).unwrap();
+    let sample = music.player.current_sample;
+    music.pause();
+    let mut output = [[1.0; 2]; 100];
+    music.render(&mut output).unwrap();
+    assert_eq!(output, [[0.0; 2]; 100]);
+    assert_eq!(music.timer, 100);
+    assert_eq!(music.player.current_sample, sample);
+    music.restart().unwrap();
+    assert_eq!(music.timer, 100);
+    assert_eq!(music.player.backend.resets, 4);
+    music.render(&mut output).unwrap();
+    assert_eq!(music.timer, 200);
+    assert!(output.iter().flatten().any(|v| *v != 0.0));
+}
