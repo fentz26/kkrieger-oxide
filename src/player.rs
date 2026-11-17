@@ -59,7 +59,7 @@ impl Prepared {
         );
     }
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
-        let doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx"))?;
+        let doc = Document::parse(kkrieger_oxide::embedded::data()?)?;
         let root = doc.roots[0].ok_or("authored intro root missing")?;
         let resources = gpu_scene::Resources::prepare(&doc, root, true, 0)?;
         let mut execution = Execution::new_player(&doc);
