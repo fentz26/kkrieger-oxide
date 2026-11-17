@@ -1,4 +1,5 @@
 //! Original mesh material-pass expansion within Engine::BuildPaintJobs.
+pub mod render;
 use super::culling::{Bounds, Plane};
 use crate::mesh::Matrix;
 use std::rc::Rc;
