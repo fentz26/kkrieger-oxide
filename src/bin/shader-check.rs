@@ -586,6 +586,20 @@ fn verify_shadow(ctx: &mut dyn RenderingBackend) {
         fog_end: 100.,
         fog_color: 0,
     };
+    let mut mapped_material = (*kkrieger_oxide::material::original_default(true)).clone();
+    let mut shadow_pass = kkrieger_oxide::material::original_default(true).passes[0].clone();
+    shadow_pass.program = Program::Shadow;
+    shadow_pass.usage = kkrieger_oxide::material::Usage::Shadow;
+    shadow_pass.shader.state.replace(shadow_state.clone());
+    mapped_material.passes.push(shadow_pass);
+    let asset = kkrieger_oxide::scene::paint::Asset {
+        mesh: std::rc::Rc::new(caster),
+        materials: vec![
+            std::rc::Rc::new(kkrieger_oxide::material::Material::default()),
+            std::rc::Rc::new(mapped_material),
+        ],
+    };
+    let mut cache = gpu_mesh::PaintCache::new(24);
     let mut results = Vec::new();
     for zfail in [false, true] {
         let material = gpu_mesh::Material::compile_shadow(ctx, &shadow_state, 24, zfail).unwrap();
@@ -643,6 +657,38 @@ fn verify_shadow(ctx: &mut dyn RenderingBackend) {
         assert!(
             stencil.iter().any(|&v| v != 0),
             "shadow volume did not write stencil"
+        );
+        // The authored paint mapping must produce the same stencil as the
+        // separately uploaded source volume, including both cap modes.
+        gpu_texture::clear(ctx, None, None, Some(0));
+        let mapped = kkrieger_oxide::scene::paint::MeshPaint {
+            material_slot: 1,
+            pass: 1,
+            geometry_job: 1,
+            paint: kkrieger_oxide::scene::paint::Paint {
+                sort_key: 0x00030000,
+                light: Some(0),
+                zfail,
+            },
+        };
+        assert!(cache.draw_shadow(ctx, &asset, &mapped, &env).unwrap());
+        let mut cached_stencil = vec![0u8; stencil.len()];
+        unsafe {
+            glReadPixels(
+                0,
+                0,
+                64,
+                64,
+                0x1901,
+                GL_UNSIGNED_BYTE,
+                cached_stencil.as_mut_ptr().cast(),
+            );
+            assert_eq!(glGetError(), GL_NO_ERROR);
+        }
+        assert_eq!(cached_stencil, stencil);
+        assert_eq!(
+            cache.shadow_resource_counts(),
+            (1, if zfail { 2 } else { 1 })
         );
         results.push(stencil.iter().map(|&v| v != 0).collect::<Vec<_>>());
         ctx.end_render_pass();
@@ -713,6 +759,7 @@ fn verify_shadow(ctx: &mut dyn RenderingBackend) {
         assert!((depths[i] - if inside { 0.25 } else { 1. }).abs() < 1e-6);
     }
     ctx.end_render_pass();
+    cache.delete(ctx);
     gpu.delete(ctx);
     receiver_gpu.delete(ctx);
     caster_gpu.delete(ctx);

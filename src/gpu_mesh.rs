@@ -352,6 +352,11 @@ fn apply_depth(state: &State, depth_bits: u32) {
 /// Source allocations stay alive so cache keys cannot alias reused addresses.
 pub struct PaintCache {
     depth_bits: u32,
+    shadow_context: crate::shadow::Context,
+    shadow_geometry:
+        std::collections::BTreeMap<(usize, usize), (std::rc::Rc<PreparedMesh>, ShadowJob)>,
+    shadow_materials:
+        std::collections::BTreeMap<(usize, bool), (std::rc::Rc<material::Recipe>, State, Material)>,
     geometry: std::collections::BTreeMap<(usize, usize), (std::rc::Rc<PreparedMesh>, StaticJob)>,
     materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
 }
@@ -359,6 +364,9 @@ impl PaintCache {
     pub fn new(depth_bits: u32) -> Self {
         Self {
             depth_bits,
+            shadow_context: Default::default(),
+            shadow_geometry: Default::default(),
+            shadow_materials: Default::default(),
             geometry: Default::default(),
             materials: Default::default(),
         }
@@ -443,9 +451,89 @@ impl PaintCache {
         )?;
         Ok(true)
     }
+    pub fn shadow_resource_counts(&self) -> (usize, usize) {
+        (self.shadow_geometry.len(), self.shadow_materials.len())
+    }
+    pub fn draw_shadow(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        asset: &crate::scene::paint::Asset,
+        paint: &crate::scene::paint::MeshPaint,
+        environment: &Environment,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        use std::{collections::btree_map::Entry, rc::Rc};
+        let pass = asset
+            .materials
+            .get(paint.material_slot)
+            .and_then(|m| m.passes.get(paint.pass))
+            .ok_or("shadow paint material pass out of range")?;
+        let job = asset
+            .mesh
+            .jobs
+            .get(paint.geometry_job)
+            .ok_or("shadow paint geometry job out of range")?;
+        if job.material != paint.material_slot
+            || job.program != Program::Shadow
+            || pass.program != Program::Shadow
+            || paint.paint.light.is_none()
+            || asset
+                .mesh
+                .pass_jobs
+                .get(paint.material_slot)
+                .and_then(|jobs| jobs.get(paint.pass))
+                .copied()
+                != Some(paint.geometry_job)
+        {
+            return Err("shadow paint geometry mapping mismatch".into());
+        }
+        if job.vertices.is_empty() {
+            return Ok(false);
+        }
+        let recipe = &pass.shader;
+        let state = recipe.state.borrow().clone();
+        let light = state.constants(environment).uniforms.vc[4][..3]
+            .try_into()
+            .unwrap();
+        let volume = self.shadow_context.build(&asset.mesh, job, light)?;
+        let zfail = paint.paint.zfail;
+        if volume.draw_indices(zfail).is_empty() {
+            return Ok(false);
+        }
+        let geometry_key = (Rc::as_ptr(&asset.mesh) as usize, paint.geometry_job);
+        if let Entry::Vacant(entry) = self.shadow_geometry.entry(geometry_key) {
+            let gpu = ShadowJob::new(ctx, &volume, job.edges.len() * 6 + job.indices.len())?;
+            entry.insert((Rc::clone(&asset.mesh), gpu));
+        }
+        let gpu = &mut self.shadow_geometry.get_mut(&geometry_key).unwrap().1;
+        gpu.update(ctx, &volume, zfail)?;
+        let key = (Rc::as_ptr(recipe) as usize, zfail);
+        if self
+            .shadow_materials
+            .get(&key)
+            .is_none_or(|(_, saved, _)| *saved != state)
+        {
+            let compiled = Material::compile_shadow(ctx, &state, self.depth_bits, zfail)?;
+            if let Some((_, _, previous)) = self
+                .shadow_materials
+                .insert(key, (Rc::clone(recipe), state.clone(), compiled))
+            {
+                previous.delete(ctx);
+            }
+        }
+        self.shadow_materials[&key]
+            .2
+            .draw_shadow(ctx, gpu, &state, environment)?;
+        Ok(true)
+    }
     pub fn delete(self, ctx: &mut dyn RenderingBackend) {
         for (_, (_, job)) in self.geometry {
             job.delete(ctx);
+        }
+        for (_, (_, job)) in self.shadow_geometry {
+            job.delete(ctx);
+        }
+        for (_, (_, _, material)) in self.shadow_materials {
+            material.delete(ctx);
         }
         for (_, (_, _, material)) in self.materials {
             material.delete(ctx);
