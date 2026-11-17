@@ -418,6 +418,10 @@
     "synth-envelope.bin": {
       "bytes": 332296,
       "sha256": "7a1593e067398910d48de80fd8d3300cd87fcc25efd183c2e278770b2d8f4068"
+    },
+    "synth-envelope-set.bin": {
+      "bytes": 30724,
+      "sha256": "9f863154fe876b7defbe5ebaa65bd55fde37bbfcaccbf6cedbdae10b6cb5c663"
     }
   }
 }

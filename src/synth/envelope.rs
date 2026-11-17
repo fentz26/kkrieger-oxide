@@ -11,7 +11,28 @@ pub struct Envelope {
     pub release_factor: f32,
     pub gain: f32,
 }
+#[derive(Clone, Copy)]
+pub struct Parameters {
+    pub attack: f32,
+    pub decay: f32,
+    pub sustain_level: f32,
+    pub sustain_rate: f32,
+    pub release: f32,
+    pub volume: f32,
+}
 impl Envelope {
+    pub fn set(&mut self, parameters: Parameters) {
+        let attack = parameters.attack * -0.09375;
+        self.attack_delta = power(attack + 7.);
+        let decay = 1. - parameters.decay * (1. / 128.);
+        self.decay_factor = 1. - power((decay - 1.) * 11.);
+        self.sustain_level = parameters.sustain_level;
+        self.sustain_factor = power((parameters.sustain_rate - 64.) * 0.0019375);
+        let release = 1. - parameters.release * (1. / 128.);
+        self.release_factor = 1. - power((release - 1.) * 11.);
+        self.gain = parameters.volume * (1. / 128.);
+    }
+
     pub fn init(&mut self) {
         self.state = 0;
     }
@@ -69,4 +90,10 @@ impl Envelope {
             self.state = 0;
         }
     }
+}
+
+// The x87 helper retains transcendental precision until its final f32 store.
+// exp2f can round one bit differently from that path.
+fn power(value: f32) -> f32 {
+    f64::from(value).exp2() as f32
 }

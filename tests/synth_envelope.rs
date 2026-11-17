@@ -71,3 +71,34 @@ fn init_only_clears_state_and_invalid_state_is_rejected() {
     assert!(e.tick(true).is_err());
     assert_eq!(e.value, 64.);
 }
+
+#[test]
+fn original_x87_patch_envelope_coefficients_match_for_512_parameter_sets() {
+    use kkrieger_oxide::synth::envelope::Parameters;
+    let mut r = Reader(include_bytes!("fixtures/synth-envelope-set.bin"));
+    assert_eq!(r.word(), 512);
+    for _ in 0..512 {
+        let parameters = Parameters {
+            attack: r.float(),
+            decay: r.float(),
+            sustain_level: r.float(),
+            sustain_rate: r.float(),
+            release: r.float(),
+            volume: r.float(),
+        };
+        let mut e = Envelope {
+            output: 16.,
+            state: 3,
+            value: 64.,
+            attack_delta: 17.,
+            decay_factor: 17.,
+            sustain_level: 17.,
+            sustain_factor: 17.,
+            release_factor: 17.,
+            gain: 17.,
+        };
+        e.set(parameters);
+        r.check(&e);
+    }
+    assert!(r.0.is_empty());
+}
