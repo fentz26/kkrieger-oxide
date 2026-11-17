@@ -131,3 +131,5 @@ impl<'a> Song<'a> {
 }
 
 pub mod sequence;
+
+pub mod conversion;

@@ -458,6 +458,10 @@
     "synth-patch.bin": {
       "bytes": 267012,
       "sha256": "929fb88310174de1d05aa766e6aaca6e3c05d7af77b921f0bda7b9712f6c2f10"
+    },
+    "v2m-conversion.bin": {
+      "bytes": 72337,
+      "sha256": "790b4220f777e51c0f4147fce05793c801e6411616efd31d9adbb486b2c94dea"
     }
   }
 }
