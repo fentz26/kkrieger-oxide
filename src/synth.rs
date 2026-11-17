@@ -5,3 +5,6 @@ pub mod lfo;
 pub mod math;
 
 pub mod filter;
+
+pub mod oscillator;
+pub mod rate;

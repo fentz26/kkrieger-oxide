@@ -434,6 +434,10 @@
     "synth-filter.bin": {
       "bytes": 297880,
       "sha256": "ea90505dd3bde7a22aea98bc3b69665a11479cc3a50a08f538856e7d53421fbc"
+    },
+    "synth-oscillator-set.bin": {
+      "bytes": 63492,
+      "sha256": "a5464fbaa08387daeb63914c73a01163e33f32fbd8f52eadc0334648fe499ffe"
     }
   }
 }
