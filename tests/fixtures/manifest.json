@@ -514,6 +514,10 @@
     "v2m-playback.bin": {
       "bytes": 482275,
       "sha256": "c09a0837d543a69fa954bb44315a169d829cde4abe5f2a6b289f52a0858edda7"
+    },
+    "vfx-pcm.bin": {
+      "bytes": 2921656,
+      "sha256": "8d15ea1e82c9c675a95e7f541ef7f87021a5c61e284f1c2792900eec7407c3a4"
     }
   }
 }

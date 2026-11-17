@@ -30,3 +30,5 @@ pub mod visibility;
 pub mod v2m;
 
 pub mod synth;
+
+pub mod vfx;
