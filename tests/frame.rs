@@ -178,3 +178,10 @@ fn clear_instance_flag_resets_registered_static_event_memory() {
         assert!(!execution.clear_instances);
     }
 }
+
+#[test]
+fn compiled_player_letterbox_uses_integer_edges() {
+    use kkrieger_oxide::game::frame::master_window;
+    assert_eq!(master_window(1280, 720), [0, 120, 1280, 600]);
+    assert_eq!(master_window(641, 481), [0, 80, 641, 400]);
+}

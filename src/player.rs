@@ -224,8 +224,7 @@ pub struct App {
     simulation: Simulation,
     graphics: Rc<RefCell<Graphics>>,
     start: Instant,
-    last: i32,
-    first: bool,
+    clock: kkrieger_oxide::game::frame::Clock,
     mouse: [f64; 2],
     grabbed: bool,
     frames: u64,
@@ -269,8 +268,7 @@ impl App {
             simulation,
             graphics,
             start: Instant::now(),
-            last: 0,
-            first: true,
+            clock: kkrieger_oxide::game::frame::Clock::new(0),
             mouse: [0.; 2],
             grabbed: false,
             frames: 0,
@@ -278,17 +276,17 @@ impl App {
         })
     }
     fn frame(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let now = if self.first {
-            0
-        } else {
-            self.start.elapsed().as_millis() as i32
-        };
-        let slices = now / 10 - self.last / 10;
+        let frame = self
+            .clock
+            .advance(self.start.elapsed().as_millis() as i32, self.doc.bpm);
         let mouse = self.mouse.map(|v| v as i32);
-        if slices > 0 {
-            self.simulation
-                .tick(&mut self.execution, &self.doc, slices, now, mouse)?;
-        }
+        self.simulation.tick(
+            &mut self.execution,
+            &self.doc,
+            frame.slices,
+            frame.time,
+            mouse,
+        )?;
         let (width, height) = window::screen_size();
         if width <= 0. || height <= 0. {
             return Ok(());
@@ -296,18 +294,28 @@ impl App {
         let master = Viewport {
             screen: 0,
             render_target: -1,
-            window: [0, 0, width as i32, height as i32],
+            window: kkrieger_oxide::game::frame::master_window(width as i32, height as i32),
         };
         self.execution.overlay.as_mut().unwrap().set_master(master);
-        self.execution.aspect = width / height;
-        self.graphics.borrow_mut().fps = if now > self.last {
-            1000. / (now - self.last) as f32
-        } else {
-            0.
-        };
-        let beat = ((i64::from(now) * i64::from(self.doc.bpm)) / 60000) as i32;
+        self.execution.aspect = 2.;
+        self.graphics.borrow_mut().fps = frame.fps;
         self.simulation
-            .prepare_scene(&mut self.execution, beat, now, width / height, false)?;
+            .prepare_scene(&mut self.execution, frame.beat, frame.time, 1., false)?;
+        {
+            let mut graphics = self.graphics.borrow_mut();
+            let Graphics { ctx, targets, .. } = &mut *graphics;
+            targets.begin(
+                &mut **ctx,
+                Viewport {
+                    window: [0, 0, width as i32, height as i32],
+                    ..master
+                },
+                [width as u32, height as u32],
+                3,
+                0,
+            )?;
+            ctx.end_render_pass();
+        }
         self.simulation
             .execute_scene(&mut self.execution, &self.doc, self.root)?;
         self.execution.finish_events();
@@ -325,8 +333,6 @@ impl App {
         present.draw(&mut **ctx, source);
         ctx.end_render_pass();
         ctx.commit_frame();
-        self.last = now;
-        self.first = false;
         self.frames += 1;
         if self.limit.is_some_and(|limit| self.frames >= limit) {
             window::quit();

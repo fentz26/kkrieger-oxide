@@ -5,7 +5,7 @@ import verify_mesh as oracle
 root=oracle.root;base=root/'.reference/fr_public/werkkzeug3_kkrieger';oracle.source=(base/'kdoc.cpp').read_text(encoding='cp1252');init=oracle.function('void KEnvironment::InitFrame(')
 oracle.source=(base/'_start.cpp').read_text(encoding='cp1252');camera=oracle.function('void sMaterialEnv::Init(')
 header=(base/'_start.hpp').read_text(encoding='cp1252');a=header.index('struct sMaterialEnv\n');b=header.index('\n};',a)+3;camera_type=header[a:b]
-main=(base/'player_kkrieger/kkrieger_main.cpp').read_text(encoding='cp1252');a=main.index('    ThisTime = sSystem->GetTime() - FirstTime;');b=main.index('    Game->OnTick(Environment,max);',a);prefix=main[a:b]
+main=(base/'mainplayer.cpp').read_text(encoding='cp1252');a=main.index('    ThisTime = sSystem->GetTime() - FirstTime;');b=main.index('    sFloatFix();',main.index('    max = ThisTime/10',a));prefix=main[a:b]
 support=r'''
 #include <cstdio>
 #include <cstring>

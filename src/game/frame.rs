@@ -35,3 +35,8 @@ impl Clock {
         }
     }
 }
+
+/// KKRIEGER master viewport from the compiled mainplayer.cpp path.
+pub fn master_window(width: i32, height: i32) -> [i32; 4] {
+    [0, height / 6, width, height.wrapping_mul(5) / 6]
+}
