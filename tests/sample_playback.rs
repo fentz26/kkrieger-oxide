@@ -1,0 +1,110 @@
+use kkrieger_oxide::{
+    sample_playback::{Pool, Spatial},
+    vfx::{Data, Sample},
+};
+
+fn sample() -> Sample {
+    Sample {
+        slot: 7,
+        buffers: 4,
+        data: Data::Mono(vec![0; 441].into_boxed_slice()),
+    }
+}
+
+#[test]
+fn rotation_steals_oldest_and_rejects_stale_spatial_tokens() {
+    let sample = sample();
+    let mut pool = Pool::new();
+    assert!(pool.add(&sample));
+    assert!(!pool.add(&sample));
+    pool.commit(100);
+    for token in 1..=5 {
+        assert_eq!(pool.play(7, 1.0, 0.0), Some(token));
+        let voice = &pool.sample(7).unwrap().voices[token as usize % 4];
+        assert_eq!(voice.started, 100);
+        assert_eq!(voice.position, 0);
+    }
+    assert!(!pool.spatial(7, 1, Spatial::default()));
+    assert!(pool.spatial(7, 2, Spatial::default()));
+    assert!(pool.spatial(7, 5, Spatial::default()));
+    assert!(pool.sample(7).unwrap().voices[1].spatial.is_some());
+}
+
+#[test]
+fn expiry_uses_previous_commit_clock_and_strict_comparison() {
+    let sample = sample(); // 10 ms PCM + original 10 ms margin
+    let mut pool = Pool::new();
+    pool.add(&sample);
+    pool.commit(100);
+    let token = pool.play(7, 0.5, 20.0).unwrap();
+    assert!(pool.spatial(7, token, Spatial::default()));
+    pool.commit(120);
+    pool.commit(121); // compares 120, equality does not expire
+    assert!(pool.sample(7).unwrap().voices[1].spatial.is_some());
+    pool.commit(122); // compares 121
+    assert_eq!(pool.sample(7).unwrap().voices[1].started, 0);
+    assert!(pool.sample(7).unwrap().voices[1].spatial.is_none());
+    assert!(!pool.spatial(7, token, Spatial::default()));
+}
+
+#[test]
+fn zero_clock_marker_volume_pan_and_registration_bounds() {
+    let sample = sample();
+    let mut pool = Pool::new();
+    pool.add(&sample);
+    let token = pool.play(7, 0.5, 200.0).unwrap();
+    assert!(!pool.spatial(7, token, Spatial::default()));
+    let voice = &pool.sample(7).unwrap().voices[1];
+    assert_eq!(voice.volume, -1386); // original natural logarithm
+    assert_eq!(voice.pan, 0); // mono 3D buffers ignore pan
+    let stereo = Sample {
+        slot: 8,
+        buffers: 1,
+        data: Data::Stereo(vec![[0, 0]; 1].into_boxed_slice()),
+    };
+    pool.add(&stereo);
+    pool.play(8, 2.0, -200.0);
+    let voice = &pool.sample(8).unwrap().voices[0];
+    assert_eq!((voice.volume, voice.pan), (0, -10000));
+    assert!(pool.play(9, 1.0, 0.0).is_none());
+    assert!(pool.play(7, f32::NAN, 0.0).is_none());
+    let invalid = Sample {
+        slot: 9,
+        buffers: 9,
+        data: Data::Mono(vec![0].into_boxed_slice()),
+    };
+    assert!(!pool.add(&invalid));
+}
+
+#[test]
+fn every_supported_buffer_count_retains_parameters_until_commit_or_removal() {
+    for count in 1..=8 {
+        let sample = Sample {
+            slot: 255,
+            buffers: count,
+            data: Data::Mono(vec![0; 441].into_boxed_slice()),
+        };
+        let mut pool = Pool::new();
+        pool.add(&sample);
+        pool.commit(1);
+        for token in 1..=32 {
+            assert_eq!(pool.play(255, 1.0, 0.0), Some(token));
+            let registered = pool.sample(255).unwrap();
+            assert_eq!(registered.last, token as usize % usize::from(count));
+            assert!(!pool.spatial(255, token - i32::from(count), Spatial::default()));
+            assert!(pool.spatial(255, token, Spatial::default()));
+        }
+        for token in 33..=32 + i32::from(count) {
+            pool.play(255, 1.0, 0.0);
+            assert!(
+                pool.sample(255).unwrap().voices[token as usize % usize::from(count)]
+                    .spatial
+                    .is_some()
+            );
+        }
+        pool.remove(255);
+        assert!(pool.play(255, 1.0, 0.0).is_none());
+        assert!(pool.add(&sample));
+        assert_eq!(pool.play(255, 1.0, 0.0), Some(1));
+    }
+}
