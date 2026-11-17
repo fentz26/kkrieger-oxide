@@ -46,6 +46,18 @@ pub fn beta_light_order(importance: &[f32]) -> Vec<usize> {
     order.truncate(4);
     order
 }
+/// Apply the released beta's verified pointer ordering and four-light clamp
+/// to prepared candidates, retaining each candidate's projection/frusta. This
+/// selects only ordering; preparation and floating-point profiles stay explicit.
+pub fn beta_select(candidates: Vec<Prepared>) -> Vec<Prepared> {
+    let importance: Vec<_> = candidates.iter().map(|light| light.importance).collect();
+    let order = beta_light_order(&importance);
+    let mut candidates: Vec<_> = candidates.into_iter().map(Some).collect();
+    order
+        .into_iter()
+        .map(|index| candidates[index].take().unwrap())
+        .collect()
+}
 pub struct Context {
     camera: super::camera::Environment,
     view: Matrix,

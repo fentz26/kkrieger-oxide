@@ -1,6 +1,7 @@
 //! Offline authored-scene GPU integration check; not the game executable.
-//! Exercises all visible light candidates with capacity 16. Published-source
-//! KKRIEGER replacement/count behavior and released-beta selection stay separate.
+//! Default exercises every visible candidate with capacity 16. Optional
+//! --beta-light-order uses the verified released ordering/four-light clamp;
+//! geometric/visibility preparation still follows the published source.
 use kkrieger_oxide::{
     collision::world::World,
     game::simulation::Simulation,
@@ -21,6 +22,7 @@ struct State {
     scene: Option<gpu_scene::Scene>,
     passes: usize,
     capture: [usize; 4],
+    beta_light_order: bool,
     targets: gpu_target::Targets,
 }
 struct CheckRenderer(Rc<RefCell<State>>);
@@ -38,7 +40,7 @@ impl Renderer for CheckRenderer {
         let [x0, y0, x1, y1] = pass.viewport.window;
         let dimensions = [x1 - x0, y1 - y0];
         let lighting = light::Context::from_camera(&pass.camera, dimensions, true).unwrap();
-        let lights: Vec<_> = pass
+        let mut lights: Vec<_> = pass
             .jobs
             .iter()
             .filter(|job| matches!(job, Job::Light { .. }))
@@ -50,8 +52,12 @@ impl Renderer for CheckRenderer {
             scene,
             passes,
             capture,
+            beta_light_order,
             targets,
         } = &mut *state;
+        if *beta_light_order {
+            lights = light::beta_select(lights);
+        }
         let ctx = &mut **ctx;
         let key = (pass.viewport.screen, pass.viewport.render_target);
         let color = targets
@@ -64,7 +70,7 @@ impl Renderer for CheckRenderer {
             )
             .unwrap();
         let options = gpu_scene::Options {
-            light_capacity: 16,
+            light_capacity: if *beta_light_order { 4 } else { 16 },
             fps: 60.,
             ..Default::default()
         };
@@ -115,6 +121,7 @@ fn main() {
         .unwrap()
         .unwrap_or(0);
     assert!(ticks >= 0);
+    let beta_light_order = std::env::args().any(|arg| arg == "--beta-light-order");
     let doc = Document::parse(include_bytes!("../../assets/kkrieger3383.kx")).unwrap();
     let root = doc.roots[2].unwrap();
     let resources = gpu_scene::Resources::prepare(&doc, root, true, 0).unwrap();
@@ -149,6 +156,7 @@ fn main() {
                     scene: Some(scene),
                     passes: 0,
                     capture: [0, 1, ticks as usize * 2, ticks as usize * 2 + 1],
+                    beta_light_order,
                     targets: Default::default(),
                 }));
                 execution.renderer = Some(Box::new(CheckRenderer(Rc::clone(&state))));
