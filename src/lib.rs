@@ -28,3 +28,5 @@ pub mod texture_upload;
 pub mod visibility;
 
 pub mod v2m;
+
+pub mod synth;

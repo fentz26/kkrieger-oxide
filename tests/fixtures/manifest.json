@@ -414,6 +414,10 @@
     "v2m-sample-delta.bin": {
       "bytes": 16388,
       "sha256": "ab8991182292ba765f1326197f3faba4e6a7d11121aac1edb7557afe503251a6"
+    },
+    "synth-envelope.bin": {
+      "bytes": 332296,
+      "sha256": "7a1593e067398910d48de80fd8d3300cd87fcc25efd183c2e278770b2d8f4068"
     }
   }
 }
