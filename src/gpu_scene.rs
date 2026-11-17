@@ -72,6 +72,16 @@ impl Resources {
         })
     }
 }
+/// GenOverlay viewport modes: normal and no-specular call Paint (whose
+/// specular argument is unused in the published source); simple replaces the
+/// mesh usage mask with ENGU_OTHER. Mode 3 has no paint switch case.
+pub fn usage_mask(mode: u32, configured: u32) -> Option<u32> {
+    match mode {
+        0 | 2 => Some(configured),
+        1 => Some(1 << 7),
+        _ => None,
+    }
+}
 pub struct Options {
     pub usage_mask: u32,
     pub light_capacity: usize,
@@ -130,9 +140,9 @@ impl Scene {
         options: &Options,
     ) -> Result<Drawn, Box<dyn std::error::Error>> {
         use paint::render::Action;
-        if pass.paint_mode != 0 {
-            return Err("simple/debug scene paint mode has not been connected".into());
-        }
+        let Some(usage_mask) = usage_mask(pass.paint_mode, options.usage_mask) else {
+            return Ok(Drawn::default());
+        };
         let [x0, y0, x1, y1] = pass.viewport.window;
         let dimensions = [x1 - x0, y1 - y0];
         let mut viewport = [0; 4];
@@ -147,7 +157,7 @@ impl Scene {
             Frustum::from_view_projection(environment.view_projection, [-1., -1., 1., 1.]);
         let paint_lights: Vec<_> = lights.iter().map(light::Prepared::paint_light).collect();
         let view = paint::View {
-            usage_mask: options.usage_mask,
+            usage_mask,
             frustum: frustum.planes[..5].try_into().unwrap(),
             lights: &paint_lights,
             light_capacity: options.light_capacity,

@@ -718,6 +718,26 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
             &expected
         );
     }
+    render_pass.paint_mode = 1;
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+    let drawn = scene
+        .draw(
+            ctx,
+            &mut execution,
+            &doc,
+            &render_pass,
+            &[],
+            &Default::default(),
+        )
+        .unwrap();
+    assert_eq!(drawn.meshes, 0);
+    assert_eq!(drawn.effects, 1);
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    assert_eq!(
+        &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+        &[0, 255, 0, 255]
+    );
     scene.delete(ctx);
     println!("Combined scene paint planner and GPU executor read back correctly");
     material.delete(ctx);

@@ -45,3 +45,12 @@ fn empty_selected_scene_has_no_unrelated_assets_and_invalid_roots_fail() {
     assert!(resources.pages.is_empty());
     assert!(Resources::prepare(&doc, 1, true, 0).is_err());
 }
+
+#[test]
+fn viewport_simple_mode_replaces_mesh_usage_mask_without_filtering_effects() {
+    use kkrieger_oxide::gpu_scene::usage_mask;
+    assert_eq!(usage_mask(0, 0x1234), Some(0x1234));
+    assert_eq!(usage_mask(1, 0), Some(1 << 7));
+    assert_eq!(usage_mask(2, 0x1234), Some(0x1234));
+    assert_eq!(usage_mask(3, u32::MAX), None);
+}

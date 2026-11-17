@@ -84,7 +84,8 @@ impl Renderer for AuthoredRenderer {
         // Exercise every visible candidate here; light selection profiles
         // are verified separately against their source/beta implementations.
         let view = paint::View {
-            usage_mask: u32::MAX,
+            usage_mask: kkrieger_oxide::gpu_scene::usage_mask(pass.paint_mode, u32::MAX)
+                .unwrap_or(0),
             frustum: frustum.planes[..5].try_into().unwrap(),
             lights: &paint_lights,
             light_capacity: 16,
