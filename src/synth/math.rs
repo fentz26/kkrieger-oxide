@@ -26,3 +26,32 @@ pub(crate) fn integer(value: f32) -> i32 {
         value as i32
     }
 }
+
+/// Original fastatan, including its signed AH comparison for table selection.
+pub fn fast_atan(value: f32) -> f32 {
+    let negative = value.is_sign_negative();
+    let high = ((((value.to_bits() >> 16) as u16).wrapping_shl(1)) >> 8) as u8 as i8;
+    let reciprocal = high == 127;
+    let x = if negative { -value } else { value };
+    let squared = x * x;
+    let (x1, x3, m0, m4, bias) = if reciprocal {
+        (
+            -0.431597974,
+            -1.,
+            0.05831938,
+            1.,
+            std::f64::consts::FRAC_PI_2,
+        )
+    } else {
+        (1., 0.43157974, 1., 0.05831938, 0.)
+    };
+    let numerator = (f64::from(squared) * x3) as f32;
+    let numerator = (f64::from(numerator) + x1) as f32;
+    let denominator = (f64::from(squared) * m4) as f32;
+    let denominator = (f64::from(denominator) + 0.76443945) as f32;
+    let numerator = numerator * x;
+    let denominator = denominator * squared;
+    let denominator = (f64::from(denominator) + m0) as f32;
+    let result = (f64::from(numerator / denominator) + bias) as f32;
+    if negative { -result } else { result }
+}

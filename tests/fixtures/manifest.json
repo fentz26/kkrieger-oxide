@@ -442,6 +442,10 @@
     "synth-oscillator-render.bin": {
       "bytes": 784360,
       "sha256": "3255a2c26d49d1d4073634bda27729e7205dbe816e2e714ea7f974f61677686f"
+    },
+    "synth-distortion.bin": {
+      "bytes": 437720,
+      "sha256": "e4f189afb549e8aba8532df398497295b94906349a8c533de0c43bc6e03ff277"
     }
   }
 }
