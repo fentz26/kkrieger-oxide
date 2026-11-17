@@ -39,3 +39,5 @@ pub mod sample_playback;
 pub mod audio_output;
 
 pub mod music;
+
+pub mod effects;

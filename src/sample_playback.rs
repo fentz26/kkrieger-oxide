@@ -118,7 +118,7 @@ impl<'a> Pool<'a> {
     pub fn new() -> Self {
         Self {
             samples: (0..256).map(|_| None).collect(),
-            sound_time: 0,
+            sound_time: 1,
             listener: Listener::default(),
             pending_listener: None,
         }

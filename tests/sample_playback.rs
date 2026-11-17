@@ -51,6 +51,7 @@ fn expiry_uses_previous_commit_clock_and_strict_comparison() {
 fn zero_clock_marker_volume_pan_and_registration_bounds() {
     let sample = sample();
     let mut pool = Pool::new();
+    pool.sound_time = 0;
     pool.add(&sample);
     let token = pool.play(7, 0.5, 200.0).unwrap();
     assert!(!pool.spatial(7, token, Spatial::default()));
