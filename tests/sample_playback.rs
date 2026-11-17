@@ -108,3 +108,76 @@ fn every_supported_buffer_count_retains_parameters_until_commit_or_removal() {
         assert_eq!(pool.play(255, 1.0, 0.0), Some(1));
     }
 }
+
+#[test]
+fn mixing_is_additive_one_shot_and_independent_of_callback_size() {
+    let sample = Sample {
+        slot: 1,
+        buffers: 2,
+        data: Data::Stereo(vec![[32767, -32768], [16384, -16384], [1, -1]].into_boxed_slice()),
+    };
+    let run = |split: bool| {
+        let mut pool = Pool::new();
+        pool.add(&sample);
+        let mut silence = [[0.0; 2]; 1];
+        pool.mix(&mut silence, |_| [1.0; 2]);
+        assert_eq!(silence, [[0.0; 2]]);
+        pool.play(1, 1.0, 0.0);
+        pool.play(1, 1.0, 0.0);
+        let mut output = [[0.25; 2]; 5];
+        if split {
+            for chunk in output.chunks_mut(1) {
+                pool.mix(chunk, |_| [1.0; 2]);
+            }
+        } else {
+            pool.mix(&mut output, |_| [1.0; 2]);
+        }
+        assert!(!pool.sample(1).unwrap().voices[0].playing);
+        assert!(!pool.sample(1).unwrap().voices[1].playing);
+        output
+    };
+    let output = run(false);
+    assert_eq!(output, run(true));
+    assert_eq!(output[0], [0.25 + 2.0 * 32767.0 / 32768.0, -1.75]);
+    assert_eq!(output[1], [1.25, -0.75]);
+    assert_eq!(output[3..], [[0.25; 2]; 2]);
+}
+
+#[test]
+fn stereo_pan_and_mono_spatial_gains_are_applied_per_voice() {
+    let stereo = Sample {
+        slot: 1,
+        buffers: 1,
+        data: Data::Stereo(vec![[16384, 16384]].into_boxed_slice()),
+    };
+    let mono = Sample {
+        slot: 2,
+        buffers: 1,
+        data: Data::Mono(vec![16384].into_boxed_slice()),
+    };
+    let mut pool = Pool::new();
+    pool.add(&stereo);
+    pool.add(&mono);
+    pool.commit(1);
+    pool.play(1, 1.0, -100.0);
+    let token = pool.play(2, 1.0, 0.0).unwrap();
+    pool.spatial(2, token, Spatial::default());
+    let mut output = [[0.0; 2]];
+    pool.mix(&mut output, |_| [0.25, 0.75]);
+    assert_eq!(output, [[0.625, 0.375]]);
+}
+
+#[test]
+fn out_of_range_directsound_volume_keeps_previous_buffer_setting() {
+    let sample = Sample {
+        slot: 1,
+        buffers: 1,
+        data: Data::Mono(vec![16384].into_boxed_slice()),
+    };
+    let mut pool = Pool::new();
+    pool.add(&sample);
+    pool.play(1, 0.5, 0.0);
+    assert_eq!(pool.sample(1).unwrap().voices[0].volume, -1386);
+    pool.play(1, 0.0, 0.0);
+    assert_eq!(pool.sample(1).unwrap().voices[0].volume, -1386);
+}
