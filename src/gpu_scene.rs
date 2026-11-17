@@ -20,6 +20,58 @@ pub struct Resources {
     pub bitmaps: BTreeMap<usize, Rc<Bitmap>>,
     pub pages: BTreeMap<u8, FontPage>,
 }
+impl Resources {
+    /// Precalculate selected-root paint assets, all linked bitmap outputs,
+    /// and reached Bitmap_Text letter-table side effects in one texture batch.
+    pub fn prepare(
+        doc: &Document<'_>,
+        root: usize,
+        intro: bool,
+        size_offset: i32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        use std::collections::BTreeSet;
+        let paint = paint::prepare_scene_assets(doc, root, intro)?;
+        let mut roots = BTreeSet::new();
+        for material in paint.materials.values() {
+            for pass in &material.passes {
+                roots.extend(pass.shader.textures.into_iter().flatten());
+                roots.extend(pass.shader.state.borrow().textures.into_iter().flatten());
+            }
+        }
+        let bitmap_roots = roots.clone();
+        let mut needed = vec![false; doc.operators.len()];
+        let mut pending = vec![root];
+        while let Some(index) = pending.pop() {
+            let op = doc
+                .operators
+                .get(index)
+                .ok_or("scene resource dependency out of range")?;
+            if needed[index] {
+                continue;
+            }
+            needed[index] = true;
+            pending.extend(op.inputs.iter().copied());
+            pending.extend(op.links.iter().flatten().copied());
+            if doc.classes[op.class].id == 0x31
+                && op.parameters.get(5).is_some_and(|flags| flags & 0x70 != 0)
+            {
+                roots.insert(index);
+            }
+        }
+        let roots: Vec<_> = roots.into_iter().collect();
+        let generated = crate::texture::generate_many_with_fonts(doc, &roots, size_offset)?;
+        let bitmaps = roots
+            .into_iter()
+            .zip(generated.images)
+            .filter(|(root, _)| bitmap_roots.contains(root))
+            .collect();
+        Ok(Self {
+            paint,
+            bitmaps,
+            pages: generated.font_pages,
+        })
+    }
+}
 pub struct Options {
     pub usage_mask: u32,
     pub light_capacity: usize,
