@@ -10,3 +10,5 @@ pub mod oscillator;
 pub mod rate;
 
 pub mod distortion;
+
+pub mod voice;
