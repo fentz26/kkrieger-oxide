@@ -14,3 +14,5 @@ pub mod distortion;
 pub mod voice;
 
 pub mod boost;
+
+pub mod patch;
