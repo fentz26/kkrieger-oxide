@@ -4,7 +4,7 @@
 use kkrieger_oxide::{
     collision::world::World,
     game::simulation::Simulation,
-    gpu_scene, gpu_texture,
+    gpu_scene, gpu_target,
     kx::Document,
     random::Random,
     scene::{
@@ -15,13 +15,13 @@ use kkrieger_oxide::{
     },
 };
 use miniquad::*;
-use std::{cell::RefCell, collections::BTreeMap, io::Write, rc::Rc};
+use std::{cell::RefCell, io::Write, rc::Rc};
 struct State {
     ctx: Box<dyn RenderingBackend>,
     scene: Option<gpu_scene::Scene>,
     passes: usize,
     capture: [usize; 4],
-    targets: BTreeMap<(i32, i32), (RenderPass, TextureId)>,
+    targets: gpu_target::Targets,
 }
 struct CheckRenderer(Rc<RefCell<State>>);
 impl Renderer for CheckRenderer {
@@ -54,33 +54,15 @@ impl Renderer for CheckRenderer {
         } = &mut *state;
         let ctx = &mut **ctx;
         let key = (pass.viewport.screen, pass.viewport.render_target);
-        let fresh = !targets.contains_key(&key);
-        let (target, color) = *targets.entry(key).or_insert_with(|| {
-            gpu_texture::depth_stencil_pass(ctx, dimensions[0] as u32, dimensions[1] as u32)
-                .unwrap()
-        });
-        let rgba = [
-            (pass.clear_color >> 16) & 255,
-            (pass.clear_color >> 8) & 255,
-            pass.clear_color & 255,
-            pass.clear_color >> 24,
-        ]
-        .map(|v| v as f32 / 255.);
-        gpu_texture::begin_pass(
-            ctx,
-            Some(target),
-            PassAction::Clear {
-                color: if pass.clear_flags & 1 != 0 {
-                    Some((rgba[0], rgba[1], rgba[2], rgba[3]))
-                } else if fresh {
-                    Some((0., 0., 0., 0.))
-                } else {
-                    None
-                },
-                depth: (fresh || pass.clear_flags & 2 != 0).then_some(1.),
-                stencil: (fresh || pass.clear_flags & 2 != 0).then_some(0),
-            },
-        );
+        let color = targets
+            .begin(
+                ctx,
+                pass.viewport,
+                [dimensions[0] as u32, dimensions[1] as u32],
+                pass.clear_flags,
+                pass.clear_color,
+            )
+            .unwrap();
         let options = gpu_scene::Options {
             light_capacity: 16,
             fps: 60.,
@@ -216,9 +198,8 @@ fn main() {
                 let mut state = state.borrow_mut();
                 let scene = state.scene.take().unwrap();
                 scene.delete(&mut *state.ctx);
-                for (_, (target, _)) in std::mem::take(&mut state.targets) {
-                    state.ctx.delete_render_pass(target);
-                }
+                let targets = std::mem::take(&mut state.targets);
+                targets.delete(&mut *state.ctx);
                 window::quit();
             }));
             if checked.is_err() {

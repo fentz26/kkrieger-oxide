@@ -52,6 +52,7 @@ fn main() {
                 verify_draw(&mut *ctx);
                 verify_shadow(&mut *ctx);
                 verify_inserts(&mut *ctx);
+                verify_targets(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -1017,4 +1018,75 @@ fn verify_inserts(ctx: &mut dyn RenderingBackend) {
     inserts.delete(ctx);
     ctx.delete_render_pass(pass);
     println!("Material11 destination-alpha clearing and specular accumulation read back correctly");
+}
+
+fn verify_targets(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{gpu_target::Targets, scene::overlay::Viewport};
+    let mut targets = Targets::default();
+    let full = Viewport {
+        screen: 0,
+        render_target: -1,
+        window: [0, 0, 32, 32],
+    };
+    let color = targets.begin(ctx, full, [32, 32], 3, 0xffff0000).unwrap();
+    ctx.end_render_pass();
+    let crop = Viewport {
+        window: [8, 4, 24, 12],
+        ..full
+    };
+    assert_eq!(
+        targets.begin(ctx, crop, [32, 32], 1, 0xff0000ff).unwrap(),
+        color
+    );
+    ctx.end_render_pass();
+    let mut pixels = vec![0; 32 * 32 * 4];
+    ctx.texture_read_pixels(color, &mut pixels);
+    for y in 0..32 {
+        for x in 0..32 {
+            let pixel = &pixels[(y * 32 + x) * 4..(y * 32 + x) * 4 + 4];
+            assert_eq!(
+                pixel,
+                if (8..24).contains(&x) && (20..28).contains(&y) {
+                    &[0, 0, 255, 255]
+                } else {
+                    &[255, 0, 0, 255]
+                }
+            );
+        }
+    }
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets.texture(0, -1), Some(color));
+    assert!(
+        targets
+            .begin(
+                ctx,
+                Viewport {
+                    window: [-1, 0, 2, 2],
+                    ..full
+                },
+                [32, 32],
+                0,
+                0
+            )
+            .is_err()
+    );
+    let resized = targets
+        .begin(
+            ctx,
+            Viewport {
+                window: [0, 0, 64, 32],
+                ..full
+            },
+            [64, 32],
+            3,
+            0xff00ff00,
+        )
+        .unwrap();
+    ctx.end_render_pass();
+    assert_ne!(resized, color);
+    assert_eq!(targets.len(), 1);
+    targets.delete(ctx);
+    println!(
+        "Original target identities, cropped clears, and resized attachments read back correctly"
+    );
 }
