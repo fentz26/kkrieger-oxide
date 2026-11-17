@@ -391,6 +391,25 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         &[0, 255, 0, 255]
     );
     assert_eq!(cache.resource_counts(), (1, 1));
+    assert_eq!(cache.compilation_count(), 2);
+    recipe.state.borrow_mut().words[28] = 0x00ff0000;
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+    cache
+        .draw_static(ctx, &asset, &mapped, &environment, |_, _, _| {
+            Err("unexpected sampled image".into())
+        })
+        .unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    assert_eq!(
+        &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+        &[255, 0, 0, 255]
+    );
+    assert_eq!(
+        cache.compilation_count(),
+        2,
+        "constant animation recompiled a shader"
+    );
     cache.delete(ctx);
     let mut effect = gpu_mesh::EffectJob::new(ctx, 4, 6).unwrap();
     let packed_effect = 0x80402010;

@@ -20,6 +20,11 @@ impl Default for State {
     }
 }
 impl State {
+    /// Shader generation and fixed pipeline state consume words 0..24 and
+    /// texture identities. Words 24..48 feed registers at Set/draw time only.
+    pub fn same_gpu_program(&self, other: &Self) -> bool {
+        self.words[..24] == other.words[..24] && self.textures == other.textures
+    }
     pub(super) fn build(p: &[u32; 64], textures: [Option<usize>; 8], phase: Usage) -> Self {
         let flags = p[48];
         let mut state = Self::default();

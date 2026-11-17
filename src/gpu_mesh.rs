@@ -409,6 +409,7 @@ fn apply_depth(state: &State, depth_bits: u32) {
 /// Source allocations stay alive so cache keys cannot alias reused addresses.
 pub struct PaintCache {
     depth_bits: u32,
+    compilations: usize,
     shadow_context: crate::shadow::Context,
     shadow_geometry:
         std::collections::BTreeMap<(usize, usize), (std::rc::Rc<PreparedMesh>, ShadowJob)>,
@@ -421,12 +422,16 @@ impl PaintCache {
     pub fn new(depth_bits: u32) -> Self {
         Self {
             depth_bits,
+            compilations: 0,
             shadow_context: Default::default(),
             shadow_geometry: Default::default(),
             shadow_materials: Default::default(),
             geometry: Default::default(),
             materials: Default::default(),
         }
+    }
+    pub fn compilation_count(&self) -> usize {
+        self.compilations
     }
     pub fn resource_counts(&self) -> (usize, usize) {
         (self.geometry.len(), self.materials.len())
@@ -483,9 +488,10 @@ impl PaintCache {
         if self
             .materials
             .get(&key)
-            .is_none_or(|(_, saved, _)| *saved != state)
+            .is_none_or(|(_, saved, _)| !saved.same_gpu_program(&state))
         {
             let compiled = Material::compile(ctx, &state, self.depth_bits)?;
+            self.compilations += 1;
             if let Some((_, _, previous)) = self
                 .materials
                 .insert(key, (Rc::clone(recipe), state.clone(), compiled))
@@ -567,9 +573,10 @@ impl PaintCache {
         if self
             .shadow_materials
             .get(&key)
-            .is_none_or(|(_, saved, _)| *saved != state)
+            .is_none_or(|(_, saved, _)| !saved.same_gpu_program(&state))
         {
             let compiled = Material::compile_shadow(ctx, &state, self.depth_bits, zfail)?;
+            self.compilations += 1;
             if let Some((_, _, previous)) = self
                 .shadow_materials
                 .insert(key, (Rc::clone(recipe), state.clone(), compiled))
@@ -671,6 +678,7 @@ pub struct EffectView<'a> {
 /// pass and reusable stream storage. Render target selection belongs to the caller.
 pub struct EffectCache {
     depth_bits: u32,
+    compilations: usize,
     stream: Option<EffectJob>,
     materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
 }
@@ -678,9 +686,13 @@ impl EffectCache {
     pub fn new(depth_bits: u32) -> Self {
         Self {
             depth_bits,
+            compilations: 0,
             stream: None,
             materials: Default::default(),
         }
+    }
+    pub fn compilation_count(&self) -> usize {
+        self.compilations
     }
     pub fn resource_counts(&self) -> (usize, usize) {
         (usize::from(self.stream.is_some()), self.materials.len())
@@ -756,9 +768,10 @@ impl EffectCache {
         if self
             .materials
             .get(&key)
-            .is_none_or(|(_, saved, _)| *saved != state)
+            .is_none_or(|(_, saved, _)| !saved.same_gpu_program(&state))
         {
             let compiled = Material::compile_effect(ctx, &state, self.depth_bits)?;
+            self.compilations += 1;
             if let Some((_, _, previous)) = self
                 .materials
                 .insert(key, (Rc::clone(recipe), state.clone(), compiled))
@@ -849,6 +862,7 @@ impl StandardJob {
 
 pub struct StandardCache {
     depth_bits: u32,
+    compilations: usize,
     stream: Option<StandardJob>,
     materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
 }
@@ -856,9 +870,13 @@ impl StandardCache {
     pub fn new(depth_bits: u32) -> Self {
         Self {
             depth_bits,
+            compilations: 0,
             stream: None,
             materials: Default::default(),
         }
+    }
+    pub fn compilation_count(&self) -> usize {
+        self.compilations
     }
     pub fn resource_counts(&self) -> (usize, usize) {
         (usize::from(self.stream.is_some()), self.materials.len())
@@ -921,9 +939,10 @@ impl StandardCache {
         if self
             .materials
             .get(&key)
-            .is_none_or(|(_, saved, _)| *saved != state)
+            .is_none_or(|(_, saved, _)| !saved.same_gpu_program(&state))
         {
             let compiled = Material::compile_standard(ctx, &state, self.depth_bits)?;
+            self.compilations += 1;
             if let Some((_, _, previous)) = self
                 .materials
                 .insert(key, (Rc::clone(recipe), state.clone(), compiled))
