@@ -1,4 +1,5 @@
 //! Original ViruZ II low-frequency oscillator state and patch conversion.
+use super::math::integer;
 #[derive(Clone, Copy)]
 pub struct Parameters {
     pub mode: f32,
@@ -86,12 +87,4 @@ impl Lfo {
 }
 fn saw(counter: u32) -> f32 {
     f32::from_bits((counter >> 9) | 0x3f800000) - 1.
-}
-fn integer(value: f32) -> i32 {
-    let value = value.round_ties_even();
-    if !(-2147483648.0..2147483648.0).contains(&value) {
-        i32::MIN
-    } else {
-        value as i32
-    }
 }

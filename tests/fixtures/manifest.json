@@ -430,6 +430,10 @@
     "synth-fast-sine.bin": {
       "bytes": 16388,
       "sha256": "105778dcb3ceb23410bc3ad75adc434c7c90bd320b1170b49839d83f69a480df"
+    },
+    "synth-filter.bin": {
+      "bytes": 297880,
+      "sha256": "ea90505dd3bde7a22aea98bc3b69665a11479cc3a50a08f538856e7d53421fbc"
     }
   }
 }

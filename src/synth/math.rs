@@ -13,3 +13,12 @@ pub fn fast_sine(value: f32) -> f32 {
     let a = (f64::from(b) - 0.16666f64) as f32;
     ((a * squared) + 1.) * x
 }
+
+pub(crate) fn integer(value: f32) -> i32 {
+    let value = value.round_ties_even();
+    if !(-2147483648.0..2147483648.0).contains(&value) {
+        i32::MIN
+    } else {
+        value as i32
+    }
+}
