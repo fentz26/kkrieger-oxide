@@ -25,6 +25,7 @@ struct RenderStats {
     max_lights: usize,
     mesh_paints: usize,
     effect_jobs: usize,
+    render_actions: usize,
     scene_passes: usize,
     overlay_commands: usize,
 }
@@ -110,9 +111,17 @@ impl Renderer for AuthoredRenderer {
             fps: 60.,
         });
         let mut packets = Vec::new();
-        for job in frame.jobs {
+        for action in paint::render::actions(&frame, &[false; 256], true) {
+            stats.render_actions += 1;
+            let paint::render::Action::Draw(index) = action else {
+                if let paint::render::Action::SetLight(light) = action {
+                    assert!(light < paint_lights.len());
+                }
+                continue;
+            };
+            let job = &frame.jobs[index];
             assert!(matches!(pass.jobs[job.scene_job], Job::Paint { .. }));
-            match job.kind {
+            match &job.kind {
                 DrawKind::Mesh(_) => stats.mesh_paints += 1,
                 DrawKind::Effect => {
                     stats.effect_jobs += 1;

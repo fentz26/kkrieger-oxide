@@ -131,3 +131,70 @@ fn final_material_usage_hook_runs_without_a_following_job() {
         [ClearScissor, Draw(0), ClearScissor, ApplyViewProjection]
     );
 }
+
+#[test]
+fn render_actions_match_unchanged_cpp_loop_and_material11_hooks() {
+    let mut data = include_bytes!("fixtures/paint-render.bin").as_slice();
+    fn word(data: &mut &[u8]) -> u32 {
+        let (value, rest) = data.split_at(4);
+        *data = rest;
+        u32::from_le_bytes(value.try_into().unwrap())
+    }
+    assert_eq!(word(&mut data), 128);
+    for case in 0..128 {
+        let ps11 = word(&mut data) != 0;
+        let count = word(&mut data);
+        let mut frame = FramePlan {
+            jobs: vec![],
+            inserts: vec![],
+        };
+        for index in 0..count {
+            let key = word(&mut data);
+            let effect = word(&mut data) != 0;
+            let light = word(&mut data);
+            frame.jobs.push(if effect {
+                Queued {
+                    scene_job: index as usize,
+                    sort_key: key,
+                    kind: DrawKind::Effect,
+                }
+            } else {
+                mesh(key, (light != u32::MAX).then_some(light as usize))
+            });
+        }
+        let mut grab = [false; 256];
+        for pass in 0..4 {
+            if word(&mut data) != 0 {
+                frame.inserts.push(FrameInsert {
+                    scene_job: 0,
+                    insert: InsertUse {
+                        material_slot: 1,
+                        render_pass: pass,
+                    },
+                });
+            }
+            grab[pass as usize] = word(&mut data) != 0;
+        }
+        let count = word(&mut data);
+        let expected: Vec<_> = (0..count)
+            .map(|_| {
+                let action = word(&mut data);
+                let arg = word(&mut data) as usize;
+                match action {
+                    0 => ClearScissor,
+                    1 => ClearDestinationAlpha,
+                    2 => AddDestinationAlpha,
+                    3 => ResetShadowStates,
+                    4 => ClearStencil,
+                    5 => ApplyViewProjection,
+                    6 => GrabCurrentRender,
+                    7 => SetLight(arg),
+                    8 => Draw(arg),
+                    _ => panic!("invalid native action"),
+                }
+            })
+            .collect();
+        assert_eq!(actions(&frame, &grab, ps11), expected, "native case {case}");
+    }
+    assert!(data.is_empty());
+}

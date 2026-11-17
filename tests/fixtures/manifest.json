@@ -374,6 +374,10 @@
     "beta-light-importance.bin": {
       "bytes": 10244,
       "sha256": "1c65ffe66813db801b2078e8898e2c30f24443004f5fbadd69d4a8a7ca7cd522"
+    },
+    "paint-render.bin": {
+      "bytes": 38724,
+      "sha256": "9ee3da1bc4daa0bedc8525106a7c802eaa650a484698ddb0974c0b93274a02a1"
     }
   }
 }
