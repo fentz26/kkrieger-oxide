@@ -106,3 +106,49 @@ fn complete_music_restart_and_loop_render_do_not_touch_heap() {
         );
     }
 }
+
+#[test]
+fn fixed_effect_requests_are_consumed_and_mixed_without_heap_operations() {
+    use kkrieger_oxide::{
+        effects::{Effects, Update},
+        game::player::Sound,
+        sample_playback::Listener,
+        vfx::{Data, Sample},
+    };
+    let samples = [Sample {
+        slot: 7,
+        buffers: 4,
+        data: Data::Mono(vec![16384; 1024].into_boxed_slice()),
+    }];
+    let mut effects = Effects::new(&samples);
+    let (sender, receiver) = std::sync::mpsc::sync_channel(1024);
+    for _ in 0..100 {
+        sender
+            .send(Update::Play(
+                Sound {
+                    slot: 7,
+                    volume: 1.0,
+                    near_distance: 1.0,
+                    far_distance: 10.0,
+                },
+                [0.0; 4],
+            ))
+            .unwrap();
+        sender.send(Update::Listener(Listener::default())).unwrap();
+        sender.send(Update::Commit(1)).unwrap();
+    }
+    let mut output = [[0.0; 2]; 512];
+    CALLS.with(|calls| calls.set(0));
+    ACTIVE.with(|active| active.set(true));
+    for command in receiver.try_iter().take(1024) {
+        effects.apply(command);
+    }
+    effects.mix(&mut output);
+    ACTIVE.with(|active| active.set(false));
+    assert_eq!(
+        CALLS.with(Cell::get),
+        0,
+        "heap operation while consuming/mixing effect requests"
+    );
+    assert!(output.iter().flatten().any(|v| *v != 0.0));
+}

@@ -2,7 +2,7 @@
 use super::Music;
 use crate::{
     audio_output::Queue,
-    effects::Effects,
+    effects::{Effects, Update, updates},
     game::{player::Sound, simulation::Tick},
     v2m::{Song, conversion::convert, playback::Synth},
     vfx::Bank,
@@ -11,19 +11,20 @@ use std::{
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
-        mpsc::{self, Receiver, Sender, SyncSender},
+        mpsc::{self, Receiver, SyncSender},
     },
     thread::{self, JoinHandle},
     time::Duration,
 };
+const REQUEST_CAPACITY: usize = 1024;
+#[derive(Clone, Copy)]
 enum Command {
-    Tick(Tick, i32),
-    Play(Sound, [f32; 4]),
+    Effect(Update),
     PauseMusic,
     RestartMusic,
 }
 pub struct Output {
-    requests: Sender<Command>,
+    requests: SyncSender<Command>,
     stop: SyncSender<()>,
     worker: Option<JoinHandle<()>>,
     failed: Arc<AtomicBool>,
@@ -40,7 +41,7 @@ impl Output {
     }
     fn start(song: &[u8], samples: Option<Vec<u8>>) -> Result<Self, Box<dyn std::error::Error>> {
         let data = convert(song)?;
-        let (requests, commands) = mpsc::channel();
+        let (requests, commands) = mpsc::sync_channel(REQUEST_CAPACITY);
         let (stop, receiver) = mpsc::sync_channel(1);
         let (ready, started) = mpsc::sync_channel(1);
         let failed = Arc::new(AtomicBool::new(false));
@@ -78,13 +79,17 @@ impl Output {
         }
     }
     pub fn tick(&self, tick: Tick, now: i32) -> Result<(), &'static str> {
-        self.requests
-            .send(Command::Tick(tick, now))
-            .map_err(|_| "audio worker stopped")
+        for update in updates(&tick, now) {
+            self.requests
+                .send(Command::Effect(update))
+                .map_err(|_| "audio worker stopped")?;
+        }
+        // Simulation vectors are dropped here, on the game thread.
+        Ok(())
     }
     pub fn play(&self, sound: Sound, position: [f32; 4]) -> Result<(), &'static str> {
         self.requests
-            .send(Command::Play(sound, position))
+            .send(Command::Effect(Update::Play(sound, position)))
             .map_err(|_| "audio worker stopped")
     }
     pub fn pause_music(&self) -> Result<(), &'static str> {
@@ -136,17 +141,14 @@ fn run(
     // return/unwind paths before its borrowed music and song storage expires.
     let queue = unsafe {
         Queue::open_scoped(move |output| {
-            for command in commands.try_iter() {
+            for command in commands.try_iter().take(REQUEST_CAPACITY) {
                 match command {
-                    Command::Tick(tick, now) => effects.tick(&tick, now),
+                    Command::Effect(update) => effects.apply(update),
                     Command::PauseMusic => music.pause(),
                     Command::RestartMusic => {
                         if music.restart().is_err() {
                             failed.store(true, Ordering::Release);
                         }
-                    }
-                    Command::Play(sound, position) => {
-                        effects.play(sound, position);
                     }
                 }
             }

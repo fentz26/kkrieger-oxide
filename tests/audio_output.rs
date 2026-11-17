@@ -99,3 +99,35 @@ fn authored_effect_bank_and_game_requests_reach_native_audio_worker() {
     output.check().unwrap();
     drop(output);
 }
+
+#[test]
+#[ignore = "opens native output to exercise command backpressure; run explicitly"]
+fn native_audio_accepts_tick_larger_than_request_capacity() {
+    use kkrieger_oxide::{
+        game::{
+            player::Sound,
+            simulation::{Audio, Tick},
+        },
+        music::output::Output,
+    };
+    let doc =
+        kkrieger_oxide::kx::Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let output = Output::open(doc.song).unwrap();
+    let mut tick = Tick::default();
+    for _ in 0..1500 {
+        tick.sounds.push(Audio {
+            sound: Sound {
+                slot: 255,
+                volume: 1.0,
+                near_distance: 0.2,
+                far_distance: 160.0,
+            },
+            position: [0.0; 4],
+        });
+    }
+    output.tick(tick, 100).unwrap();
+    output.pause_music().unwrap();
+    output.restart_music().unwrap();
+    output.check().unwrap();
+    drop(output);
+}

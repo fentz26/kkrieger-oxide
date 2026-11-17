@@ -66,3 +66,34 @@ fn authored_bank_sound_request_reaches_mixed_pcm() {
     assert!(output.iter().flatten().all(|v| v.is_finite()));
     assert!(output.iter().flatten().any(|v| v.abs() > 0.01));
 }
+
+#[test]
+fn tick_messages_are_fixed_size_and_preserve_sound_listener_commit_order() {
+    use kkrieger_oxide::effects::{Update, updates};
+    fn copyable<T: Copy>() {}
+    copyable::<Update>();
+    let mut tick = Tick::default();
+    tick.sounds.push(Audio {
+        sound: sound(7),
+        position: [1.0, 2.0, 3.0, 1.0],
+    });
+    tick.listeners.push(Listener {
+        position: [4.0; 4],
+        velocity: [0.0; 4],
+        up: [0.0, 1.0, 0.0, 0.0],
+        forward: [0.0, 0.0, 1.0, 0.0],
+    });
+    let mut messages = updates(&tick, 100);
+    assert!(
+        matches!(messages.next(), Some(Update::Play(sound, position)) if sound.slot == 7 && position == [1.0, 2.0, 3.0, 1.0])
+    );
+    assert!(
+        matches!(messages.next(), Some(Update::Listener(listener)) if listener.position == [4.0; 3])
+    );
+    assert!(matches!(messages.next(), Some(Update::Commit(100))));
+    assert!(messages.next().is_none());
+    assert!(matches!(
+        updates(&Tick::default(), 200).next(),
+        Some(Update::Commit(200))
+    ));
+}
