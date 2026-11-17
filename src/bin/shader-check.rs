@@ -1056,6 +1056,22 @@ fn verify_targets(ctx: &mut dyn RenderingBackend) {
     }
     assert_eq!(targets.len(), 1);
     assert_eq!(targets.texture(0, -1), Some(color));
+    let present = kkrieger_oxide::gpu_present::Present::new(ctx).unwrap();
+    let (output, copied) = kkrieger_oxide::gpu_texture::depth_stencil_pass(ctx, 32, 32).unwrap();
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(output), PassAction::default());
+    // Leave a stale restricted scissor to catch incomplete final presentation.
+    ctx.apply_scissor_rect(2, 2, 4, 4);
+    present.draw(ctx, color);
+    ctx.end_render_pass();
+    let mut copied_pixels = vec![0; pixels.len()];
+    ctx.texture_read_pixels(copied, &mut copied_pixels);
+    assert_eq!(
+        copied_pixels, pixels,
+        "final presentation changed orientation or pixels"
+    );
+    present.delete(ctx);
+    ctx.delete_render_pass(output);
+
     assert!(
         targets
             .begin(

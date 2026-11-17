@@ -5,6 +5,7 @@ pub mod collision;
 pub mod game;
 pub mod gpu_insert;
 pub mod gpu_mesh;
+pub mod gpu_present;
 pub mod gpu_scene;
 pub mod gpu_target;
 pub mod gpu_texture;

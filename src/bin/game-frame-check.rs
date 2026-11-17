@@ -5,7 +5,7 @@
 use kkrieger_oxide::{
     collision::world::World,
     game::simulation::Simulation,
-    gpu_scene, gpu_target,
+    gpu_present, gpu_scene, gpu_target,
     kx::Document,
     random::Random,
     scene::{
@@ -204,6 +204,13 @@ fn main() {
                 }
                 drop(execution.renderer.take());
                 let mut state = state.borrow_mut();
+                let source = state.targets.texture(0, -1).unwrap();
+                let present = gpu_present::Present::new(&mut *state.ctx).unwrap();
+                state.ctx.begin_default_pass(PassAction::Nothing);
+                present.draw(&mut *state.ctx, source);
+                state.ctx.end_render_pass();
+                state.ctx.commit_frame();
+                present.delete(&mut *state.ctx);
                 let scene = state.scene.take().unwrap();
                 scene.delete(&mut *state.ctx);
                 let targets = std::mem::take(&mut state.targets);
