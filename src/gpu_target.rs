@@ -58,6 +58,9 @@ impl Targets {
                     dimensions,
                 },
             ) {
+                // Miniquad 0.4.11 does not invalidate texture bindings on
+                // deletion. Flush cached IDs while the attachments are live.
+                ctx.commit_frame();
                 ctx.delete_render_pass(previous.pass);
             }
         }
@@ -87,8 +90,30 @@ impl Targets {
         Ok(target.color)
     }
     pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        ctx.commit_frame();
         for (_, target) in self.targets {
             ctx.delete_render_pass(target.pass);
         }
     }
+}
+
+/// Resolve full attachment storage, independently of a cropped draw window.
+/// Screen dimensions come from the platform; IPP textures use the original pool.
+pub fn attachment_dimensions(
+    pool: &crate::scene::overlay::Pool,
+    viewport: Viewport,
+    screen: [u32; 2],
+) -> Result<[u32; 2], &'static str> {
+    if viewport.render_target == -1 {
+        return Ok(screen);
+    }
+    let target = pool
+        .targets
+        .iter()
+        .find(|target| target.texture == Some(viewport.render_target))
+        .ok_or("viewport render target is not registered in IPP pool")?;
+    let dimensions = crate::scene::overlay::DIMENSIONS
+        .get(target.size)
+        .ok_or("IPP target size out of range")?;
+    Ok([dimensions[0] as u32, dimensions[1] as u32])
 }

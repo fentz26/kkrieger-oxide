@@ -3,7 +3,7 @@
 use kkrieger_oxide::{
     collision::world::World,
     game::{input, simulation::Simulation},
-    gpu_present, gpu_scene, gpu_target,
+    gpu_overlay, gpu_present, gpu_scene, gpu_target,
     kx::Document,
     random::Random,
     scene::{
@@ -83,6 +83,7 @@ struct Graphics {
     scene: gpu_scene::Scene,
     targets: gpu_target::Targets,
     present: gpu_present::Present,
+    copies: gpu_overlay::Copies,
     fps: f32,
 }
 struct Bridge(Rc<RefCell<Graphics>>);
@@ -93,14 +94,45 @@ impl Renderer for Bridge {
         doc: &Document<'_>,
         command: RenderCommand,
     ) -> Result<(), Error> {
+        let fail = |reason| Error {
+            operator: 0,
+            reason,
+        };
+        if let RenderCommand::Overlay(index) = command {
+            let draw = e.overlay_draws[index].clone();
+            let pool = e
+                .overlay
+                .as_ref()
+                .ok_or_else(|| fail("overlay target pool missing"))?;
+            let (width, height) = window::screen_size();
+            let dimensions = gpu_target::attachment_dimensions(
+                pool,
+                draw.viewport,
+                [width as u32, height as u32],
+            )
+            .map_err(fail)?;
+            let mut graphics = self.0.borrow_mut();
+            let Graphics {
+                ctx,
+                targets,
+                copies,
+                ..
+            } = &mut *graphics;
+            let source = targets
+                .texture(-1, draw.texture)
+                .ok_or_else(|| fail("overlay source target has not been rendered"))?;
+            targets
+                .begin(&mut **ctx, draw.viewport, dimensions, 0, 0)
+                .map_err(fail)?;
+            let result = copies.draw(&mut **ctx, &draw, source);
+            ctx.end_render_pass();
+            return result.map_err(|error| {
+                eprintln!("{error}");
+                fail("original GPU overlay failed")
+            });
+        }
         let RenderCommand::Scene(index) = command else {
-            return match command {
-                RenderCommand::ResetOverlay => Ok(()),
-                _ => Err(Error {
-                    operator: 0,
-                    reason: "GPU postprocessing draw has not been connected",
-                }),
-            };
+            return Ok(());
         };
         let pass = e.render_passes[index].clone();
         let fail = |reason| Error {
@@ -132,20 +164,14 @@ impl Renderer for Bridge {
             ..
         } = &mut *graphics;
         let ctx = &mut **ctx;
-        let dimensions = if pass.viewport.render_target == -1 {
-            let master = e
-                .overlay
-                .as_ref()
-                .ok_or_else(|| fail("screen target pool missing"))?
-                .master
-                .window;
-            [
-                (master[2] - master[0]) as u32,
-                (master[3] - master[1]) as u32,
-            ]
-        } else {
-            return Err(fail("offscreen viewport dispatch has not been connected"));
-        };
+        let pool = e
+            .overlay
+            .as_ref()
+            .ok_or_else(|| fail("screen target pool missing"))?;
+        let (width, height) = window::screen_size();
+        let dimensions =
+            gpu_target::attachment_dimensions(pool, pass.viewport, [width as u32, height as u32])
+                .map_err(fail)?;
         targets
             .begin(
                 ctx,
@@ -200,11 +226,13 @@ impl App {
         let mut ctx = window::new_rendering_backend();
         let scene = gpu_scene::Scene::new(&mut *ctx, resources, 24)?;
         let present = gpu_present::Present::new(&mut *ctx)?;
+        let copies = gpu_overlay::Copies::new(&mut *ctx, 24)?;
         let graphics = Rc::new(RefCell::new(Graphics {
             ctx,
             scene,
             targets: Default::default(),
             present,
+            copies,
             fps: 0.,
         }));
         execution.renderer = Some(Box::new(Bridge(Rc::clone(&graphics))));

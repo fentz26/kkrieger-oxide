@@ -53,6 +53,7 @@ fn main() {
                 verify_shadow(&mut *ctx);
                 verify_inserts(&mut *ctx);
                 verify_targets(&mut *ctx);
+                verify_overlay_copy(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -1123,5 +1124,109 @@ fn verify_targets(ctx: &mut dyn RenderingBackend) {
     targets.delete(ctx);
     println!(
         "Original target identities, cropped clears, and resized attachments read back correctly"
+    );
+}
+
+fn verify_overlay_copy(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        gpu_overlay::Copies,
+        gpu_target::Targets,
+        scene::{
+            camera::Environment,
+            overlay::{Draw, Viewport, fx_quad},
+        },
+    };
+    let viewport = Viewport {
+        screen: -1,
+        render_target: 200,
+        window: [0, 0, 32, 32],
+    };
+    let mut targets = Targets::default();
+    let source = targets
+        .begin(ctx, viewport, [32, 32], 3, 0xffff0000)
+        .unwrap();
+    ctx.end_render_pass();
+    targets
+        .begin(
+            ctx,
+            Viewport {
+                window: [8, 4, 24, 12],
+                ..viewport
+            },
+            [32, 32],
+            1,
+            0xff0000ff,
+        )
+        .unwrap();
+    ctx.end_render_pass();
+    let mut original = vec![0; 32 * 32 * 4];
+    ctx.texture_read_pixels(source, &mut original);
+    let destination = Viewport {
+        render_target: 201,
+        ..viewport
+    };
+    let output = targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    let mut copies = Copies::new(ctx, 24).unwrap();
+    let mut draw = Draw {
+        viewport: destination,
+        environment: Environment {
+            orthogonal: 1,
+            ..Default::default()
+        },
+        material: 27,
+        texture: 200,
+        texture1: None,
+        texture2: None,
+        color: u32::MAX,
+        color2: None,
+        vertices: fx_quad(None, None, None, None),
+    };
+    copies.draw(ctx, &draw, source).unwrap();
+    ctx.end_render_pass();
+    let mut pixels = vec![0; original.len()];
+    ctx.texture_read_pixels(output, &mut pixels);
+    assert_eq!(pixels, original, "IPP copy changed framebuffer orientation");
+    targets
+        .begin(ctx, viewport, [32, 32], 3, 0x80402010)
+        .unwrap();
+    ctx.end_render_pass();
+    draw.color = 0x8080ffff;
+    let source_color = [
+        64. / 255. * 128. / 255.,
+        32. / 255.,
+        16. / 255.,
+        128. / 255. * 128. / 255.,
+    ];
+    let destination_color = [16. / 255., 32. / 255., 64. / 255., 128. / 255.];
+    for mode in 0..6 {
+        draw.material = 27 + mode;
+        targets
+            .begin(ctx, destination, [32, 32], 3, 0x80102040)
+            .unwrap();
+        copies.draw(ctx, &draw, source).unwrap();
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(output, &mut pixels);
+        for channel in 0..4 {
+            let s = source_color[channel];
+            let d = destination_color[channel];
+            let expected: f32 = match mode {
+                0 => s,
+                1 => s + d,
+                2 => s * d,
+                3 => 2. * s * d,
+                4 => s + d * (1. - s),
+                _ => s * source_color[3] + d * (1. - source_color[3]),
+            };
+            let expected = (expected.clamp(0., 1.) * 255.).round() as u8;
+            assert!(
+                pixels[(16 * 32 + 16) * 4 + channel].abs_diff(expected) <= 2,
+                "copy mode {mode} channel {channel}"
+            );
+        }
+    }
+    copies.delete(ctx);
+    targets.delete(ctx);
+    println!(
+        "Original six IPP copy blends, color/alpha modulation, and target orientation read back correctly"
     );
 }

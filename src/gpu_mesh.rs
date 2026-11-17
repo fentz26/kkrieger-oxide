@@ -68,6 +68,7 @@ pub struct Material {
     shadow_mode: Option<bool>,
     effect_layout: bool,
     standard_layout: bool,
+    double_layout: bool,
     depth_bits: u32,
 }
 impl Material {
@@ -76,7 +77,7 @@ impl Material {
         state: &State,
         depth_bits: u32,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::compile_kind(ctx, state, depth_bits, None, false, false)
+        Self::compile_kind(ctx, state, depth_bits, None, false, false, false)
     }
     pub fn compile_shadow(
         ctx: &mut dyn RenderingBackend,
@@ -87,7 +88,7 @@ impl Material {
         if state.words[0] & 0x40000 == 0 {
             return Err("shadow material is missing source extrusion flag".into());
         }
-        Self::compile_kind(ctx, state, depth_bits, Some(zfail), false, false)
+        Self::compile_kind(ctx, state, depth_bits, Some(zfail), false, false, false)
     }
     pub fn compile_effect(
         ctx: &mut dyn RenderingBackend,
@@ -97,7 +98,7 @@ impl Material {
         if state.words[0] & 0x40000 != 0 {
             return Err("effect material cannot use shadow extrusion".into());
         }
-        Self::compile_kind(ctx, state, depth_bits, None, true, false)
+        Self::compile_kind(ctx, state, depth_bits, None, true, false, false)
     }
     pub fn compile_standard(
         ctx: &mut dyn RenderingBackend,
@@ -107,7 +108,17 @@ impl Material {
         if state.words[0] & 0x40000 != 0 {
             return Err("standard material cannot use shadow extrusion".into());
         }
-        Self::compile_kind(ctx, state, depth_bits, None, false, true)
+        Self::compile_kind(ctx, state, depth_bits, None, false, true, false)
+    }
+    pub fn compile_double(
+        ctx: &mut dyn RenderingBackend,
+        state: &State,
+        depth_bits: u32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        if state.words[0] & 0x40000 != 0 {
+            return Err("double-UV material cannot use shadow extrusion".into());
+        }
+        Self::compile_kind(ctx, state, depth_bits, None, false, false, true)
     }
     fn compile_kind(
         ctx: &mut dyn RenderingBackend,
@@ -116,6 +127,7 @@ impl Material {
         shadow: Option<bool>,
         effect_layout: bool,
         standard_layout: bool,
+        double_layout: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         if ctx.info().backend != Backend::OpenGl {
             return Err("original material rendering requires OpenGL".into());
@@ -147,6 +159,15 @@ impl Material {
         )?;
         let attributes = if shadow.is_some() {
             vec![VertexAttribute::new("position", VertexFormat::Float4)]
+        } else if double_layout {
+            vec![
+                VertexAttribute::new("position", VertexFormat::Float3),
+                VertexAttribute::new("color", VertexFormat::Byte4),
+                VertexAttribute::new("uv0", VertexFormat::Float2),
+                VertexAttribute::new("uv1", VertexFormat::Float2),
+                VertexAttribute::new("_unused0", VertexFormat::Float1),
+                VertexAttribute::new("_unused1", VertexFormat::Float1),
+            ]
         } else if standard_layout {
             vec![
                 VertexAttribute::new("position", VertexFormat::Float3),
@@ -180,7 +201,7 @@ impl Material {
             pipeline_state.words[0] =
                 (pipeline_state.words[0] & !0xf00006) | 0x500002 | if zfail { 0x800000 } else { 0 };
         }
-        let layout = if standard_layout {
+        let layout = if standard_layout || double_layout {
             BufferLayout {
                 stride: std::mem::size_of::<crate::mesh_sprite::Vertex>() as i32,
                 ..Default::default()
@@ -201,6 +222,7 @@ impl Material {
             shadow_mode: shadow,
             effect_layout,
             standard_layout,
+            double_layout,
             depth_bits,
         })
     }
@@ -212,7 +234,11 @@ impl Material {
         state: &State,
         environment: &Environment,
     ) -> Result<(), &'static str> {
-        if self.shadow_mode.is_some() || self.effect_layout || self.standard_layout {
+        if self.shadow_mode.is_some()
+            || self.effect_layout
+            || self.standard_layout
+            || self.double_layout
+        {
             return Err("shadow material requires shadow vertex layout");
         }
         if images.len() != self.images.len() {
@@ -236,6 +262,30 @@ impl Material {
     ) -> Result<(), &'static str> {
         if !self.effect_layout || self.shadow_mode.is_some() {
             return Err("effect draw requires original packed TSPACE3 layout");
+        }
+        if images.len() != self.images.len() {
+            return Err("material texture binding count mismatch");
+        }
+        if job.index_count == 0 {
+            return Ok(());
+        }
+        ctx.apply_pipeline(&self.pipeline);
+        apply_depth(state, self.depth_bits);
+        ctx.apply_bindings_from_slice(&[job.vertex], job.index, images);
+        ctx.apply_uniforms(UniformsSource::table(&raster_uniforms(state, environment)));
+        ctx.draw(0, job.index_count, 1);
+        Ok(())
+    }
+    pub fn draw_double(
+        &self,
+        ctx: &mut dyn RenderingBackend,
+        job: &EffectJob,
+        images: &[TextureId],
+        state: &State,
+        environment: &Environment,
+    ) -> Result<(), &'static str> {
+        if !self.double_layout {
+            return Err("double-UV draw requires original double vertex layout");
         }
         if images.len() != self.images.len() {
             return Err("material texture binding count mismatch");
