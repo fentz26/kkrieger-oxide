@@ -43,7 +43,7 @@ def voice_code(address=0x1000000,sections=()):
    vals.append(str(bits))
   lines.append(name+': '+('.quad ' if kind=='dq' else '.long ')+','.join(vals))
  lines.append('temp: .zero 64')
- for name,n in [('vcebuf',1120),('vcebuf2',1120),('chanbuf',2240),('auxabuf',2240),('auxbbuf',2240)]:lines.append(f'{name}: .zero {n}')
+ for name,n in [('vcebuf',1120),('vcebuf2',1120),('chanbuf',2240),('auxabuf',2240),('auxbbuf',2240),('aux2buf',1120)]:lines.append(f'{name}: .zero {n}')
  return (*assemble('\n'.join(lines),address),fields)
 if __name__=='__main__':
  code,symbols,fields=voice_code();print(len(code),fields['syWV2.size'])

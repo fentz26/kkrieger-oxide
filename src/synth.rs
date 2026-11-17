@@ -16,3 +16,5 @@ pub mod voice;
 pub mod boost;
 
 pub mod patch;
+
+pub mod delay;
