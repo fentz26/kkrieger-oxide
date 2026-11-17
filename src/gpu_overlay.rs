@@ -20,7 +20,13 @@ pub fn copy_state(mode: usize, color: u32) -> Result<State, &'static str> {
     Ok(state)
 }
 pub fn material_state(material: usize, color: u32) -> Result<State, &'static str> {
-    if matches!(material, 25 | 26) {
+    if material == 7 {
+        // player_kkrieger/kkrieger_config.hpp sets sINTRO=1: SHARPEN
+        // copies TEX1. Exec_IPP_Sharpen still binds the unused second input.
+        let mut state = copy_state(0, 0x00ffffff)?;
+        state.textures[1] = Some(1);
+        Ok(state)
+    } else if matches!(material, 25 | 26) {
         let mut state = State::default();
         state.words[0] = 0x20002 | if material == 26 { 0x2000 } else { 0 };
         state.words[4] = 0x101;

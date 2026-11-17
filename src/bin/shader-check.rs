@@ -1299,6 +1299,23 @@ fn verify_overlay_blur(ctx: &mut dyn RenderingBackend) {
             );
         }
     }
+    // In the shipped sINTRO configuration Sharpen is TEX1 copied from
+    // the blurred input. The original second input and Color2 are unused.
+    draw.material = 7;
+    for amplify in [0, 0x00808080, u32::MAX] {
+        draw.color2 = Some(amplify);
+        targets
+            .begin(ctx, destination, [32, 32], 3, 0xffffffff)
+            .unwrap();
+        overlays
+            .draw_sources(ctx, &draw, &[source, source1])
+            .unwrap();
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(output, &mut pixels);
+        assert_eq!(&pixels[(16 * 32 + 16) * 4..][..4], &[64, 32, 16, 0]);
+    }
+    draw.material = 4;
+    draw.color2 = Some(u32::MAX);
     // Independent UV1 must sample the vertically mirrored source rather than
     // reusing UV0. This also covers the two bindings referencing one target.
     targets
@@ -1346,7 +1363,7 @@ fn verify_overlay_blur(ctx: &mut dyn RenderingBackend) {
     overlays.delete(ctx);
     targets.delete(ctx);
     println!(
-        "Original two-pass blur weights, alpha accumulation, and independent UV sets read back correctly"
+        "Original two-pass blur, sINTRO sharpen copy, alpha accumulation, and independent UV sets read back correctly"
     );
 }
 
