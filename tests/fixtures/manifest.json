@@ -386,6 +386,10 @@
     "mesh-line.bin": {
       "bytes": 1287780,
       "sha256": "e8336cdc2e7946c59bf61cd0a0a6ff53f909f465668d60f8555768b087134a24"
+    },
+    "overlay-sharpen.bin": {
+      "bytes": 1223416,
+      "sha256": "60bdf3daebbae58b569155f55f3936dea48736d7bb0fa862032d546a2df7722c"
     }
   }
 }

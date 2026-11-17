@@ -528,9 +528,18 @@ impl Pool {
         owner: usize,
         parameters: &Blur,
     ) -> Result<Vec<Draw>, &'static str> {
-        if let Some(cached) = self.find(Some(owner)) {
-            self.last_output = Some(cached);
-            return Ok(vec![]);
+        let (output, draws) = self.blur_op(Some(owner), self.last_output, parameters)?;
+        self.last_output = output;
+        Ok(draws)
+    }
+    fn blur_op(
+        &mut self,
+        owner: Option<usize>,
+        mut input: Option<usize>,
+        parameters: &Blur,
+    ) -> Result<(Option<usize>, Vec<Draw>), &'static str> {
+        if let Some(cached) = self.find(owner) {
+            return Ok((Some(cached), vec![]));
         }
         let mut radius = parameters.radius;
         let mut count = 0;
@@ -551,7 +560,6 @@ impl Pool {
             [1., 0.],
             [0., 1.],
         ];
-        let mut input = self.last_output;
         let mut draws = vec![];
         while count > 0 {
             count -= 1;
@@ -575,13 +583,89 @@ impl Pool {
                 },
                 count: if count > 0 { 1 } else { parameters.count },
             };
-            let (output, stage_draws) =
-                self.blend4x_operator((count == 0).then_some(owner), input, &mut rects, &stage)?;
+            let (output, stage_draws) = self.blend4x_operator(
+                if count == 0 { owner } else { None },
+                input,
+                &mut rects,
+                &stage,
+            )?;
             input = output;
             draws.extend(stage_draws);
             radius *= 2.;
         }
-        self.last_output = input;
+        Ok((input, draws))
+    }
+}
+
+impl Pool {
+    pub fn sharpen_operator(
+        &mut self,
+        owner: usize,
+        size: usize,
+        radius: f32,
+        amplify: u32,
+        stages: i32,
+        count: i32,
+    ) -> Result<Vec<Draw>, &'static str> {
+        if let Some(cached) = self.find(Some(owner)) {
+            self.last_output = Some(cached);
+            return Ok(vec![]);
+        }
+        let Some(input) = self.last_output else {
+            return Ok(vec![]);
+        };
+        let target = self
+            .targets
+            .get_mut(input)
+            .ok_or("overlay source out of range")?;
+        if target.texture.is_none() {
+            return Ok(vec![]);
+        }
+        target.references = target.references.wrapping_add(1);
+        let (blurred, mut draws) = self.blur_op(
+            None,
+            Some(input),
+            &Blur {
+                size,
+                radius,
+                amplify: 1.,
+                flags: 0,
+                stages,
+                count: 1,
+            },
+        )?;
+        let blurred = blurred.ok_or("sharpen blur produced no target")?;
+        let Some(texture) = self.targets[blurred].texture else {
+            return Ok(draws);
+        };
+        let size = if size == SIZES + 1 {
+            self.targets[input].size
+        } else {
+            size
+        };
+        let output = self.allocate(Some(owner), size, count);
+        draws.push(Draw {
+            viewport: self.viewport(output)?,
+            environment: super::camera::Environment {
+                orthogonal: 1,
+                ..Default::default()
+            },
+            material: 7,
+            texture,
+            texture1: self.targets[input].texture,
+            texture2: None,
+            color: 0x00ffffff,
+            color2: Some(amplify),
+            vertices: fx_quad(
+                Some(self.targets[blurred].scale_uv),
+                None,
+                Some(self.targets[input].scale_uv),
+                None,
+            ),
+        });
+        self.free(input)?;
+        self.free(blurred)?;
+        self.last_output = Some(output);
         Ok(draws)
     }
 }

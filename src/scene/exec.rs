@@ -1296,6 +1296,29 @@ impl Execution {
                 );
                 self.exec_inputs(doc, root, parent)
             }
+            0xe5 => {
+                let params = p
+                    .get(..5)
+                    .ok_or_else(|| fail("truncated IPP sharpen parameters"))?;
+                self.exec_inputs(doc, root, parent)?;
+                let draws = self
+                    .overlay
+                    .as_mut()
+                    .ok_or_else(|| fail("postprocessing target pool missing"))?
+                    .sharpen_operator(
+                        root,
+                        params[0] as usize,
+                        f32::from_bits(params[1]),
+                        params[2],
+                        params[3] as i32,
+                        params[4] as i32,
+                    )
+                    .map_err(fail)?;
+                for draw in draws {
+                    self.emit_overlay(doc, draw)?;
+                }
+                Ok(())
+            }
             0xe3 => {
                 let params = p
                     .get(..6)
