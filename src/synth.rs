@@ -30,3 +30,5 @@ pub mod master;
 pub mod allocation;
 
 pub mod midi;
+
+pub mod controls;

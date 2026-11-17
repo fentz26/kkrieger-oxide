@@ -494,6 +494,10 @@
     "synth-midi.bin": {
       "bytes": 193695,
       "sha256": "00974782c43a7b2fc01bb09e26904cf323b08850bb4a33c72574e696bd4f9c5a"
+    },
+    "synth-controls.bin": {
+      "bytes": 415748,
+      "sha256": "6e788290580e2a1aa7411a9ece725ff49d573e4a06a29ddf174cd8a72876b7d9"
     }
   }
 }
