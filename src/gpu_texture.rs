@@ -231,3 +231,68 @@ pub fn clear(
 ) {
     with_clear_state(ctx, |ctx| ctx.clear(color, depth, stencil));
 }
+
+/// Static authored bitmaps may be bound at multiple material stages with
+/// different sampling flags. OpenGL texture sampling belongs to the object,
+/// so those bindings need distinct GPU objects while equal bindings share one.
+#[derive(Default)]
+pub struct Cache {
+    images:
+        std::collections::BTreeMap<(usize, u32), (std::rc::Rc<crate::bitmap::Bitmap>, TextureId)>,
+    lookups: Option<(TextureId, TextureId)>,
+}
+impl Cache {
+    pub fn resource_counts(&self) -> (usize, usize) {
+        (
+            self.images.len(),
+            if self.lookups.is_some() { 2 } else { 0 },
+        )
+    }
+    pub fn resolve(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        state: &crate::material::State,
+        image: crate::material::shader::Image,
+        bitmaps: &std::collections::BTreeMap<usize, std::rc::Rc<crate::bitmap::Bitmap>>,
+    ) -> Result<TextureId, &'static str> {
+        use crate::material::shader::Image;
+        match image {
+            Image::Texture { operator, stage } => {
+                if state.textures.get(stage).copied().flatten() != Some(operator) {
+                    return Err("material texture stage does not match shader binding");
+                }
+                let bitmap = bitmaps
+                    .get(&operator)
+                    .ok_or("material bitmap has not been prepared")?;
+                let flags = state.words[4 + stage] & 0x107;
+                let key = (std::rc::Rc::as_ptr(bitmap) as usize, flags);
+                if let Some((_, texture)) = self.images.get(&key) {
+                    return Ok(*texture);
+                }
+                let pyramid = crate::texture_upload::Pyramid::from_bitmap(bitmap)?;
+                let texture = upload(ctx, &pyramid, flags)?;
+                self.images
+                    .insert(key, (std::rc::Rc::clone(bitmap), texture));
+                Ok(texture)
+            }
+            Image::Normalizer | Image::Attenuation => {
+                let (normalizer, attenuation) =
+                    *self.lookups.get_or_insert_with(|| lighting_lookups(ctx));
+                Ok(if image == Image::Normalizer {
+                    normalizer
+                } else {
+                    attenuation
+                })
+            }
+        }
+    }
+    pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        for (_, (_, texture)) in self.images {
+            ctx.delete_texture(texture);
+        }
+        if let Some((normalizer, attenuation)) = self.lookups {
+            ctx.delete_texture(normalizer);
+            ctx.delete_texture(attenuation);
+        }
+    }
+}

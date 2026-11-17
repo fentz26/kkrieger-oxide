@@ -379,6 +379,7 @@ impl PaintCache {
         paint: &crate::scene::paint::MeshPaint,
         environment: &Environment,
         mut texture: impl FnMut(
+            &mut dyn RenderingBackend,
             &material::Recipe,
             material::shader::Image,
         ) -> Result<TextureId, Box<dyn std::error::Error>>,
@@ -435,7 +436,7 @@ impl PaintCache {
         let images = compiled
             .images
             .iter()
-            .map(|(_, image)| texture(recipe, *image))
+            .map(|(_, image)| texture(ctx, recipe, *image))
             .collect::<Result<Vec<_>, _>>()?;
         compiled.draw(
             ctx,
@@ -550,6 +551,7 @@ impl EffectCache {
         material: &material::Material,
         view: EffectView<'_>,
         mut texture: impl FnMut(
+            &mut dyn RenderingBackend,
             &material::Recipe,
             material::shader::Image,
         ) -> Result<TextureId, Box<dyn std::error::Error>>,
@@ -627,7 +629,7 @@ impl EffectCache {
         let images = compiled
             .images
             .iter()
-            .map(|(_, image)| texture(recipe, *image))
+            .map(|(_, image)| texture(ctx, recipe, *image))
             .collect::<Result<Vec<_>, _>>()?;
         compiled.draw_effect(ctx, stream, &images, &state, &environment)?;
         Ok(true)

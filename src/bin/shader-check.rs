@@ -48,6 +48,7 @@ fn main() {
             let mut ctx = window::new_rendering_backend();
             let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 verify_uploads(&mut *ctx);
+                verify_texture_cache(&mut *ctx);
                 verify_draw(&mut *ctx);
                 verify_shadow(&mut *ctx);
             }));
@@ -180,6 +181,100 @@ fn verify_uploads(ctx: &mut dyn RenderingBackend) {
 #[cfg(not(target_os = "macos"))]
 fn verify_uploads(_: &mut dyn RenderingBackend) {}
 
+fn verify_texture_cache(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        bitmap::Bitmap,
+        gpu_texture::Cache,
+        material::{State, shader::Image},
+    };
+    use std::{collections::BTreeMap, rc::Rc};
+    let bitmap = Rc::new(Bitmap {
+        width: 2,
+        height: 2,
+        format: 1,
+        mip_count: 1,
+        mip_threshold: 0,
+        pixels: vec![[0x0800, 0x1000, 0x2000, 0x7fff]; 4],
+        font_page: None,
+    });
+    let bitmaps = BTreeMap::from([(42, bitmap)]);
+    let mut state = State {
+        textures: [Some(42), Some(42), None, None],
+        ..Default::default()
+    };
+    state.words[4] = 0;
+    state.words[5] = 0x101;
+    let mut cache = Cache::default();
+    let first = cache
+        .resolve(
+            ctx,
+            &state,
+            Image::Texture {
+                operator: 42,
+                stage: 0,
+            },
+            &bitmaps,
+        )
+        .unwrap();
+    let second = cache
+        .resolve(
+            ctx,
+            &state,
+            Image::Texture {
+                operator: 42,
+                stage: 1,
+            },
+            &bitmaps,
+        )
+        .unwrap();
+    assert_ne!(first, second);
+    assert_eq!(
+        cache
+            .resolve(
+                ctx,
+                &state,
+                Image::Texture {
+                    operator: 42,
+                    stage: 0
+                },
+                &bitmaps
+            )
+            .unwrap(),
+        first
+    );
+    let mut pixels = [0; 16];
+    for texture in [first, second] {
+        ctx.texture_read_pixels(texture, &mut pixels);
+        assert_eq!(pixels, [64, 32, 16, 255].repeat(4).as_slice());
+    }
+    assert!(
+        cache
+            .resolve(
+                ctx,
+                &state,
+                Image::Texture {
+                    operator: 42,
+                    stage: 2
+                },
+                &bitmaps
+            )
+            .is_err()
+    );
+    assert_eq!(cache.resource_counts(), (2, 0));
+    let normalizer = cache
+        .resolve(ctx, &state, Image::Normalizer, &bitmaps)
+        .unwrap();
+    assert_eq!(
+        cache
+            .resolve(ctx, &state, Image::Normalizer, &bitmaps)
+            .unwrap(),
+        normalizer
+    );
+    assert_eq!(cache.resource_counts(), (2, 2));
+    cache.delete(ctx);
+    println!("Shared bitmap stages retain independent sampling and cached lighting lookups");
+}
+
 fn verify_draw(ctx: &mut dyn RenderingBackend) {
     use kkrieger_oxide::{
         gpu_mesh,
@@ -265,7 +360,7 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
         assert!(
             cache
-                .draw_static(ctx, &asset, &mapped, &environment, |_, _| Err(
+                .draw_static(ctx, &asset, &mapped, &environment, |_, _, _| Err(
                     "unexpected sampled image".into()
                 ))
                 .unwrap()
@@ -283,7 +378,7 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
     recipe.state.replace(changed);
     kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
     cache
-        .draw_static(ctx, &asset, &mapped, &environment, |_, _| {
+        .draw_static(ctx, &asset, &mapped, &environment, |_, _, _| {
             Err("unexpected sampled image".into())
         })
         .unwrap();
@@ -408,7 +503,7 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
                         camera: &camera,
                         dimensions: [64, 64],
                     },
-                    |_, _| Err("unexpected sampled image".into())
+                    |_, _, _| Err("unexpected sampled image".into())
                 )
                 .unwrap()
         );

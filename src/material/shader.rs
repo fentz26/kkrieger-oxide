@@ -6,7 +6,7 @@ use super::State;
 use std::fmt::Write;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Image {
-    Texture(usize),
+    Texture { operator: usize, stage: usize },
     Normalizer,
     Attenuation,
 }
@@ -116,7 +116,13 @@ impl State {
                     "varying vec2 v_uv{i};\nuniform sampler2D image{i};"
                 )
                 .unwrap();
-                images.push((format!("image{i}"), Image::Texture(*id)));
+                images.push((
+                    format!("image{i}"),
+                    Image::Texture {
+                        operator: *id,
+                        stage: i,
+                    },
+                ));
             }
         }
         if lighting {
