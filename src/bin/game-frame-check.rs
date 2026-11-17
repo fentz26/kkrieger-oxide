@@ -23,6 +23,7 @@ struct State {
     passes: usize,
     capture: [usize; 4],
     beta_light_order: bool,
+    usage_mask: u32,
     menu: bool,
     targets: gpu_target::Targets,
     copies: Option<gpu_overlay::Overlays>,
@@ -86,6 +87,7 @@ impl Renderer for CheckRenderer {
             passes,
             capture,
             beta_light_order,
+            usage_mask,
             menu,
             targets,
             ..
@@ -105,6 +107,7 @@ impl Renderer for CheckRenderer {
             )
             .unwrap();
         let options = gpu_scene::Options {
+            usage_mask: *usage_mask,
             light_capacity: if *beta_light_order { 4 } else { 16 },
             fps: 60.,
             ..Default::default()
@@ -115,6 +118,9 @@ impl Renderer for CheckRenderer {
             .draw(ctx, execution, doc, &pass, &lights, &options)
             .unwrap();
         ctx.end_render_pass();
+        if *usage_mask & (1 << 3) == 0 {
+            assert_eq!(drawn.shadows, 0);
+        }
         let mut pixels = vec![0; dimensions[0] as usize * dimensions[1] as usize * 4];
         ctx.texture_read_pixels(color, &mut pixels);
         assert!(
@@ -159,6 +165,13 @@ fn main() {
         .unwrap_or(0);
     assert!(ticks >= 0);
     let beta_light_order = std::env::args().any(|arg| arg == "--beta-light-order");
+    let mut switches = kkrieger_oxide::game::root::switches();
+    if std::env::args().any(|arg| arg == "--no-shadows") {
+        switches[10] = 0;
+    }
+    let usage_mask = kkrieger_oxide::game::options::Settings::read(&switches)
+        .unwrap()
+        .usage_mask;
     let menu = std::env::args().any(|arg| arg == "--menu");
     assert!(
         !menu || ticks == 0,
@@ -203,6 +216,7 @@ fn main() {
                     passes: 0,
                     capture: [0, 1, ticks as usize * 2, ticks as usize * 2 + 1],
                     beta_light_order,
+                    usage_mask,
                     menu,
                     targets: Default::default(),
                     copies,

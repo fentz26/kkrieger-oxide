@@ -9,6 +9,7 @@ pub mod monster_ai;
 pub mod monster_magnet;
 pub mod monster_registry;
 pub mod monster_walk;
+pub mod options;
 pub mod player;
 pub mod root;
 pub mod shot;

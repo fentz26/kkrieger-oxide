@@ -88,6 +88,7 @@ struct Graphics {
     present: gpu_present::Present,
     copies: gpu_overlay::Overlays,
     fps: f32,
+    settings: kkrieger_oxide::game::options::Settings,
 }
 struct Bridge(Rc<RefCell<Graphics>>);
 impl Renderer for Bridge {
@@ -181,6 +182,7 @@ impl Renderer for Bridge {
             scene,
             targets,
             fps,
+            settings,
             ..
         } = &mut *graphics;
         let ctx = &mut **ctx;
@@ -208,6 +210,7 @@ impl Renderer for Bridge {
             &pass,
             &lights,
             &gpu_scene::Options {
+                usage_mask: settings.usage_mask,
                 fps: *fps,
                 ..Default::default()
             },
@@ -256,6 +259,7 @@ impl App {
             present,
             copies,
             fps: 0.,
+            settings: kkrieger_oxide::game::options::Settings::read(&execution.switches)?,
         }));
         execution.renderer = Some(Box::new(Bridge(Rc::clone(&graphics))));
         let (width, height) = window::screen_size();
@@ -301,6 +305,14 @@ impl App {
             frame.time,
             mouse,
         )?;
+        if tick.options_changed {
+            let settings = kkrieger_oxide::game::options::Settings::read(&self.execution.switches)?;
+            let mut graphics = self.graphics.borrow_mut();
+            if settings.resolution != graphics.settings.resolution {
+                window::set_window_size(settings.resolution[0], settings.resolution[1]);
+            }
+            graphics.settings = settings;
+        }
         #[cfg(target_os = "macos")]
         self.music.tick(tick, frame.time)?;
         #[cfg(not(target_os = "macos"))]

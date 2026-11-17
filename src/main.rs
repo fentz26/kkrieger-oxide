@@ -13,11 +13,15 @@ fn main() {
         prepared.report(start.elapsed());
         return;
     }
+    let [width, height] =
+        kkrieger_oxide::game::options::Settings::read(&kkrieger_oxide::game::root::switches())
+            .unwrap()
+            .resolution;
     miniquad::start(
         miniquad::conf::Conf {
             window_title: "kkrieger-oxide".into(),
-            window_width: 1280,
-            window_height: 720,
+            window_width: width as i32,
+            window_height: height as i32,
             ..Default::default()
         },
         move || {
