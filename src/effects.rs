@@ -66,9 +66,7 @@ impl<'a> Effects<'a> {
         Some(token)
     }
     pub fn mix(&mut self, output: &mut [[f32; 2]]) {
-        let listener = *self.pool.listener();
-        self.pool
-            .mix(output, |source| listener.stereo_gains(source));
+        self.pool.mix_spatial(output);
     }
     pub fn apply(&mut self, update: Update) {
         match update {

@@ -83,7 +83,15 @@ fn authored_effect_bank_and_game_requests_reach_native_audio_worker() {
     let doc =
         kkrieger_oxide::kx::Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     let output = Output::open_with_effects(doc.song, doc.samples).unwrap();
-    output.tick(Tick::default(), 100).unwrap();
+    let mut tick = Tick::default();
+    tick.listeners
+        .push(kkrieger_oxide::game::simulation::Listener {
+            position: [0.0; 4],
+            velocity: [90.0, 0.0, 0.0, 0.0],
+            up: [0.0, 1.0, 0.0, 0.0],
+            forward: [0.0, 0.0, 1.0, 0.0],
+        });
+    output.tick(tick, 100).unwrap();
     output
         .play(
             Sound {
@@ -92,7 +100,7 @@ fn authored_effect_bank_and_game_requests_reach_native_audio_worker() {
                 near_distance: 0.2,
                 far_distance: 160.0,
             },
-            [0.0; 4],
+            [1.0, 0.0, 0.0, 1.0],
         )
         .unwrap();
     std::thread::sleep(std::time::Duration::from_millis(100));

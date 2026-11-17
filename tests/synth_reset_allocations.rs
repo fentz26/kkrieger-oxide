@@ -131,10 +131,15 @@ fn fixed_effect_requests_are_consumed_and_mixed_without_heap_operations() {
                     near_distance: 1.0,
                     far_distance: 10.0,
                 },
-                [0.0; 4],
+                [1.0, 0.0, 0.0, 1.0],
             ))
             .unwrap();
-        sender.send(Update::Listener(Listener::default())).unwrap();
+        sender
+            .send(Update::Listener(Listener {
+                velocity: [90.0, 0.0, 0.0],
+                ..Listener::default()
+            }))
+            .unwrap();
         sender.send(Update::Commit(1)).unwrap();
     }
     let mut output = [[0.0; 2]; 512];
@@ -150,5 +155,6 @@ fn fixed_effect_requests_are_consumed_and_mixed_without_heap_operations() {
         0,
         "heap operation while consuming/mixing effect requests"
     );
+    assert_ne!(effects.pool.sample(7).unwrap().voices[0].fraction, 0);
     assert!(output.iter().flatten().any(|v| *v != 0.0));
 }

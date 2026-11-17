@@ -306,3 +306,140 @@ fn stereo_position_tracks_listener_yaw_roll_and_distance() {
     assert!(gains.iter().all(|v| v.is_finite()));
     assert_eq!(gains[0], gains[1]);
 }
+
+#[test]
+fn doppler_matches_published_directsound_velocity_cases() {
+    use kkrieger_oxide::sample_playback::Listener;
+    // Numeric observations from Wine's native DirectSound conformance tests:
+    // https://github.com/wine-mirror/wine/blob/4798f3dce460a3720cd52cdb0e3b608e9a4bcfbf/dlls/dsound/tests/ds3d.c
+    for (listener_velocity, source_velocity, expected_frequency) in [
+        (0.0, 0.0, 22050.0),
+        (-90.0, -90.0, 22050.0),
+        (0.0, -90.0, 29400.0),
+        (0.0, 90.0, 17640.0),
+        (90.0, 0.0, 29400.0),
+        (-90.0, 0.0, 17640.0),
+        (0.0, -240.0, 44100.0),
+        (0.0, 240.0, 14700.0),
+    ] {
+        let listener = Listener {
+            velocity: [listener_velocity, 0.0, 0.0],
+            ..Listener::default()
+        };
+        let source = Spatial {
+            position: [1.0, 0.0, 0.0],
+            velocity: [source_velocity, 0.0, 0.0],
+            ..Spatial::default()
+        };
+        assert!((22050.0 * listener.doppler_ratio(&source) - expected_frequency).abs() < 1e-8);
+        let off = Listener {
+            doppler: 0.0,
+            ..listener
+        };
+        assert_eq!(off.doppler_ratio(&source), 1.0);
+        let coincident = Spatial {
+            position: listener.position,
+            ..source
+        };
+        assert_eq!(listener.doppler_ratio(&coincident), 1.0);
+    }
+    let listener = Listener {
+        doppler: 2.0,
+        ..Listener::default()
+    };
+    let source = Spatial {
+        position: [1.0, 0.0, 0.0],
+        velocity: [-45.0, 0.0, 0.0],
+        ..Spatial::default()
+    };
+    assert!((listener.doppler_ratio(&source) - 4.0 / 3.0).abs() < 1e-12);
+}
+
+#[test]
+fn doppler_resampling_is_continuous_across_callbacks_and_stops_at_sample_end() {
+    use kkrieger_oxide::sample_playback::Listener;
+    let sample = Sample {
+        slot: 1,
+        buffers: 1,
+        data: Data::Mono(vec![0, 8192, 16384, 24576].into_boxed_slice()),
+    };
+    let render = |velocity, split| {
+        let mut pool = Pool::new();
+        pool.add(&sample);
+        pool.set_listener(Listener {
+            velocity: [velocity, 0.0, 0.0],
+            ..Listener::default()
+        });
+        pool.commit(1);
+        let token = pool.play(1, 1.0, 0.0).unwrap();
+        pool.spatial(
+            1,
+            token,
+            Spatial {
+                position: [1.0, 0.0, 0.0],
+                ..Spatial::default()
+            },
+        );
+        let mut output = [[0.0; 2]; 8];
+        for chunk in output.chunks_mut(split) {
+            pool.mix_spatial(chunk);
+        }
+        assert!(!pool.sample(1).unwrap().voices[0].playing);
+        output
+    };
+    let fast = render(180.0, 8);
+    assert_eq!(fast, render(180.0, 1));
+    assert_eq!(fast[1], [0.0, 0.5]);
+    assert_eq!(fast[2..], [[0.0; 2]; 6]);
+    let slow = render(-180.0, 8);
+    assert_eq!(slow, render(-180.0, 1));
+    assert_eq!(slow, render(-180.0, 3));
+    for (frame, expected) in
+        slow.iter()
+            .zip([0.0, 1.0 / 6.0, 1.0 / 3.0, 0.5, 2.0 / 3.0, 0.75, 0.0, 0.0])
+    {
+        assert_eq!(frame[0], 0.0);
+        assert!((frame[1] - expected).abs() < 1e-7);
+    }
+}
+
+#[test]
+fn changing_doppler_retains_phase_and_replaying_a_buffer_resets_it() {
+    use kkrieger_oxide::sample_playback::Listener;
+    let sample = Sample {
+        slot: 1,
+        buffers: 1,
+        data: Data::Mono(vec![0, 8192, 16384, 24576].into_boxed_slice()),
+    };
+    let mut pool = Pool::new();
+    pool.add(&sample);
+    pool.set_listener(Listener {
+        velocity: [-180.0, 0.0, 0.0],
+        ..Listener::default()
+    });
+    pool.commit(1);
+    let spatial = Spatial {
+        position: [1.0, 0.0, 0.0],
+        ..Spatial::default()
+    };
+    let token = pool.play(1, 1.0, 0.0).unwrap();
+    pool.spatial(1, token, spatial);
+    pool.mix_spatial(&mut [[0.0; 2]]);
+    let fraction = pool.sample(1).unwrap().voices[0].fraction;
+    assert_ne!(fraction, 0);
+    pool.set_listener(Listener {
+        doppler: 0.0,
+        ..Listener::default()
+    });
+    pool.commit(2);
+    let mut output = [[0.0; 2]];
+    pool.mix_spatial(&mut output);
+    assert!((output[0][1] - 1.0 / 6.0).abs() < 1e-7);
+    assert_eq!(pool.sample(1).unwrap().voices[0].fraction, fraction);
+    let token = pool.play(1, 1.0, 0.0).unwrap();
+    pool.spatial(1, token, spatial);
+    assert_eq!(pool.sample(1).unwrap().voices[0].fraction, 0);
+    let mut output = [[0.0; 2]];
+    pool.mix_spatial(&mut output);
+    assert_eq!(output, [[0.0; 2]]);
+}

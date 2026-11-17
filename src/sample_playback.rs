@@ -51,6 +51,29 @@ impl Listener {
             && (0.0..=10.0).contains(&self.doppler)
             && (0.0..=10.0).contains(&self.rolloff)
     }
+    /// Relative radial-velocity Doppler. The 360 units/s constant and half-
+    /// speed clamp match Wine's published native DirectSound observations.
+    /// The game's distance factor is always 1.
+    pub fn doppler_ratio(&self, source: &Spatial) -> f64 {
+        if !self.valid() || !source.valid() || self.doppler == 0.0 {
+            return 1.0;
+        }
+        let direction = std::array::from_fn::<_, 3, _>(|i| {
+            f64::from(source.position[i]) - f64::from(self.position[i])
+        });
+        let distance = direction.iter().map(|v| v * v).sum::<f64>().sqrt();
+        if distance == 0.0 {
+            return 1.0;
+        }
+        let relative = direction
+            .iter()
+            .enumerate()
+            .map(|(i, d)| d * (f64::from(source.velocity[i]) - f64::from(self.velocity[i])))
+            .sum::<f64>()
+            / distance
+            * f64::from(self.doppler);
+        360.0 / (360.0 + relative.clamp(-180.0, 180.0))
+    }
     /// Portable equal-power stereo rendering in the original left-handed
     /// coordinates. This replaces device-dependent DirectSound speaker routing;
     /// it does not claim sample parity with a particular Windows audio driver.
@@ -119,6 +142,8 @@ impl Spatial {
 pub struct Voice {
     pub started: i32,
     pub position: usize,
+    /// Q32 fractional source-frame position used by the portable resampler.
+    pub fraction: u32,
     pub playing: bool,
     /// Original volume and pan in hundredths of a decibel.
     pub volume: i32,
@@ -197,6 +222,7 @@ impl<'a> Pool<'a> {
         let voice = &mut sample.voices[sample.last];
         voice.started = self.sound_time;
         voice.position = 0;
+        voice.fraction = 0;
         voice.playing = true;
         let requested_volume = (f64::from(volume.clamp(1e-20, 1.0)).ln() * 20.0 * 100.0) as i32;
         // SetVolume rejects values outside [-10000, 0]; the original ignores
@@ -239,21 +265,60 @@ impl<'a> Pool<'a> {
     /// listener-dependent gains for buffers with active 3D parameters.
     /// Stereo panning and volume use DirectSound's hundredth-decibel units.
     pub fn mix(&mut self, output: &mut [[f32; 2]], spatial_gain: impl Fn(&Spatial) -> [f32; 2]) {
+        self.mix_with_rates(output, |source| (spatial_gain(source), 1.0));
+    }
+    pub fn mix_spatial(&mut self, output: &mut [[f32; 2]]) {
+        let listener = self.listener;
+        self.mix_with_rates(output, |source| {
+            (
+                listener.stereo_gains(source),
+                listener.doppler_ratio(source),
+            )
+        });
+    }
+    fn mix_with_rates(
+        &mut self,
+        output: &mut [[f32; 2]],
+        spatial: impl Fn(&Spatial) -> ([f32; 2], f64),
+    ) {
         for sample in self.samples.iter_mut().flatten() {
             for voice in &mut sample.voices[..sample.count] {
                 if !voice.playing {
                     continue;
                 }
                 let volume = attenuation(voice.volume);
-                let gains = match (sample.data, voice.spatial.as_ref()) {
-                    (Data::Mono(_), Some(parameters)) => spatial_gain(parameters),
-                    (Data::Mono(_), None) => [1.0; 2],
-                    (Data::Stereo(_), _) => [
-                        attenuation(-voice.pan.max(0)),
-                        attenuation(voice.pan.min(0)),
-                    ],
+                let (gains, ratio) = match (sample.data, voice.spatial.as_ref()) {
+                    (Data::Mono(_), Some(parameters)) => spatial(parameters),
+                    (Data::Mono(_), None) => ([1.0; 2], 1.0),
+                    (Data::Stereo(_), _) => (
+                        [
+                            attenuation(-voice.pan.max(0)),
+                            attenuation(voice.pan.min(0)),
+                        ],
+                        1.0,
+                    ),
+                };
+                let gains = gains.map(|gain| gain * volume / 32768.0);
+                let step = (ratio * 4294967296.0).round() as u64;
+                if step != 1u64 << 32 || voice.fraction != 0 {
+                    for frame in output.iter_mut() {
+                        if voice.position >= sample.data.len() {
+                            break;
+                        }
+                        let source = interpolated(sample.data, voice.position, voice.fraction);
+                        frame[0] += source[0] * gains[0];
+                        frame[1] += source[1] * gains[1];
+                        let phase = u64::from(voice.fraction) + step;
+                        voice.position += (phase >> 32) as usize;
+                        voice.fraction = phase as u32;
+                    }
+                    if voice.position >= sample.data.len() {
+                        voice.position = sample.data.len();
+                        voice.fraction = 0;
+                        voice.playing = false;
+                    }
+                    continue;
                 }
-                .map(|gain| gain * volume / 32768.0);
                 let frames = output.len().min(sample.data.len() - voice.position);
                 match sample.data {
                     Data::Mono(data) => {
@@ -308,4 +373,18 @@ fn attenuation(hundredths_db: i32) -> f32 {
     } else {
         10.0_f64.powf(f64::from(hundredths_db) / 2000.0) as f32
     }
+}
+
+// Linear interpolation is a portable rendering choice; native driver resampling
+// kernels remain a separate fidelity comparison. Unit-rate voices retain the
+// exact integer PCM path above.
+fn interpolated(data: &Data, index: usize, fraction: u32) -> [f32; 2] {
+    let frame = |index: usize| match data {
+        Data::Mono(data) => [f32::from(data[index]); 2],
+        Data::Stereo(data) => data[index].map(f32::from),
+    };
+    let a = frame(index);
+    let b = frame((index + 1).min(data.len() - 1));
+    let fraction = fraction as f32 * (1.0 / 4294967296.0);
+    std::array::from_fn(|i| a[i] + (b[i] - a[i]) * fraction)
 }
