@@ -378,6 +378,10 @@
     "paint-render.bin": {
       "bytes": 38724,
       "sha256": "9ee3da1bc4daa0bedc8525106a7c802eaa650a484698ddb0974c0b93274a02a1"
+    },
+    "mesh-sprite.bin": {
+      "bytes": 1186280,
+      "sha256": "24c45c571da76cd3944ec0c7ebeb67eaaccb33b1c9b890f7cbd8877c66e9b4e9"
     }
   }
 }
