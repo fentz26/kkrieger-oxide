@@ -470,6 +470,10 @@
     "synth-compressor.bin": {
       "bytes": 690024,
       "sha256": "acb35bf899680a894bb97a98c55f6926ee69da9d9524f1d78890982fcce1b846"
+    },
+    "synth-channel.bin": {
+      "bytes": 1527292,
+      "sha256": "8ebb2fc4b01385a70b4cb946fbcf9716958430b84ec0b08b1948ac4e33909373"
     }
   }
 }

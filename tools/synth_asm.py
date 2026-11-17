@@ -35,7 +35,7 @@ def voice_code(address=0x1000000,sections=()):
   line=re.sub(r'\bbyte\s+(-?\d+)',r'\1',line)
   line=re.sub(r'\bst([0-7])\b',r'st(\1)',line).replace('cs:','')
   line=re.sub(r'\b(?:short|near)\s+','',line)
-  line=re.sub(r'^(mov\s+\w+,\s*)(vcebuf2?|chanbuf|aux[ab]buf)\b',r'\1offset \2',line)
+  line=re.sub(r'^(mov\s+\w+,\s*)(vcebuf2?|chanbuf|mixbuf|aux[ab12]buf)\b',r'\1offset \2',line)
   if re.search(r'\bdd\s',line):
    label,data=re.split(r'\bdd\s+',line,maxsplit=1);line=(label.strip()+': ' if label.strip() else '')+'.long '+data.rstrip(',')
   elif re.fullmatch(r'\w+\.\w+',line):line+=':'
@@ -47,7 +47,7 @@ def voice_code(address=0x1000000,sections=()):
    vals.append(str(bits))
   lines.append(name+': '+('.quad ' if kind=='dq' else '.long ')+','.join(vals))
  lines.append('temp: .zero 64')
- for name,n in [('vcebuf',1120),('vcebuf2',1120),('chanbuf',2240),('auxabuf',2240),('auxbbuf',2240),('aux2buf',1120)]:lines.append(f'{name}: .zero {n}')
+ for name,n in [('vcebuf',1120),('vcebuf2',1120),('chanbuf',2240),('auxabuf',2240),('auxbbuf',2240),('aux2buf',1120),('aux1buf',1120),('mixbuf',2240)]:lines.append(f'{name}: .zero {n}')
  return (*assemble('\n'.join(lines),address),fields)
 if __name__=='__main__':
  code,symbols,fields=voice_code();print(len(code),fields['syWV2.size'])

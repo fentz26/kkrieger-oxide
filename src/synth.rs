@@ -20,3 +20,5 @@ pub mod patch;
 pub mod delay;
 
 pub mod compressor;
+
+pub mod channel;
