@@ -600,6 +600,126 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
     println!(
         "Original standard sprite/line layouts and authored paint submission read back correctly"
     );
+    let mut doc = Document::parse(include_bytes!("../../assets/kkrieger3383.kx")).unwrap();
+    doc.events.clear();
+    doc.operators[0].class = doc
+        .classes
+        .iter()
+        .position(|class| class.id == 0x81)
+        .unwrap();
+    doc.operators[0].inputs.clear();
+    doc.operators[0].links.clear();
+    let mut scene_material = (*asset.materials[1]).clone();
+    scene_material.passes[0].usage = kkrieger_oxide::material::Usage::Base;
+    let scene_asset = kkrieger_oxide::scene::paint::Asset {
+        mesh: std::rc::Rc::clone(&asset.mesh),
+        materials: vec![
+            std::rc::Rc::clone(&asset.materials[0]),
+            std::rc::Rc::new(scene_material),
+        ],
+    };
+    doc.operators[1].class = doc
+        .classes
+        .iter()
+        .position(|class| class.id == 0x64)
+        .unwrap();
+    doc.operators[1].inputs.clear();
+    doc.operators[1].links = vec![Some(2)];
+    doc.operators[1].animation = &[1];
+    doc.operators[1].parameters = vec![
+        0,
+        1,
+        u32::MAX,
+        u32::MAX,
+        u32::MAX,
+        0.25f32.to_bits(),
+        0.25f32.to_bits(),
+        0.25f32.to_bits(),
+        0.5f32.to_bits(),
+        0,
+        0,
+        0,
+    ];
+    let mut particle_material = (*kkrieger_oxide::material::original_default(true)).clone();
+    particle_material.passes[0].usage = kkrieger_oxide::material::Usage::Other;
+    particle_material.passes[0].shader.state.borrow_mut().words[28] = 0x0000ff00;
+    let resources = kkrieger_oxide::gpu_scene::Resources {
+        paint: kkrieger_oxide::scene::paint::Assets {
+            meshes: std::collections::BTreeMap::from([(0, scene_asset)]),
+            materials: std::collections::BTreeMap::from([(2, std::rc::Rc::new(particle_material))]),
+            default_material: kkrieger_oxide::material::original_default(true),
+        },
+        bitmaps: Default::default(),
+        pages: Default::default(),
+    };
+    let mut scene = kkrieger_oxide::gpu_scene::Scene::new(ctx, resources, 16).unwrap();
+    let mut execution = kkrieger_oxide::scene::exec::Execution::new(&doc);
+    execution.particles[0]
+        .particles
+        .push(kkrieger_oxide::scene::particles::Particle {
+            position: [0., 0., 0.25, 0.],
+            speed: [0.; 4],
+            time: 50,
+            max_time: 100,
+        });
+    let mut render_pass = kkrieger_oxide::scene::viewport::RenderPass {
+        viewport: kkrieger_oxide::scene::overlay::Viewport {
+            screen: 0,
+            render_target: 0,
+            window: [0, 0, 64, 64],
+        },
+        camera: kkrieger_oxide::scene::camera::Environment {
+            orthogonal: 1,
+            far_clip: 1.,
+            ..Default::default()
+        },
+        clear_flags: 0,
+        clear_color: 0,
+        paint_mode: 0,
+        jobs: vec![kkrieger_oxide::scene::exec::Job::Paint {
+            operator: 0,
+            matrix: identity(),
+            time: 0.,
+            pass_adjust: 0,
+            effect_variables: None,
+        }],
+        grab_stereo_target: false,
+        blend_stereo_target: false,
+        allocate_stereo_target: false,
+    };
+    render_pass
+        .jobs
+        .push(kkrieger_oxide::scene::exec::Job::Paint {
+            operator: 1,
+            matrix: identity(),
+            time: 0.,
+            pass_adjust: 0,
+            effect_variables: None,
+        });
+    for (z, expected) in [(0.25, [0, 255, 0, 255]), (0.75, [64, 32, 16, 255])] {
+        execution.particles[0].particles[0].position[2] = z;
+        kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+        let drawn = scene
+            .draw(
+                ctx,
+                &mut execution,
+                &doc,
+                &render_pass,
+                &[],
+                &Default::default(),
+            )
+            .unwrap();
+        assert_eq!(drawn.meshes, 1);
+        assert_eq!(drawn.effects, 1);
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(color, &mut pixels);
+        assert_eq!(
+            &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+            &expected
+        );
+    }
+    scene.delete(ctx);
+    println!("Combined scene paint planner and GPU executor read back correctly");
     material.delete(ctx);
     job.delete(ctx);
     ctx.delete_render_pass(pass);
