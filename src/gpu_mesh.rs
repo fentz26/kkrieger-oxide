@@ -296,3 +296,107 @@ fn apply_depth(state: &State, depth_bits: u32) {
         }
     }
 }
+
+/// GPU resources retained across authored static paint jobs and frames.
+/// Source allocations stay alive so cache keys cannot alias reused addresses.
+pub struct PaintCache {
+    depth_bits: u32,
+    geometry: std::collections::BTreeMap<(usize, usize), (std::rc::Rc<PreparedMesh>, StaticJob)>,
+    materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
+}
+impl PaintCache {
+    pub fn new(depth_bits: u32) -> Self {
+        Self {
+            depth_bits,
+            geometry: Default::default(),
+            materials: Default::default(),
+        }
+    }
+    pub fn resource_counts(&self) -> (usize, usize) {
+        (self.geometry.len(), self.materials.len())
+    }
+    /// Submit a static geometry mapping produced by the scene paint planner.
+    /// Texture resolution retains the recipe's original texture slot semantics.
+    pub fn draw_static(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        asset: &crate::scene::paint::Asset,
+        paint: &crate::scene::paint::MeshPaint,
+        environment: &Environment,
+        mut texture: impl FnMut(
+            &material::Recipe,
+            material::shader::Image,
+        ) -> Result<TextureId, Box<dyn std::error::Error>>,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        use std::{collections::btree_map::Entry, rc::Rc};
+        let pass = asset
+            .materials
+            .get(paint.material_slot)
+            .and_then(|m| m.passes.get(paint.pass))
+            .ok_or("static paint material pass out of range")?;
+        let job = asset
+            .mesh
+            .jobs
+            .get(paint.geometry_job)
+            .ok_or("static paint geometry job out of range")?;
+        if job.material != paint.material_slot
+            || job.program != Program::Static
+            || pass.program != Program::Static
+            || asset
+                .mesh
+                .pass_jobs
+                .get(paint.material_slot)
+                .and_then(|jobs| jobs.get(paint.pass))
+                .copied()
+                != Some(paint.geometry_job)
+        {
+            return Err("static paint geometry mapping mismatch".into());
+        }
+        if job.vertices.is_empty() || job.indices.is_empty() {
+            return Ok(false);
+        }
+        let geometry_key = (Rc::as_ptr(&asset.mesh) as usize, paint.geometry_job);
+        if let Entry::Vacant(entry) = self.geometry.entry(geometry_key) {
+            let uploaded = StaticJob::upload(ctx, &asset.mesh, paint.geometry_job)?;
+            entry.insert((Rc::clone(&asset.mesh), uploaded));
+        }
+        let recipe = &pass.shader;
+        let key = Rc::as_ptr(recipe) as usize;
+        let state = recipe.state.borrow().clone();
+        if self
+            .materials
+            .get(&key)
+            .is_none_or(|(_, saved, _)| *saved != state)
+        {
+            let compiled = Material::compile(ctx, &state, self.depth_bits)?;
+            if let Some((_, _, previous)) = self
+                .materials
+                .insert(key, (Rc::clone(recipe), state.clone(), compiled))
+            {
+                previous.delete(ctx);
+            }
+        }
+        let compiled = &self.materials[&key].2;
+        let images = compiled
+            .images
+            .iter()
+            .map(|(_, image)| texture(recipe, *image))
+            .collect::<Result<Vec<_>, _>>()?;
+        compiled.draw(
+            ctx,
+            &self.geometry[&geometry_key].1,
+            &images,
+            &state,
+            environment,
+        )?;
+        Ok(true)
+    }
+    pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        for (_, (_, job)) in self.geometry {
+            job.delete(ctx);
+        }
+        for (_, (_, _, material)) in self.materials {
+            material.delete(ctx);
+        }
+    }
+}

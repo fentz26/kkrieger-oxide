@@ -236,6 +236,65 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
         &[(packed >> 16) as u8, (packed >> 8) as u8, packed as u8, 255]
     );
+    // Submit the same original prepared geometry through the scene mapping.
+    let cached_material = (*kkrieger_oxide::material::original_default(true)).clone();
+    cached_material.passes[0]
+        .shader
+        .state
+        .replace(state.clone());
+    let recipe = std::rc::Rc::clone(&cached_material.passes[0].shader);
+    let asset = kkrieger_oxide::scene::paint::Asset {
+        mesh: std::rc::Rc::new(prepared),
+        materials: vec![
+            std::rc::Rc::new(kkrieger_oxide::material::Material::default()),
+            std::rc::Rc::new(cached_material),
+        ],
+    };
+    let mapped = kkrieger_oxide::scene::paint::MeshPaint {
+        material_slot: 1,
+        pass: 0,
+        geometry_job: 0,
+        paint: kkrieger_oxide::scene::paint::Paint {
+            sort_key: 0,
+            light: None,
+            zfail: false,
+        },
+    };
+    let mut cache = gpu_mesh::PaintCache::new(16);
+    for _ in 0..2 {
+        kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+        assert!(
+            cache
+                .draw_static(ctx, &asset, &mapped, &environment, |_, _| Err(
+                    "unexpected sampled image".into()
+                ))
+                .unwrap()
+        );
+        ctx.end_render_pass();
+        let mut cached_pixels = vec![0; pixels.len()];
+        ctx.texture_read_pixels(color, &mut cached_pixels);
+        assert_eq!(cached_pixels, pixels);
+        assert_eq!(cache.resource_counts(), (1, 1));
+    }
+    // A mutable recipe must refresh the shader/pipeline instead of drawing stale state.
+    let mut changed = State::default();
+    changed.words[9] = 0x10;
+    changed.words[28] = 0x0000ff00;
+    recipe.state.replace(changed);
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+    cache
+        .draw_static(ctx, &asset, &mapped, &environment, |_, _| {
+            Err("unexpected sampled image".into())
+        })
+        .unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    assert_eq!(
+        &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+        &[0, 255, 0, 255]
+    );
+    assert_eq!(cache.resource_counts(), (1, 1));
+    cache.delete(ctx);
     material.delete(ctx);
     job.delete(ctx);
     ctx.delete_render_pass(pass);
