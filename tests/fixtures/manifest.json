@@ -382,6 +382,10 @@
     "mesh-sprite.bin": {
       "bytes": 1186280,
       "sha256": "24c45c571da76cd3944ec0c7ebeb67eaaccb33b1c9b890f7cbd8877c66e9b4e9"
+    },
+    "mesh-line.bin": {
+      "bytes": 1287780,
+      "sha256": "e8336cdc2e7946c59bf61cd0a0a6ff53f909f465668d60f8555768b087134a24"
     }
   }
 }

@@ -545,7 +545,7 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
             std::rc::Rc::new(sprite_material),
         ],
     };
-    let mut sprites = gpu_mesh::SpriteCache::new(16);
+    let mut sprites = gpu_mesh::StandardCache::new(16);
     for _ in 0..2 {
         kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
         assert_eq!(
@@ -564,9 +564,41 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         );
         assert_eq!(sprites.resource_counts(), (1, 1));
     }
+    let mut line_mesh = (*sprite_asset.mesh).clone();
+    line_mesh.jobs[0].program = Program::ThickLines;
+    line_mesh.jobs[0].vertices = vec![0, 1];
+    line_mesh.vertices[0].position = [-0.5, 0., 0.75];
+    line_mesh.vertices[1].position = [0.5, 0., 0.75];
+    let mut line_material = (*sprite_asset.materials[1]).clone();
+    line_material.passes[0].program = Program::ThickLines;
+    line_material.passes[0].size = 0.125;
+    line_material.passes[0].aspect = 2.;
+    let line_asset = kkrieger_oxide::scene::paint::Asset {
+        mesh: std::rc::Rc::new(line_mesh),
+        materials: vec![
+            std::rc::Rc::clone(&sprite_asset.materials[0]),
+            std::rc::Rc::new(line_material),
+        ],
+    };
+    kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+    assert_eq!(
+        sprites
+            .draw(ctx, &line_asset, &mapped, &environment, |_, _, _| Err(
+                "unexpected sampled image".into()
+            ))
+            .unwrap(),
+        1
+    );
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    assert_eq!(
+        &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+        &[0, 255, 0, 255]
+    );
+    assert_eq!(sprites.resource_counts(), (1, 1));
     sprites.delete(ctx);
     println!(
-        "Original standard sprite layout and repeated authored paint submission read back correctly"
+        "Original standard sprite/line layouts and authored paint submission read back correctly"
     );
     material.delete(ctx);
     job.delete(ctx);

@@ -1,5 +1,5 @@
 //! Original static, shadow, sprite, and packed effect jobs on the GPU.
-//! Thick-line geometry still requires its original expansion handler.
+//! Mesh sprites and thick lines retain their original standard quad layout.
 use crate::{
     material::{self, Program, State, uniforms::Environment},
     prepared_mesh::PreparedMesh,
@@ -847,12 +847,12 @@ impl StandardJob {
     }
 }
 
-pub struct SpriteCache {
+pub struct StandardCache {
     depth_bits: u32,
     stream: Option<StandardJob>,
     materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
 }
-impl SpriteCache {
+impl StandardCache {
     pub fn new(depth_bits: u32) -> Self {
         Self {
             depth_bits,
@@ -880,14 +880,14 @@ impl SpriteCache {
             .materials
             .get(paint.material_slot)
             .and_then(|m| m.passes.get(paint.pass))
-            .ok_or("sprite paint material pass out of range")?;
+            .ok_or("standard paint material pass out of range")?;
         let job = asset
             .mesh
             .jobs
             .get(paint.geometry_job)
-            .ok_or("sprite paint geometry job out of range")?;
-        if pass.program != Program::Sprites
-            || job.program != Program::Sprites
+            .ok_or("standard paint geometry job out of range")?;
+        if !matches!(pass.program, Program::Sprites | Program::ThickLines)
+            || job.program != pass.program
             || job.material != paint.material_slot
             || asset
                 .mesh
@@ -897,10 +897,18 @@ impl SpriteCache {
                 .copied()
                 != Some(paint.geometry_job)
         {
-            return Err("sprite paint geometry mapping mismatch".into());
+            return Err("standard paint geometry mapping mismatch".into());
         }
         let model_view = material::uniforms::mul4(environment.model, environment.world_to_camera);
-        let batches = crate::mesh_sprite::batches(&asset.mesh, job, pass.size, model_view)?;
+        let batches = match pass.program {
+            Program::Sprites => {
+                crate::mesh_sprite::batches(&asset.mesh, job, pass.size, model_view)?
+            }
+            Program::ThickLines => {
+                crate::mesh_line::batches(&asset.mesh, job, pass.size, pass.aspect, model_view)?
+            }
+            _ => unreachable!(),
+        };
         if batches.is_empty() {
             return Ok(0);
         }
