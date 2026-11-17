@@ -189,8 +189,8 @@ impl Material {
         ctx.apply_pipeline(&self.pipeline);
         apply_depth(state, self.depth_bits);
         ctx.apply_bindings_from_slice(&[job.vertex], job.index, images);
-        let constants = state.constants(environment);
-        ctx.apply_uniforms(UniformsSource::table(&constants.uniforms));
+        let uniforms = raster_uniforms(state, environment);
+        ctx.apply_uniforms(UniformsSource::table(&uniforms));
         ctx.draw(0, job.index_count, 1);
         Ok(())
     }
@@ -214,9 +214,7 @@ impl Material {
         ctx.apply_pipeline(&self.pipeline);
         apply_depth(state, self.depth_bits);
         ctx.apply_bindings_from_slice(&[job.vertex], job.index, images);
-        ctx.apply_uniforms(UniformsSource::table(
-            &state.constants(environment).uniforms,
-        ));
+        ctx.apply_uniforms(UniformsSource::table(&raster_uniforms(state, environment)));
         ctx.draw(0, job.index_count, 1);
         Ok(())
     }
@@ -242,9 +240,7 @@ impl Material {
         ctx.apply_pipeline(&self.pipeline);
         apply_depth(state, self.depth_bits);
         ctx.apply_bindings_from_slice(&[job.vertex], job.index, &[]);
-        ctx.apply_uniforms(UniformsSource::table(
-            &state.constants(environment).uniforms,
-        ));
+        ctx.apply_uniforms(UniformsSource::table(&raster_uniforms(state, environment)));
         ctx.draw(0, job.index_count, 1);
         Ok(())
     }
@@ -642,4 +638,23 @@ impl EffectCache {
             material.delete(ctx);
         }
     }
+}
+
+/// D3D9 samples at integer pixel centers; OpenGL samples at half-integers.
+/// Keep source projection/constants unchanged on the CPU and translate clip
+/// coordinates by half a viewport pixel only at OpenGL submission.
+fn raster_uniforms(state: &State, environment: &Environment) -> material::uniforms::Uniforms {
+    use miniquad::native::gl::*;
+    let mut uniforms = state.constants(environment).uniforms;
+    let mut viewport = [0; 4];
+    unsafe {
+        glGetIntegerv(0x0ba2, viewport.as_mut_ptr());
+    }
+    if viewport[2] > 0 && viewport[3] > 0 {
+        for i in 0..4 {
+            uniforms.vc[0][i] += uniforms.vc[3][i] / viewport[2] as f32;
+            uniforms.vc[1][i] -= uniforms.vc[3][i] / viewport[3] as f32;
+        }
+    }
+    uniforms
 }

@@ -51,6 +51,7 @@ fn main() {
                 verify_texture_cache(&mut *ctx);
                 verify_draw(&mut *ctx);
                 verify_shadow(&mut *ctx);
+                verify_inserts(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -718,4 +719,43 @@ fn verify_shadow(ctx: &mut dyn RenderingBackend) {
     depth_material.delete(ctx);
     ctx.delete_render_pass(target);
     println!("Original shadow z-pass and z-fail produce matching nonempty stencil masks");
+}
+
+fn verify_inserts(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{gpu_insert::Inserts, gpu_texture};
+    let (pass, color) = gpu_texture::depth_stencil_pass(ctx, 32, 32).unwrap();
+    let inserts = Inserts::new(ctx, 24).unwrap();
+    gpu_texture::begin_pass(
+        ctx,
+        Some(pass),
+        PassAction::clear_color(0.25, 0.125, 0.0625, 0.5),
+    );
+    inserts.destination_alpha(ctx, false, [32, 32]).unwrap();
+    ctx.end_render_pass();
+    let mut pixels = vec![0; 32 * 32 * 4];
+    ctx.texture_read_pixels(color, &mut pixels);
+    for (index, p) in pixels.as_chunks::<4>().0.iter().enumerate() {
+        assert_eq!(
+            p,
+            &[64, 32, 16, 0],
+            "insert pixel {},{}",
+            index % 32,
+            index / 32
+        );
+    }
+    gpu_texture::begin_pass(
+        ctx,
+        Some(pass),
+        PassAction::clear_color(0.25, 0.125, 0.0625, 0.5),
+    );
+    inserts.destination_alpha(ctx, true, [32, 32]).unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    for p in pixels.as_chunks::<4>().0 {
+        assert!(p[0].abs_diff(192) <= 1 && p[1].abs_diff(160) <= 1 && p[2].abs_diff(144) <= 1);
+        assert_eq!(p[3], 128);
+    }
+    inserts.delete(ctx);
+    ctx.delete_render_pass(pass);
+    println!("Material11 destination-alpha clearing and specular accumulation read back correctly");
 }
