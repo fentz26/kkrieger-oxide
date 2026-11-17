@@ -37,3 +37,5 @@ pub mod sample_playback;
 
 #[cfg(target_os = "macos")]
 pub mod audio_output;
+
+pub mod music;

@@ -62,3 +62,13 @@ fn renderer_panic_is_contained_and_releases_state() {
     ));
     assert!(released.load(Ordering::SeqCst));
 }
+
+#[test]
+#[ignore = "opens native output with the authored music; run explicitly"]
+fn authored_music_worker_owns_song_until_synchronous_shutdown() {
+    let doc =
+        kkrieger_oxide::kx::Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let output = kkrieger_oxide::music::output::Output::open(doc.song).unwrap();
+    output.check().unwrap();
+    drop(output);
+}

@@ -72,18 +72,27 @@ struct Callback<F> {
 /// The renderer runs on an Audio Queue thread after the three initial buffers
 /// are primed. It must finish promptly and must not block on the game thread.
 /// Dropping the queue synchronously stops callbacks before releasing the renderer.
-pub struct Queue<F: FnMut(&mut [[f32; 2]]) + Send + 'static> {
+pub struct Queue<F: FnMut(&mut [[f32; 2]]) + Send> {
     raw: RawQueue,
-    callback: Option<Box<Callback<F>>>,
+    callback: Box<Callback<F>>,
 }
-impl<F: FnMut(&mut [[f32; 2]]) + Send + 'static> Queue<F> {
-    pub fn open(render: F) -> Result<Self, Error> {
+impl<F: FnMut(&mut [[f32; 2]]) + Send> Queue<F> {
+    pub fn open(render: F) -> Result<Self, Error>
+    where
+        F: 'static,
+    {
+        // Static callback data remains valid even if a caller forgets the queue.
+        unsafe { Self::open_scoped(render) }
+    }
+    /// Caller must dispose the queue before borrowed renderer storage expires.
+    /// Unlike open(), forgetting a borrowed queue would violate this contract.
+    pub(crate) unsafe fn open_scoped(render: F) -> Result<Self, Error> {
         let mut queue = Self {
             raw: ptr::null_mut(),
-            callback: Some(Box::new(Callback {
+            callback: Box::new(Callback {
                 render: Mutex::new(render),
                 status: AtomicI32::new(0),
-            })),
+            }),
         };
         let format = Format {
             sample_rate: 44100.0,
@@ -102,7 +111,7 @@ impl<F: FnMut(&mut [[f32; 2]]) + Send + 'static> Queue<F> {
             check(AudioQueueNewOutput(
                 &format,
                 refill::<F>,
-                ptr::from_mut(queue.callback.as_deref_mut().unwrap()).cast(),
+                ptr::from_mut(&mut *queue.callback).cast(),
                 ptr::null(),
                 ptr::null(),
                 0,
@@ -115,7 +124,7 @@ impl<F: FnMut(&mut [[f32; 2]]) + Send + 'static> Queue<F> {
                 let mut buffer = ptr::null_mut();
                 check(AudioQueueAllocateBuffer(queue.raw, BYTES, &mut buffer))?;
                 refill::<F>(
-                    ptr::from_mut(queue.callback.as_deref_mut().unwrap()).cast(),
+                    ptr::from_mut(&mut *queue.callback).cast(),
                     queue.raw,
                     buffer,
                 );
@@ -129,24 +138,18 @@ impl<F: FnMut(&mut [[f32; 2]]) + Send + 'static> Queue<F> {
     /// reports i32::MIN when panic unwinding is enabled. Renderers must not panic
     /// in abort builds. Native API failures retain their OSStatus value.
     pub fn status(&self) -> i32 {
-        self.callback
-            .as_ref()
-            .unwrap()
-            .status
-            .load(Ordering::Acquire)
+        self.callback.status.load(Ordering::Acquire)
     }
 }
-impl<F: FnMut(&mut [[f32; 2]]) + Send + 'static> Drop for Queue<F> {
+impl<F: FnMut(&mut [[f32; 2]]) + Send> Drop for Queue<F> {
     fn drop(&mut self) {
         if !self.raw.is_null() {
             // AudioQueueDispose(true) releases buffers and waits for callbacks.
             let status = unsafe { AudioQueueDispose(self.raw, 1) };
             if status != 0 {
-                // If native disposal fails, callbacks may still own this pointer.
-                // Retain their state rather than risk freeing live user data.
-                if let Some(callback) = self.callback.take() {
-                    Box::leak(callback);
-                }
+                // A renderer may borrow caller storage. Returning after a failed
+                // disposal could leave native callbacks referencing freed data.
+                std::process::abort();
             }
         }
     }
@@ -158,7 +161,7 @@ fn check(status: i32) -> Result<(), Error> {
         Err(Error(status))
     }
 }
-unsafe extern "C" fn refill<F: FnMut(&mut [[f32; 2]]) + Send + 'static>(
+unsafe extern "C" fn refill<F: FnMut(&mut [[f32; 2]]) + Send>(
     user: *mut c_void,
     queue: RawQueue,
     buffer: *mut Buffer,

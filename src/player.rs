@@ -1,5 +1,5 @@
 //! Native window adapter around the authored player coordinator.
-//! The original audio backend remains separate porting work.
+//! Authored simulation, rendering and native music output.
 use kkrieger_oxide::{
     collision::world::World,
     game::{input, simulation::Simulation},
@@ -221,6 +221,8 @@ impl Renderer for Bridge {
     }
 }
 pub struct App {
+    #[cfg(target_os = "macos")]
+    music: kkrieger_oxide::music::output::Output,
     doc: Document<'static>,
     root: usize,
     execution: Execution,
@@ -264,7 +266,11 @@ impl App {
             },
             std::array::from_fn(|i| 100 + i as i32),
         ));
+        #[cfg(target_os = "macos")]
+        let music = kkrieger_oxide::music::output::Output::open(doc.song)?;
         Ok(Self {
+            #[cfg(target_os = "macos")]
+            music,
             doc,
             root,
             execution,
@@ -279,6 +285,8 @@ impl App {
         })
     }
     fn frame(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(target_os = "macos")]
+        self.music.check()?;
         let frame = self
             .clock
             .advance(self.start.elapsed().as_millis() as i32, self.doc.bpm);
