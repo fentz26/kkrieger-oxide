@@ -528,6 +528,46 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
         "Original packed effect layout, streaming updates, and empty draws read back correctly"
     );
 
+    let mut sprite_mesh = (*asset.mesh).clone();
+    sprite_mesh.jobs[0].program = Program::Sprites;
+    sprite_mesh.jobs[0].vertices = vec![0];
+    let mut sprite_material = (*kkrieger_oxide::material::original_default(true)).clone();
+    sprite_material.passes[0].program = Program::Sprites;
+    sprite_material.passes[0].size = 0.5;
+    let mut sprite_state = State::default();
+    sprite_state.words[9] = 0x10;
+    sprite_state.words[28] = 0x0000ff00;
+    sprite_material.passes[0].shader.state.replace(sprite_state);
+    let sprite_asset = kkrieger_oxide::scene::paint::Asset {
+        mesh: std::rc::Rc::new(sprite_mesh),
+        materials: vec![
+            std::rc::Rc::new(kkrieger_oxide::material::Material::default()),
+            std::rc::Rc::new(sprite_material),
+        ],
+    };
+    let mut sprites = gpu_mesh::SpriteCache::new(16);
+    for _ in 0..2 {
+        kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+        assert_eq!(
+            sprites
+                .draw(ctx, &sprite_asset, &mapped, &environment, |_, _, _| Err(
+                    "unexpected sampled image".into()
+                ))
+                .unwrap(),
+            1
+        );
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(color, &mut pixels);
+        assert_eq!(
+            &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+            &[0, 255, 0, 255]
+        );
+        assert_eq!(sprites.resource_counts(), (1, 1));
+    }
+    sprites.delete(ctx);
+    println!(
+        "Original standard sprite layout and repeated authored paint submission read back correctly"
+    );
     material.delete(ctx);
     job.delete(ctx);
     ctx.delete_render_pass(pass);

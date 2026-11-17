@@ -1,5 +1,5 @@
-//! Original static and shadow jobs on the GPU. Sprite and thick-line finalizers
-//! require their own expansion handlers; they are not approximated here.
+//! Original static, shadow, sprite, and packed effect jobs on the GPU.
+//! Thick-line geometry still requires its original expansion handler.
 use crate::{
     material::{self, Program, State, uniforms::Environment},
     prepared_mesh::PreparedMesh,
@@ -67,6 +67,7 @@ pub struct Material {
     pub images: Vec<(String, material::shader::Image)>,
     shadow_mode: Option<bool>,
     effect_layout: bool,
+    standard_layout: bool,
     depth_bits: u32,
 }
 impl Material {
@@ -75,7 +76,7 @@ impl Material {
         state: &State,
         depth_bits: u32,
     ) -> Result<Self, Box<dyn std::error::Error>> {
-        Self::compile_kind(ctx, state, depth_bits, None, false)
+        Self::compile_kind(ctx, state, depth_bits, None, false, false)
     }
     pub fn compile_shadow(
         ctx: &mut dyn RenderingBackend,
@@ -86,7 +87,7 @@ impl Material {
         if state.words[0] & 0x40000 == 0 {
             return Err("shadow material is missing source extrusion flag".into());
         }
-        Self::compile_kind(ctx, state, depth_bits, Some(zfail), false)
+        Self::compile_kind(ctx, state, depth_bits, Some(zfail), false, false)
     }
     pub fn compile_effect(
         ctx: &mut dyn RenderingBackend,
@@ -96,7 +97,17 @@ impl Material {
         if state.words[0] & 0x40000 != 0 {
             return Err("effect material cannot use shadow extrusion".into());
         }
-        Self::compile_kind(ctx, state, depth_bits, None, true)
+        Self::compile_kind(ctx, state, depth_bits, None, true, false)
+    }
+    pub fn compile_standard(
+        ctx: &mut dyn RenderingBackend,
+        state: &State,
+        depth_bits: u32,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        if state.words[0] & 0x40000 != 0 {
+            return Err("standard material cannot use shadow extrusion".into());
+        }
+        Self::compile_kind(ctx, state, depth_bits, None, false, true)
     }
     fn compile_kind(
         ctx: &mut dyn RenderingBackend,
@@ -104,6 +115,7 @@ impl Material {
         depth_bits: u32,
         shadow: Option<bool>,
         effect_layout: bool,
+        standard_layout: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         if ctx.info().backend != Backend::OpenGl {
             return Err("original material rendering requires OpenGL".into());
@@ -135,6 +147,17 @@ impl Material {
         )?;
         let attributes = if shadow.is_some() {
             vec![VertexAttribute::new("position", VertexFormat::Float4)]
+        } else if standard_layout {
+            vec![
+                VertexAttribute::new("position", VertexFormat::Float3),
+                VertexAttribute::new("normal", VertexFormat::Float3),
+                VertexAttribute::new("uv0", VertexFormat::Float2),
+                // Miniquad allocates locations from this list's length. GLSL
+                // drivers can retain holes for inactive declared attributes.
+                VertexAttribute::new("_unused0", VertexFormat::Float1),
+                VertexAttribute::new("_unused1", VertexFormat::Float1),
+                VertexAttribute::new("_unused2", VertexFormat::Float1),
+            ]
         } else if effect_layout {
             vec![
                 VertexAttribute::new("position", VertexFormat::Float3),
@@ -157,8 +180,16 @@ impl Material {
             pipeline_state.words[0] =
                 (pipeline_state.words[0] & !0xf00006) | 0x500002 | if zfail { 0x800000 } else { 0 };
         }
+        let layout = if standard_layout {
+            BufferLayout {
+                stride: std::mem::size_of::<crate::mesh_sprite::Vertex>() as i32,
+                ..Default::default()
+            }
+        } else {
+            BufferLayout::default()
+        };
         let pipeline = ctx.new_pipeline(
-            &[BufferLayout::default()],
+            &[layout],
             &attributes,
             shader,
             pipeline_state.pipeline_params(depth_bits),
@@ -169,6 +200,7 @@ impl Material {
             images: source.images,
             shadow_mode: shadow,
             effect_layout,
+            standard_layout,
             depth_bits,
         })
     }
@@ -180,7 +212,7 @@ impl Material {
         state: &State,
         environment: &Environment,
     ) -> Result<(), &'static str> {
-        if self.shadow_mode.is_some() || self.effect_layout {
+        if self.shadow_mode.is_some() || self.effect_layout || self.standard_layout {
             return Err("shadow material requires shadow vertex layout");
         }
         if images.len() != self.images.len() {
@@ -208,6 +240,31 @@ impl Material {
         if images.len() != self.images.len() {
             return Err("material texture binding count mismatch");
         }
+        if job.index_count == 0 {
+            return Ok(());
+        }
+        ctx.apply_pipeline(&self.pipeline);
+        apply_depth(state, self.depth_bits);
+        ctx.apply_bindings_from_slice(&[job.vertex], job.index, images);
+        ctx.apply_uniforms(UniformsSource::table(&raster_uniforms(state, environment)));
+        ctx.draw(0, job.index_count, 1);
+        Ok(())
+    }
+    pub fn draw_standard(
+        &self,
+        ctx: &mut dyn RenderingBackend,
+        job: &StandardJob,
+        images: &[TextureId],
+        state: &State,
+        environment: &Environment,
+    ) -> Result<(), &'static str> {
+        if !self.standard_layout || self.shadow_mode.is_some() {
+            return Err("standard draw requires original standard vertex layout");
+        }
+        if images.len() != self.images.len() {
+            return Err("material texture binding count mismatch");
+        }
+        let job = &job.0;
         if job.index_count == 0 {
             return Ok(());
         }
@@ -745,4 +802,146 @@ fn raster_uniforms(state: &State, environment: &Environment) -> material::unifor
         }
     }
     uniforms
+}
+
+/// Original sFVF_STANDARD quad stream used by mesh sprites and thick lines.
+pub struct StandardJob(EffectJob);
+impl StandardJob {
+    pub fn new(ctx: &mut dyn RenderingBackend, quads: usize) -> Result<Self, &'static str> {
+        let vertices = quads
+            .checked_mul(4)
+            .ok_or("standard stream capacity overflow")?;
+        let indices = quads
+            .checked_mul(6)
+            .ok_or("standard stream capacity overflow")?;
+        let job = EffectJob::new(ctx, vertices, indices)?;
+        let indices: Vec<_> = (0..quads as u32)
+            .flat_map(|quad| {
+                let base = quad * 4;
+                [base, base + 1, base + 2, base, base + 2, base + 3]
+            })
+            .collect();
+        ctx.buffer_update(job.index, BufferSource::slice(&indices));
+        Ok(Self(job))
+    }
+    pub fn update(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        vertices: &[crate::mesh_sprite::Vertex],
+    ) -> Result<(), &'static str> {
+        let index_count = vertices.len() / 4 * 6;
+        if !vertices.len().is_multiple_of(4)
+            || vertices.len() > self.0.vertex_capacity
+            || index_count > self.0.index_capacity
+        {
+            return Err("invalid standard quad stream geometry");
+        }
+        if !vertices.is_empty() {
+            ctx.buffer_update(self.0.vertex, BufferSource::slice(vertices));
+        }
+        self.0.index_count = index_count as i32;
+        Ok(())
+    }
+    pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        self.0.delete(ctx);
+    }
+}
+
+pub struct SpriteCache {
+    depth_bits: u32,
+    stream: Option<StandardJob>,
+    materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
+}
+impl SpriteCache {
+    pub fn new(depth_bits: u32) -> Self {
+        Self {
+            depth_bits,
+            stream: None,
+            materials: Default::default(),
+        }
+    }
+    pub fn resource_counts(&self) -> (usize, usize) {
+        (usize::from(self.stream.is_some()), self.materials.len())
+    }
+    pub fn draw(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        asset: &crate::scene::paint::Asset,
+        paint: &crate::scene::paint::MeshPaint,
+        environment: &Environment,
+        mut texture: impl FnMut(
+            &mut dyn RenderingBackend,
+            &material::Recipe,
+            material::shader::Image,
+        ) -> Result<TextureId, Box<dyn std::error::Error>>,
+    ) -> Result<usize, Box<dyn std::error::Error>> {
+        use std::rc::Rc;
+        let pass = asset
+            .materials
+            .get(paint.material_slot)
+            .and_then(|m| m.passes.get(paint.pass))
+            .ok_or("sprite paint material pass out of range")?;
+        let job = asset
+            .mesh
+            .jobs
+            .get(paint.geometry_job)
+            .ok_or("sprite paint geometry job out of range")?;
+        if pass.program != Program::Sprites
+            || job.program != Program::Sprites
+            || job.material != paint.material_slot
+            || asset
+                .mesh
+                .pass_jobs
+                .get(paint.material_slot)
+                .and_then(|p| p.get(paint.pass))
+                .copied()
+                != Some(paint.geometry_job)
+        {
+            return Err("sprite paint geometry mapping mismatch".into());
+        }
+        let model_view = material::uniforms::mul4(environment.model, environment.world_to_camera);
+        let batches = crate::mesh_sprite::batches(&asset.mesh, job, pass.size, model_view)?;
+        if batches.is_empty() {
+            return Ok(0);
+        }
+        if self.stream.is_none() {
+            self.stream = Some(StandardJob::new(ctx, 4096)?);
+        }
+        let recipe = &pass.shader;
+        let key = Rc::as_ptr(recipe) as usize;
+        let state = recipe.state.borrow().clone();
+        if self
+            .materials
+            .get(&key)
+            .is_none_or(|(_, saved, _)| *saved != state)
+        {
+            let compiled = Material::compile_standard(ctx, &state, self.depth_bits)?;
+            if let Some((_, _, previous)) = self
+                .materials
+                .insert(key, (Rc::clone(recipe), state.clone(), compiled))
+            {
+                previous.delete(ctx);
+            }
+        }
+        let compiled = &self.materials[&key].2;
+        let images = compiled
+            .images
+            .iter()
+            .map(|(_, image)| texture(ctx, recipe, *image))
+            .collect::<Result<Vec<_>, _>>()?;
+        let stream = self.stream.as_mut().unwrap();
+        for vertices in &batches {
+            stream.update(ctx, vertices)?;
+            compiled.draw_standard(ctx, stream, &images, &state, environment)?;
+        }
+        Ok(batches.len())
+    }
+    pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        if let Some(stream) = self.stream {
+            stream.delete(ctx);
+        }
+        for (_, (_, _, material)) in self.materials {
+            material.delete(ctx);
+        }
+    }
 }
