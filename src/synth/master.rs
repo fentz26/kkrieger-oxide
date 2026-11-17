@@ -31,6 +31,16 @@ impl Default for Master {
     }
 }
 impl Master {
+    pub(crate) fn reset_storage(&mut self) {
+        self.parameters = [0.; 22];
+        self.low_frequency = 0.;
+        self.low_state = [0.; 2];
+        self.high_frequency = 0.;
+        self.high_state = [0.; 2];
+        self.reverb.init();
+        self.delay.reset_storage();
+        self.compressor.reset_storage();
+    }
     pub fn init(&mut self) {
         self.reverb.init();
         self.delay.init();

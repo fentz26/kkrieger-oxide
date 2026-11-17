@@ -51,6 +51,24 @@ impl Default for Compressor {
     }
 }
 impl Compressor {
+    pub(crate) fn reset_storage(&mut self) {
+        self.mode = 0;
+        self.old_mode = 0;
+        self.input_gain = 0.;
+        self.ratio = 0.;
+        self.output_gain = 0.;
+        self.attack = 0.;
+        self.release = 0.;
+        self.lookahead_length = 0;
+        self.lookahead_position = 0;
+        self.current_gain = [0.; 2];
+        self.peak = [0.; 2];
+        self.rms_position = 0;
+        self.rms_value = [0.; 2];
+        self.lookahead.fill([0.; 2]);
+        self.rms_history.fill(0.);
+        self.init();
+    }
     pub fn init(&mut self) {
         self.mode = (self.mode & 0xffffff00) | 2;
     }

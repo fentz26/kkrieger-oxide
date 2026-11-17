@@ -104,6 +104,22 @@ pub struct Buses<'a> {
     pub auxiliary_b: &'a mut [[f32; 2]],
 }
 impl Channel {
+    pub(crate) fn reset_storage(&mut self) {
+        self.gain = 0.;
+        self.auxiliary1_gain = 0.;
+        self.auxiliary2_gain = 0.;
+        self.send_a = 0.;
+        self.send_b = 0.;
+        self.receive_a = 0.;
+        self.receive_b = 0.;
+        self.routing = 0;
+        self.boost = Boost::default();
+        self.distortion = Distortion::default();
+        self.delay.reset_storage();
+        self.compressor.reset_storage();
+        self.distortion.init();
+        self.boost.init();
+    }
     pub fn init(&mut self) {
         self.distortion.init();
         self.delay.init();

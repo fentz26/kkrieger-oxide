@@ -105,6 +105,27 @@ impl<'a> Core<'a> {
             seed,
         })
     }
+    fn reset(&mut self, sample_rate: u32) -> Result<(), &'static str> {
+        let rate = Rate::new(sample_rate)?;
+        if rate.frame_size == 0 || rate.frame_size as usize > MAX_FRAME_SIZE {
+            return Err("V2 sample rate exceeds fixed frame storage");
+        }
+        self.rate = rate;
+        self.allocator = Allocator::default();
+        self.controls = controls::State::new(sample_rate);
+        for voice in &mut self.voices {
+            *voice = Voice::default();
+            voice.init(seeds(&mut self.seed));
+        }
+        for channel in &mut self.channels {
+            channel.reset_storage();
+        }
+        self.master.reset_storage();
+        self.buffers = Buffers::default();
+        self.decoder = Decoder::default();
+        self.remaining = 0;
+        Ok(())
+    }
     fn set_voice(&mut self, index: usize) -> Result<(), &'static str> {
         let channel = self.allocator.channels[index] as usize;
         let info = self
@@ -203,7 +224,7 @@ impl<'a, S: Speech> Engine<'a, S> {
         Ok(Self { core, speech })
     }
     pub fn reset(&mut self, sample_rate: u32) -> Result<(), &'static str> {
-        self.core = Core::new(self.core.bank, sample_rate, self.core.seed)?;
+        self.core.reset(sample_rate)?;
         self.speech.reset(sample_rate)
     }
     pub fn set_globals(&mut self, globals: &[u8]) -> Result<(), &'static str> {
@@ -319,6 +340,77 @@ impl<'a, S: Speech> Engine<'a, S> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reset_storage_matches_rebuilt_core_after_live_audio_and_midi() {
+        use crate::{
+            kx::Document,
+            synth::speech::Ronan,
+            v2m::{Song, conversion::convert},
+        };
+        let doc = Document::parse(include_bytes!("../../assets/kkrieger3383.kx")).unwrap();
+        let data = convert(doc.song).unwrap();
+        let song = Song::parse(&data).unwrap();
+        let mut reuse = Engine::new(song.patches, 44100, 12345, Ronan::default()).unwrap();
+        let mut rebuilt = Engine::new(song.patches, 44100, 12345, Ronan::default()).unwrap();
+        for rate in [44100, 22050, 48000, 96000, 44100] {
+            for engine in [&mut reuse, &mut rebuilt] {
+                engine.set_globals(song.globals).unwrap();
+                for channel in 0..16u8 {
+                    engine
+                        .midi(&[
+                            0xc0 | channel,
+                            channel % 13,
+                            0x90 | channel,
+                            48 + channel,
+                            100,
+                            0xfd,
+                        ])
+                        .unwrap();
+                }
+                engine.render(&mut [[0.; 2]; 513]).unwrap();
+                // Exercise voice initialization's continuation of the engine seed.
+                engine.midi(&[0xb0, 120, 0, 0xfd]).unwrap();
+                engine.render(&mut [[0.; 2]; 257]).unwrap();
+            }
+            reuse.reset(rate).unwrap();
+            rebuilt.core = Core::new(rebuilt.core.bank, rate, rebuilt.core.seed).unwrap();
+            rebuilt.speech.reset(rate).unwrap();
+            assert_eq!(reuse.core.seed, rebuilt.core.seed);
+            assert_eq!(reuse.remaining(), 0);
+            for engine in [&mut reuse, &mut rebuilt] {
+                engine.set_globals(song.globals).unwrap();
+                for channel in 0..16u8 {
+                    engine
+                        .midi(&[
+                            0xc0 | channel,
+                            channel % 13,
+                            0x90 | channel,
+                            60 + channel,
+                            110,
+                            0xfd,
+                        ])
+                        .unwrap();
+                }
+            }
+            let mut actual = [[0.; 2]; 4097];
+            let mut expected = [[0.; 2]; 4097];
+            reuse.render(&mut actual).unwrap();
+            rebuilt.render(&mut expected).unwrap();
+            assert!(actual.iter().flatten().any(|v| *v != 0.));
+            for (index, (actual, expected)) in actual
+                .iter()
+                .flatten()
+                .zip(expected.iter().flatten())
+                .enumerate()
+            {
+                assert_eq!(
+                    actual.to_bits(),
+                    expected.to_bits(),
+                    "rate {rate} sample {index}"
+                );
+            }
+        }
+    }
     #[test]
     fn original_frame_clear_preserves_tail_and_channel_and_fills_auxiliary_bits() {
         let mut bytes = &include_bytes!("../../tests/fixtures/synth-frame-clear.bin")[..];

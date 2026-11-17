@@ -44,6 +44,18 @@ impl Delay {
             history: vec![[0.; 2]; length].into_boxed_slice(),
         })
     }
+    pub(crate) fn reset_storage(&mut self) {
+        self.mask = (self.history.len() - 1) as u32;
+        self.left_offset = 0;
+        self.right_offset = 0;
+        self.frequency = 0;
+        self.phase = 0;
+        self.depth = 0;
+        self.feedback = 0.;
+        self.dry = 0.;
+        self.effect = 0.;
+        self.init();
+    }
     pub fn init(&mut self) {
         self.write_position = 0;
         self.counter = 0;
