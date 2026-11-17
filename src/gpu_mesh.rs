@@ -520,3 +520,124 @@ impl EffectJob {
         ctx.delete_buffer(self.index);
     }
 }
+
+pub struct EffectView<'a> {
+    pub camera: &'a crate::scene::camera::Environment,
+    pub dimensions: [i32; 2],
+}
+/// Submit deferred Print/PartSystem leaves with their original first material
+/// pass and reusable stream storage. Render target selection belongs to the caller.
+pub struct EffectCache {
+    depth_bits: u32,
+    stream: Option<EffectJob>,
+    materials: std::collections::BTreeMap<usize, (std::rc::Rc<material::Recipe>, State, Material)>,
+}
+impl EffectCache {
+    pub fn new(depth_bits: u32) -> Self {
+        Self {
+            depth_bits,
+            stream: None,
+            materials: Default::default(),
+        }
+    }
+    pub fn resource_counts(&self) -> (usize, usize) {
+        (usize::from(self.stream.is_some()), self.materials.len())
+    }
+    pub fn draw(
+        &mut self,
+        ctx: &mut dyn RenderingBackend,
+        content: &crate::scene::effects::Content,
+        material: &material::Material,
+        view: EffectView<'_>,
+        mut texture: impl FnMut(
+            &material::Recipe,
+            material::shader::Image,
+        ) -> Result<TextureId, Box<dyn std::error::Error>>,
+    ) -> Result<bool, Box<dyn std::error::Error>> {
+        use crate::scene::effects::Content;
+        use std::rc::Rc;
+        let Some(pass) = material.passes.first() else {
+            return Ok(false);
+        };
+        let particle_vertices;
+        let (vertices, indices, environment) = match content {
+            Content::Print(draw) => (
+                draw.geometry.vertices.as_slice(),
+                draw.geometry
+                    .indices
+                    .iter()
+                    .map(|&i| u32::from(i))
+                    .collect::<Vec<_>>(),
+                draw.environment.material_environment(view.dimensions)?,
+            ),
+            Content::Particles(quads) => {
+                if quads.len() > u32::MAX as usize / 4 {
+                    return Err("particle effect exceeds index storage".into());
+                }
+                particle_vertices = quads
+                    .iter()
+                    .flat_map(|quad| quad.iter().copied())
+                    .collect::<Vec<_>>();
+                let indices = (0..quads.len() as u32)
+                    .flat_map(|quad| {
+                        let base = quad * 4;
+                        // Original sQuad macro, unlike Print's explicit triangle order.
+                        [base, base + 1, base + 2, base, base + 2, base + 3]
+                    })
+                    .collect();
+                let mut environment = view.camera.material_environment(view.dimensions)?;
+                environment.model = crate::mesh::identity();
+                (particle_vertices.as_slice(), indices, environment)
+            }
+        };
+        if vertices.is_empty() || indices.is_empty() {
+            return Ok(false);
+        }
+        if self.stream.as_ref().is_none_or(|stream| {
+            vertices.len() > stream.vertex_capacity || indices.len() > stream.index_capacity
+        }) {
+            let stream = EffectJob::new(
+                ctx,
+                vertices.len().next_power_of_two(),
+                indices.len().next_power_of_two(),
+            )?;
+            if let Some(previous) = self.stream.replace(stream) {
+                previous.delete(ctx);
+            }
+        }
+        let stream = self.stream.as_mut().unwrap();
+        stream.update(ctx, vertices, &indices)?;
+        let recipe = &pass.shader;
+        let key = Rc::as_ptr(recipe) as usize;
+        let state = recipe.state.borrow().clone();
+        if self
+            .materials
+            .get(&key)
+            .is_none_or(|(_, saved, _)| *saved != state)
+        {
+            let compiled = Material::compile_effect(ctx, &state, self.depth_bits)?;
+            if let Some((_, _, previous)) = self
+                .materials
+                .insert(key, (Rc::clone(recipe), state.clone(), compiled))
+            {
+                previous.delete(ctx);
+            }
+        }
+        let compiled = &self.materials[&key].2;
+        let images = compiled
+            .images
+            .iter()
+            .map(|(_, image)| texture(recipe, *image))
+            .collect::<Result<Vec<_>, _>>()?;
+        compiled.draw_effect(ctx, stream, &images, &state, &environment)?;
+        Ok(true)
+    }
+    pub fn delete(self, ctx: &mut dyn RenderingBackend) {
+        if let Some(stream) = self.stream {
+            stream.delete(ctx);
+        }
+        for (_, (_, _, material)) in self.materials {
+            material.delete(ctx);
+        }
+    }
+}

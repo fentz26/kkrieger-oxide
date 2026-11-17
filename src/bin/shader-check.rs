@@ -366,6 +366,66 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
     ctx.end_render_pass();
     ctx.texture_read_pixels(color, &mut pixels);
     assert!(pixels.iter().all(|&byte| byte == 0));
+    recipe.state.replace(state.clone());
+    let mut camera = kkrieger_oxide::scene::camera::Environment {
+        orthogonal: 1,
+        far_clip: 1.,
+        ..Default::default()
+    };
+    let print_environment = camera.clone();
+    // Particle positions are already world-space: stale camera ModelSpace
+    // must not translate them again. Print keeps its own scoped environment.
+    camera.model[3][0] = 100.;
+    let contents = [
+        kkrieger_oxide::scene::effects::Content::Print(Box::new(
+            kkrieger_oxide::scene::print::Draw {
+                page: 0,
+                environment: print_environment,
+                geometry: kkrieger_oxide::scene::print::Geometry {
+                    vertices: vertices.to_vec(),
+                    indices: vec![0, 1, 3, 0, 3, 2],
+                },
+            },
+        )),
+        kkrieger_oxide::scene::effects::Content::Particles(vec![[
+            vertices[0],
+            vertices[1],
+            vertices[3],
+            vertices[2],
+        ]]),
+    ];
+    let mut deferred = gpu_mesh::EffectCache::new(16);
+    let mut print_pixels = Vec::new();
+    for (index, content) in contents.iter().enumerate() {
+        kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+        assert!(
+            deferred
+                .draw(
+                    ctx,
+                    content,
+                    &asset.materials[1],
+                    gpu_mesh::EffectView {
+                        camera: &camera,
+                        dimensions: [64, 64],
+                    },
+                    |_, _| Err("unexpected sampled image".into())
+                )
+                .unwrap()
+        );
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(color, &mut pixels);
+        assert_eq!(
+            &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+            &[64, 32, 16, 255]
+        );
+        if index == 0 {
+            print_pixels = pixels.clone();
+        } else {
+            assert_eq!(pixels, print_pixels);
+        }
+        assert_eq!(deferred.resource_counts(), (1, 1));
+    }
+    deferred.delete(ctx);
     effect_material.delete(ctx);
     effect.delete(ctx);
     println!(
