@@ -156,12 +156,15 @@ impl Bitmap {
             } else {
                 horizontal as f32 / average
             };
-            let ascent = (font_word(68)
+            // GDI GetTextMetrics uses the unsigned Windows ascent/descent,
+            // not the signed sTypoAscender/sTypoDescender fields at 68/70.
+            // https://learn.microsoft.com/en-us/typography/opentype/spec/os2
+            let ascent = (font_word(74)
                 .map(|v| v as f32)
                 .unwrap_or(face.ascender() as f32)
                 * sy)
                 .round_ties_even() as i32;
-            let descent = (font_word(70)
+            let descent = (font_word(76)
                 .map(|v| v as f32)
                 .unwrap_or(-face.descender() as f32)
                 * sy)

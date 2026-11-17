@@ -67,3 +67,27 @@ fn authored_font_atlases_register_original_pages() {
         generated.font_pages.keys().collect::<Vec<_>>()
     );
 }
+
+#[test]
+fn authored_menu_font_packs_real_glyphs_with_windows_line_metrics() {
+    let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let roots: Vec<_> = d
+        .operators
+        .iter()
+        .enumerate()
+        .filter(|(_, op)| d.classes[op.class].id == 0x31 && (op.parameters[5] & 0x70) == 0x10)
+        .map(|(i, _)| i)
+        .collect();
+    assert!(!roots.is_empty());
+    let generated = texture::generate_many_with_fonts(&d, &roots, 0).unwrap();
+    let page = &generated.font_pages[&1];
+    assert!(
+        page.line_height < 1024,
+        "inflated font line height: {}",
+        page.line_height
+    );
+    let letter = page.letters[b'a' as usize];
+    assert!(letter.abc[1] > 0, "menu glyph was not packed");
+    assert!(letter.uv[3] > letter.uv[1] && letter.uv[3] <= 1.0);
+    assert!(letter.width > 0.0);
+}

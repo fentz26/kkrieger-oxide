@@ -5,7 +5,7 @@
 use kkrieger_oxide::{
     collision::world::World,
     game::simulation::Simulation,
-    gpu_present, gpu_scene, gpu_target,
+    gpu_overlay, gpu_present, gpu_scene, gpu_target,
     kx::Document,
     random::Random,
     scene::{
@@ -23,7 +23,9 @@ struct State {
     passes: usize,
     capture: [usize; 4],
     beta_light_order: bool,
+    menu: bool,
     targets: gpu_target::Targets,
+    copies: Option<gpu_overlay::Overlays>,
 }
 struct CheckRenderer(Rc<RefCell<State>>);
 impl Renderer for CheckRenderer {
@@ -33,6 +35,37 @@ impl Renderer for CheckRenderer {
         doc: &Document<'_>,
         command: RenderCommand,
     ) -> Result<(), Error> {
+        if let RenderCommand::Overlay(index) = command {
+            let draw = execution.overlay_draws[index].clone();
+            let dimensions = gpu_target::attachment_dimensions(
+                execution.overlay.as_ref().unwrap(),
+                draw.viewport,
+                [640, 360],
+            )
+            .unwrap();
+            let mut state = self.0.borrow_mut();
+            let State {
+                ctx,
+                targets,
+                copies,
+                ..
+            } = &mut *state;
+            let sources: Vec<_> = [Some(draw.texture), draw.texture1, draw.texture2]
+                .into_iter()
+                .flatten()
+                .map(|texture| targets.texture(-1, texture).unwrap())
+                .collect();
+            targets
+                .begin(&mut **ctx, draw.viewport, dimensions, 0, 0)
+                .unwrap();
+            copies
+                .as_mut()
+                .unwrap()
+                .draw_sources(&mut **ctx, &draw, &sources)
+                .unwrap();
+            ctx.end_render_pass();
+            return Ok(());
+        }
         let RenderCommand::Scene(index) = command else {
             return Ok(());
         };
@@ -53,7 +86,9 @@ impl Renderer for CheckRenderer {
             passes,
             capture,
             beta_light_order,
+            menu,
             targets,
+            ..
         } = &mut *state;
         if *beta_light_order {
             lights = light::beta_select(lights);
@@ -83,15 +118,17 @@ impl Renderer for CheckRenderer {
         let mut pixels = vec![0; dimensions[0] as usize * dimensions[1] as usize * 4];
         ctx.texture_read_pixels(color, &mut pixels);
         assert!(
-            pixels
-                .as_chunks::<4>()
-                .0
-                .iter()
-                .any(|pixel| pixel[..3].iter().any(|&byte| byte != 0)),
+            *menu
+                || pixels
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .any(|pixel| pixel[..3].iter().any(|&byte| byte != 0)),
             "authored viewport is empty"
         );
         if capture.contains(passes) {
-            let path = format!(".reference/authored-frame-{passes}.ppm");
+            let kind = if *menu { "menu" } else { "frame" };
+            let path = format!(".reference/authored-{kind}-{passes}.ppm");
             let mut file = std::fs::File::create(&path).unwrap();
             writeln!(file, "P6\n{} {}\n255", dimensions[0], dimensions[1]).unwrap();
             for row in pixels.chunks_exact(dimensions[0] as usize * 4).rev() {
@@ -122,8 +159,13 @@ fn main() {
         .unwrap_or(0);
     assert!(ticks >= 0);
     let beta_light_order = std::env::args().any(|arg| arg == "--beta-light-order");
+    let menu = std::env::args().any(|arg| arg == "--menu");
+    assert!(
+        !menu || ticks == 0,
+        "menu check does not run gameplay ticks"
+    );
     let doc = Document::parse(include_bytes!("../../assets/kkrieger3383.kx")).unwrap();
-    let root = doc.roots[2].unwrap();
+    let root = doc.roots[if menu { 1 } else { 2 }].unwrap();
     let resources = gpu_scene::Resources::prepare(&doc, root, true, 0).unwrap();
     let mut execution = Execution::new_player(&doc);
     execution.prepare_game_operators(&doc, root).unwrap();
@@ -132,6 +174,9 @@ fn main() {
     let mut simulation =
         Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1)).unwrap();
     simulation.restart(&mut execution, [0, 0]).unwrap();
+    if menu {
+        execution.switches[1] = 6;
+    }
     execution.overlay = Some(Pool::new(
         Viewport {
             screen: 0,
@@ -151,13 +196,16 @@ fn main() {
             let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 let mut ctx = window::new_rendering_backend();
                 let scene = gpu_scene::Scene::new(&mut *ctx, resources, 24).unwrap();
+                let copies = Some(gpu_overlay::Overlays::new(&mut *ctx, 24).unwrap());
                 let state = Rc::new(RefCell::new(State {
                     ctx,
                     scene: Some(scene),
                     passes: 0,
                     capture: [0, 1, ticks as usize * 2, ticks as usize * 2 + 1],
                     beta_light_order,
+                    menu,
                     targets: Default::default(),
+                    copies,
                 }));
                 execution.renderer = Some(Box::new(CheckRenderer(Rc::clone(&state))));
                 simulation
@@ -205,12 +253,26 @@ fn main() {
                 drop(execution.renderer.take());
                 let mut state = state.borrow_mut();
                 let source = state.targets.texture(0, -1).unwrap();
+                if menu {
+                    let mut pixels = vec![0; 640 * 360 * 4];
+                    state.ctx.texture_read_pixels(source, &mut pixels);
+                    let mut file =
+                        std::fs::File::create(".reference/authored-menu-final.ppm").unwrap();
+                    writeln!(file, "P6\n640 360\n255").unwrap();
+                    for row in pixels.as_chunks::<{ 640 * 4 }>().0.iter().rev() {
+                        for pixel in row.as_chunks::<4>().0 {
+                            file.write_all(&pixel[..3]).unwrap();
+                        }
+                    }
+                }
                 let present = gpu_present::Present::new(&mut *state.ctx).unwrap();
                 state.ctx.begin_default_pass(PassAction::Nothing);
                 present.draw(&mut *state.ctx, source);
                 state.ctx.end_render_pass();
                 state.ctx.commit_frame();
                 present.delete(&mut *state.ctx);
+                let copies = state.copies.take().unwrap();
+                copies.delete(&mut *state.ctx);
                 let scene = state.scene.take().unwrap();
                 scene.delete(&mut *state.ctx);
                 let targets = std::mem::take(&mut state.targets);
