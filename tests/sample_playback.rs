@@ -271,3 +271,38 @@ fn invalid_spatial_updates_leave_playing_voice_unchanged() {
         assert_eq!(pool.sample(7).unwrap().voices[1].spatial, Some(original));
     }
 }
+
+#[test]
+fn stereo_position_tracks_listener_yaw_roll_and_distance() {
+    use kkrieger_oxide::sample_playback::Listener;
+    let listener = Listener::default();
+    let mut source = Spatial {
+        position: [1.0, 0.0, 0.0],
+        near: 1.0,
+        far: 10.0,
+        ..Spatial::default()
+    };
+    assert_eq!(listener.stereo_gains(&source), [0.0, 1.0]);
+    source.position[0] = -1.0;
+    assert_eq!(listener.stereo_gains(&source), [1.0, 0.0]);
+    source.position = [0.0, 0.0, 2.0];
+    let centered = listener.stereo_gains(&source);
+    assert_eq!(centered[0], centered[1]);
+    assert!((centered.iter().map(|v| v * v).sum::<f32>() - 0.25).abs() < 1e-7);
+    let turned = Listener {
+        forward: [1.0, 0.0, 0.0],
+        ..listener
+    };
+    source.position = [0.0, 0.0, -1.0];
+    assert_eq!(turned.stereo_gains(&source), [0.0, 1.0]);
+    let rolled = Listener {
+        up: [1.0, 0.0, 0.0],
+        ..listener
+    };
+    source.position = [0.0, -1.0, 0.0];
+    assert_eq!(rolled.stereo_gains(&source), [0.0, 1.0]);
+    source.position = [0.0; 3];
+    let gains = listener.stereo_gains(&source);
+    assert!(gains.iter().all(|v| v.is_finite()));
+    assert_eq!(gains[0], gains[1]);
+}

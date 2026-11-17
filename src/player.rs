@@ -267,7 +267,8 @@ impl App {
             std::array::from_fn(|i| 100 + i as i32),
         ));
         #[cfg(target_os = "macos")]
-        let music = kkrieger_oxide::music::output::Output::open(doc.song)?;
+        let music =
+            kkrieger_oxide::music::output::Output::open_with_effects(doc.song, doc.samples)?;
         Ok(Self {
             #[cfg(target_os = "macos")]
             music,
@@ -291,13 +292,17 @@ impl App {
             .clock
             .advance(self.start.elapsed().as_millis() as i32, self.doc.bpm);
         let mouse = self.mouse.map(|v| v as i32);
-        self.simulation.tick(
+        let tick = self.simulation.tick(
             &mut self.execution,
             &self.doc,
             frame.slices,
             frame.time,
             mouse,
         )?;
+        #[cfg(target_os = "macos")]
+        self.music.tick(tick, frame.time)?;
+        #[cfg(not(target_os = "macos"))]
+        let _ = tick;
         let (width, height) = window::screen_size();
         if width <= 0. || height <= 0. {
             return Ok(());
@@ -377,10 +382,20 @@ impl App {
         Ok(())
     }
     fn key(&mut self, key: u32) {
-        if let Err(error) =
-            self.simulation
-                .key(&mut self.execution, key, self.mouse.map(|v| v as i32))
-        {
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let result =
+                self.simulation
+                    .key(&mut self.execution, key, self.mouse.map(|v| v as i32))?;
+            #[cfg(target_os = "macos")]
+            for sound in result.sounds {
+                self.music
+                    .play(sound, self.simulation.motion.collider.position)?;
+            }
+            #[cfg(not(target_os = "macos"))]
+            let _ = result;
+            Ok(())
+        })();
+        if let Err(error) = result {
             eprintln!("{error}");
             std::process::exit(1);
         }

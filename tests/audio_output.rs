@@ -72,3 +72,30 @@ fn authored_music_worker_owns_song_until_synchronous_shutdown() {
     output.check().unwrap();
     drop(output);
 }
+
+#[test]
+#[ignore = "plays a short authored effect through native output; run explicitly"]
+fn authored_effect_bank_and_game_requests_reach_native_audio_worker() {
+    use kkrieger_oxide::{
+        game::{player::Sound, simulation::Tick},
+        music::output::Output,
+    };
+    let doc =
+        kkrieger_oxide::kx::Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    let output = Output::open_with_effects(doc.song, doc.samples).unwrap();
+    output.tick(Tick::default(), 100).unwrap();
+    output
+        .play(
+            Sound {
+                slot: 0,
+                volume: 1.0,
+                near_distance: 0.2,
+                far_distance: 160.0,
+            },
+            [0.0; 4],
+        )
+        .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    output.check().unwrap();
+    drop(output);
+}

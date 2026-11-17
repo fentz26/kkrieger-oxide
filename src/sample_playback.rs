@@ -51,6 +51,36 @@ impl Listener {
             && (0.0..=10.0).contains(&self.doppler)
             && (0.0..=10.0).contains(&self.rolloff)
     }
+    /// Portable equal-power stereo rendering in the original left-handed
+    /// coordinates. This replaces device-dependent DirectSound speaker routing;
+    /// it does not claim sample parity with a particular Windows audio driver.
+    pub fn stereo_gains(&self, source: &Spatial) -> [f32; 2] {
+        let gain = self.distance_gain(source);
+        if gain == 0.0 {
+            return [0.0; 2];
+        }
+        let up = self.up.map(f64::from);
+        let front = self.forward.map(f64::from);
+        let right = [
+            up[1] * front[2] - up[2] * front[1],
+            up[2] * front[0] - up[0] * front[2],
+            up[0] * front[1] - up[1] * front[0],
+        ];
+        let direction = std::array::from_fn::<_, 3, _>(|i| {
+            f64::from(source.position[i]) - f64::from(self.position[i])
+        });
+        let dot = |a: [f64; 3], b: [f64; 3]| a.into_iter().zip(b).map(|(a, b)| a * b).sum::<f64>();
+        let length = (dot(right, right) * dot(direction, direction)).sqrt();
+        let pan = if length > 0.0 {
+            (dot(right, direction) / length).clamp(-1.0, 1.0)
+        } else {
+            0.0
+        };
+        [
+            ((1.0 - pan) * 0.5).sqrt() as f32 * gain,
+            ((1.0 + pan) * 0.5).sqrt() as f32 * gain,
+        ]
+    }
     /// Inverse-distance amplitude with clamped source distances. The game
     /// creates buffers without MUTE3DATMAXDISTANCE, so far sounds remain audible.
     /// https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee418662(v=vs.85)

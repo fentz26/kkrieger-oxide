@@ -31,6 +31,11 @@ impl<'a> Effects<'a> {
         );
         Some(token)
     }
+    pub fn mix(&mut self, output: &mut [[f32; 2]]) {
+        let listener = *self.pool.listener();
+        self.pool
+            .mix(output, |source| listener.stereo_gains(source));
+    }
     pub fn tick(&mut self, tick: &Tick, now: i32) {
         for audio in &tick.sounds {
             self.play(audio.sound, audio.position);

@@ -62,10 +62,7 @@ fn authored_bank_sound_request_reaches_mixed_pcm() {
     let mut effects = Effects::new(&samples);
     assert_eq!(effects.play(sound(0), [0.0; 4]), Some(1));
     let mut output = vec![[0.0; 2]; 8192];
-    let listener = *effects.pool.listener();
-    effects
-        .pool
-        .mix(&mut output, |source| [listener.distance_gain(source); 2]);
+    effects.mix(&mut output);
     assert!(output.iter().flatten().all(|v| v.is_finite()));
     assert!(output.iter().flatten().any(|v| v.abs() > 0.01));
 }
