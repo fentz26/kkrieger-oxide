@@ -12,3 +12,5 @@ pub mod rate;
 pub mod distortion;
 
 pub mod voice;
+
+pub mod boost;

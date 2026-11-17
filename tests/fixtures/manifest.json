@@ -450,6 +450,10 @@
     "synth-voice.bin": {
       "bytes": 1438984,
       "sha256": "8799d54f71f9eaf4f2c7349d64312cb93d574dcd0717de0c1925a12f405354d4"
+    },
+    "synth-boost.bin": {
+      "bytes": 812040,
+      "sha256": "b3cb2aa66489bac564a808c9a442b6e1b8565e7114d8b818b4d01a5acde31e38"
     }
   }
 }

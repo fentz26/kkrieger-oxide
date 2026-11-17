@@ -2,9 +2,10 @@
 import pathlib,re,struct
 from x86_asm import assemble
 ROOT=pathlib.Path(__file__).resolve().parents[1]
-def voice_code(address=0x1000000):
+def voice_code(address=0x1000000,sections=()):
  source=(ROOT/'.reference/fr_public/werkkzeug3_kkrieger/_viruz2a.asm').read_text(encoding='cp1252')
  text=source[source.index('fastatan:'):source.index('; table for mod sources')]
+ for start,end in sections:text+='\n'+source[source.index(start):source.index(end,source.index(start))]
  fields={}
  def structure(m):
   offset=0;name=m[1]
