@@ -506,6 +506,10 @@
     "synth-speech-dsp.bin": {
       "bytes": 684460,
       "sha256": "be00a46d2cc14dd975fd983ee9e5b901c209424cee908c385a43a66893ed3479"
+    },
+    "synth-speech-sequence.bin": {
+      "bytes": 2266899,
+      "sha256": "cc950d3e6e8f967ce756052dffb2baf3c5fccea554090bf2800f22683ffee4c9"
     }
   }
 }
