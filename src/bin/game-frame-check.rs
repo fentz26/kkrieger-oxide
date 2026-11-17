@@ -20,6 +20,7 @@ struct State {
     ctx: Box<dyn RenderingBackend>,
     scene: Option<gpu_scene::Scene>,
     passes: usize,
+    capture: [usize; 4],
     targets: BTreeMap<(i32, i32), (RenderPass, TextureId)>,
 }
 struct CheckRenderer(Rc<RefCell<State>>);
@@ -48,6 +49,7 @@ impl Renderer for CheckRenderer {
             ctx,
             scene,
             passes,
+            capture,
             targets,
         } = &mut *state;
         let ctx = &mut **ctx;
@@ -100,16 +102,18 @@ impl Renderer for CheckRenderer {
                 .any(|pixel| pixel[..3].iter().any(|&byte| byte != 0)),
             "authored viewport is empty"
         );
-        let path = format!(".reference/authored-frame-{passes}.ppm");
-        let mut file = std::fs::File::create(&path).unwrap();
-        writeln!(file, "P6\n{} {}\n255", dimensions[0], dimensions[1]).unwrap();
-        for row in pixels.chunks_exact(dimensions[0] as usize * 4).rev() {
-            for pixel in row.as_chunks::<4>().0 {
-                file.write_all(&pixel[..3]).unwrap();
+        if capture.contains(passes) {
+            let path = format!(".reference/authored-frame-{passes}.ppm");
+            let mut file = std::fs::File::create(&path).unwrap();
+            writeln!(file, "P6\n{} {}\n255", dimensions[0], dimensions[1]).unwrap();
+            for row in pixels.chunks_exact(dimensions[0] as usize * 4).rev() {
+                for pixel in row.as_chunks::<4>().0 {
+                    file.write_all(&pixel[..3]).unwrap();
+                }
             }
         }
         println!(
-            "authored viewport {passes}: {drawn:?}, {} visible light candidates, target={key:?}, clear={}, {path}",
+            "authored viewport {passes}: {drawn:?}, {} visible light candidates, target={key:?}, clear={}",
             lights.len(),
             pass.clear_flags
         );
@@ -123,6 +127,12 @@ impl EventHandler for Check {
     fn draw(&mut self) {}
 }
 fn main() {
+    let ticks = std::env::args()
+        .find_map(|arg| arg.strip_prefix("--ticks=").map(str::parse::<i32>))
+        .transpose()
+        .unwrap()
+        .unwrap_or(0);
+    assert!(ticks >= 0);
     let doc = Document::parse(include_bytes!("../../assets/kkrieger3383.kx")).unwrap();
     let root = doc.roots[2].unwrap();
     let resources = gpu_scene::Resources::prepare(&doc, root, true, 0).unwrap();
@@ -156,6 +166,7 @@ fn main() {
                     ctx,
                     scene: Some(scene),
                     passes: 0,
+                    capture: [0, 1, ticks as usize * 2, ticks as usize * 2 + 1],
                     targets: Default::default(),
                 }));
                 execution.renderer = Some(Box::new(CheckRenderer(Rc::clone(&state))));
@@ -166,6 +177,41 @@ fn main() {
                     .execute_scene(&mut execution, &doc, root)
                     .unwrap();
                 assert_eq!(state.borrow().passes, 2);
+                if ticks > 0 {
+                    // Same original refill, unlock, weapon-select and input
+                    // sequence used by the authored CPU gameplay regression.
+                    for key in [109, 110, 50, 119, kkrieger_oxide::game::input::MOUSE_LEFT] {
+                        simulation.key(&mut execution, key, [0, 0]).unwrap();
+                    }
+                }
+                let ammo = execution.game.inventory.amounts;
+                execution.finish_events();
+                for step in 1..=ticks {
+                    let now = step * 10;
+                    assert!(
+                        simulation
+                            .tick(&mut execution, &doc, 1, now, [0, 0])
+                            .unwrap()
+                            .ran
+                    );
+                    simulation
+                        .prepare_scene(&mut execution, now * 64, now, 1., false)
+                        .unwrap();
+                    simulation
+                        .execute_scene(&mut execution, &doc, root)
+                        .unwrap();
+                    execution.finish_events();
+                }
+                assert_eq!(state.borrow().passes, 2 * (ticks as usize + 1));
+                if ticks > 0 {
+                    assert!(simulation.motion.collider.position[2] > position[2]);
+                    assert!(
+                        execution.game.inventory.amounts[4..]
+                            .iter()
+                            .zip(&ammo[4..])
+                            .any(|(after, before)| after < before)
+                    );
+                }
                 drop(execution.renderer.take());
                 let mut state = state.borrow_mut();
                 let scene = state.scene.take().unwrap();
