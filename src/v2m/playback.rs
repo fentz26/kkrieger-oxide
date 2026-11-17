@@ -102,7 +102,7 @@ impl<'s, 'a, B: Backend> Playback<'s, 'a, B> {
             return Ok(());
         }
         self.stop(0)?;
-        self.sequence = Sequencer::new(self.song, self.sample_rate)?;
+        self.sequence.reset()?;
         self.remainder = 0;
         self.backend.reset()?;
         let destination = samples_for_time(time, self.sample_rate, self.ticks_per_second)?;

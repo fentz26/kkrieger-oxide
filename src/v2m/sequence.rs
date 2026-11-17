@@ -32,6 +32,20 @@ pub struct Sequencer<'s, 'a> {
 }
 impl<'s, 'a> Sequencer<'s, 'a> {
     pub fn new(song: &'s Song<'a>, sample_rate: u32) -> Result<Self, Error> {
+        let mut result = Self::initial_state(song, sample_rate)?;
+        result.midi.reserve(4096);
+        Ok(result)
+    }
+    /// Restore original Reset state while retaining the fixed MIDI workspace.
+    /// Validate the replacement before changing an existing sequence.
+    pub fn reset(&mut self) -> Result<(), Error> {
+        let mut replacement = Self::initial_state(self.song, self.sample_rate)?;
+        std::mem::swap(&mut replacement.midi, &mut self.midi);
+        replacement.midi.clear();
+        *self = replacement;
+        Ok(())
+    }
+    fn initial_state(song: &'s Song<'a>, sample_rate: u32) -> Result<Self, Error> {
         let mut result = Self {
             song,
             playing: true,
@@ -46,7 +60,7 @@ impl<'s, 'a> Sequencer<'s, 'a> {
             bar: 0,
             beat: 0,
             tick: 0,
-            midi: Vec::with_capacity(4096),
+            midi: Vec::new(),
             sample_rate,
         };
         if song.time_division == 0 {
