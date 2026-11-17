@@ -394,6 +394,10 @@
     "scene-particles.bin": {
       "bytes": 613640,
       "sha256": "5d1dc1652585d393264cf3b35302c0bf8dd29a31b2f291ca57cda86e33c1d955"
+    },
+    "scene-limb.bin": {
+      "bytes": 105252,
+      "sha256": "4edf789cfb1bffd18cb80037dda4f0fbfea9d33fc4a07b10a08ab24a858d3294"
     }
   }
 }

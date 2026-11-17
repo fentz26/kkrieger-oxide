@@ -987,67 +987,69 @@ impl Execution {
     }
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
         for &input in &doc.operators[root].inputs {
-            let cached = super::cached_object(doc, input)?;
-            let mesh = match cached {
-                super::CachedObject::Mesh(owner) => Some(owner),
-                _ => None,
-            };
-            let effect = matches!(cached, super::CachedObject::Effect(_));
-            if mesh.is_some()
-                && let Some(id) = self.current_event
-            {
-                let event = self
-                    .events
-                    .events
-                    .get(&id)
-                    .ok_or(Error {
-                        operator: input,
-                        reason: "scene current event missing",
-                    })?
-                    .borrow();
-                let distance = event.cull_distance;
-                if distance > 0 {
-                    let delta: [f32; 3] = std::array::from_fn(|axis| {
-                        matrix[3][axis] - self.game_camera.space[3][axis]
-                    });
-                    let squared = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
-                    if (distance.wrapping_mul(distance) as f32) < squared {
-                        continue;
-                    }
+            self.input(doc, input, matrix)?;
+        }
+        Ok(())
+    }
+    fn input(&mut self, doc: &Document<'_>, input: usize, matrix: Matrix) -> Result<(), Error> {
+        let cached = super::cached_object(doc, input)?;
+        let mesh = match cached {
+            super::CachedObject::Mesh(owner) => Some(owner),
+            _ => None,
+        };
+        let effect = matches!(cached, super::CachedObject::Effect(_));
+        if mesh.is_some()
+            && let Some(id) = self.current_event
+        {
+            let event = self
+                .events
+                .events
+                .get(&id)
+                .ok_or(Error {
+                    operator: input,
+                    reason: "scene current event missing",
+                })?
+                .borrow();
+            let distance = event.cull_distance;
+            if distance > 0 {
+                let delta: [f32; 3] =
+                    std::array::from_fn(|axis| matrix[3][axis] - self.game_camera.space[3][axis]);
+                let squared = delta[0] * delta[0] + delta[1] * delta[1] + delta[2] * delta[2];
+                if (distance.wrapping_mul(distance) as f32) < squared {
+                    return Ok(());
                 }
             }
-            if mesh.is_some() || effect {
-                let effect_variables =
-                    if effect {
-                        if let std::collections::btree_map::Entry::Vacant(entry) =
-                            self.effect_ranges.entry(input)
-                        {
-                            let range = crate::animation::effect_variable_range(doc, input)
-                                .map_err(|_| Error {
-                                    operator: input,
-                                    reason: "invalid effect animation dependency",
-                                })?;
-                            entry.insert(range);
-                        }
-                        self.effect_ranges[&input]
-                            .as_ref()
-                            .map(|range| EffectVariables {
-                                start: range.start,
-                                values: self.vm.variables[range.clone()].to_vec(),
-                            })
-                    } else {
-                        None
-                    };
-                self.jobs.push(Job::Paint {
-                    operator: mesh.unwrap_or(input),
-                    matrix,
-                    time: self.vm.variables[0][0],
-                    pass_adjust: self.pass_adjust,
-                    effect_variables,
-                });
+        }
+        if mesh.is_some() || effect {
+            let effect_variables = if effect {
+                if let std::collections::btree_map::Entry::Vacant(entry) =
+                    self.effect_ranges.entry(input)
+                {
+                    let range =
+                        crate::animation::effect_variable_range(doc, input).map_err(|_| Error {
+                            operator: input,
+                            reason: "invalid effect animation dependency",
+                        })?;
+                    entry.insert(range);
+                }
+                self.effect_ranges[&input]
+                    .as_ref()
+                    .map(|range| EffectVariables {
+                        start: range.start,
+                        values: self.vm.variables[range.clone()].to_vec(),
+                    })
             } else {
-                self.visit(doc, input, matrix)?;
-            }
+                None
+            };
+            self.jobs.push(Job::Paint {
+                operator: mesh.unwrap_or(input),
+                matrix,
+                time: self.vm.variables[0][0],
+                pass_adjust: self.pass_adjust,
+                effect_variables,
+            });
+        } else {
+            self.visit(doc, input, matrix)?;
         }
         Ok(())
     }
@@ -1860,6 +1862,30 @@ impl Execution {
                     range: f(10)?,
                     clip: self.current_clip,
                 });
+                Ok(())
+            }
+            0xc7 => {
+                if op.inputs.len() != 2 {
+                    return Ok(());
+                }
+                let parameters = p
+                    .get(..9)
+                    .ok_or_else(|| fail("truncated limb parameters"))?;
+                let joints = super::limb::joints(
+                    parent,
+                    std::array::from_fn(|i| f32::from_bits(parameters[i])),
+                    std::array::from_fn(|i| f32::from_bits(parameters[3 + i])),
+                    f32::from_bits(parameters[6]),
+                    f32::from_bits(parameters[7]),
+                    parameters[8],
+                );
+                for (joint, &input) in joints.into_iter().zip(&op.inputs) {
+                    let saved: Matrix = self.vm.variables[28..32].try_into().unwrap();
+                    self.vm.variables[28..32].copy_from_slice(&joint.other);
+                    let result = self.input(doc, input, joint.transform);
+                    self.vm.variables[28..32].copy_from_slice(&saved);
+                    result?;
+                }
                 Ok(())
             }
             0xc5 => {
