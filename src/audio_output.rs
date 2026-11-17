@@ -11,7 +11,7 @@ use std::{
     },
 };
 const FRAMES: usize = 1024;
-const BYTES: u32 = (FRAMES * size_of::<[f32; 2]>()) as u32;
+const BYTES: u32 = (FRAMES * size_of::<[i16; 2]>()) as u32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Error(pub i32);
@@ -65,8 +65,12 @@ unsafe extern "C" {
     fn AudioQueueStart(queue: RawQueue, start_time: *const c_void) -> i32;
     fn AudioQueueDispose(queue: RawQueue, immediate: u8) -> i32;
 }
+struct RenderState<F> {
+    callback: F,
+    scratch: [[f32; 2]; FRAMES],
+}
 struct Callback<F> {
-    render: Mutex<F>,
+    render: Mutex<RenderState<F>>,
     status: AtomicI32,
 }
 /// The renderer runs on an Audio Queue thread after the three initial buffers
@@ -90,19 +94,23 @@ impl<F: FnMut(&mut [[f32; 2]]) + Send> Queue<F> {
         let mut queue = Self {
             raw: ptr::null_mut(),
             callback: Box::new(Callback {
-                render: Mutex::new(render),
+                render: Mutex::new(RenderState {
+                    callback: render,
+                    scratch: [[0.0; 2]; FRAMES],
+                }),
                 status: AtomicI32::new(0),
             }),
         };
         let format = Format {
             sample_rate: 44100.0,
             format: u32::from_be_bytes(*b"lpcm"),
-            flags: 9,
-            bytes_per_packet: 8,
+            // Signed integer | packed; native little-endian stereo PCM16.
+            flags: 12,
+            bytes_per_packet: 4,
             frames_per_packet: 1,
-            bytes_per_frame: 8,
+            bytes_per_frame: 4,
             channels: 2,
-            bits: 32,
+            bits: 16,
             reserved: 0,
         };
         // All pointers stay valid through synchronous disposal. NULL run loop
@@ -183,16 +191,21 @@ unsafe extern "C" fn refill<F: FnMut(&mut [[f32; 2]]) + Send>(
                 .compare_exchange(0, i32::MIN, Ordering::AcqRel, Ordering::Acquire);
             return;
         }
-        let frames = std::slice::from_raw_parts_mut(buffer.data.cast::<[f32; 2]>(), FRAMES);
-        frames.fill([0.0; 2]);
+        let frames = std::slice::from_raw_parts_mut(buffer.data.cast::<[i16; 2]>(), FRAMES);
+        frames.fill([0; 2]);
         if state.status.load(Ordering::Acquire) == 0 {
             let result = catch_unwind(AssertUnwindSafe(|| {
                 let mut render = state.render.try_lock().map_err(|_| ())?;
-                render(frames);
+                let RenderState { callback, scratch } = &mut *render;
+                scratch.fill([0.0; 2]);
+                callback(scratch);
+                for (frame, source) in frames.iter_mut().zip(scratch) {
+                    *frame = source.map(pcm16);
+                }
                 Ok::<(), ()>(())
             }));
             if !matches!(result, Ok(Ok(()))) {
-                frames.fill([0.0; 2]);
+                frames.fill([0; 2]);
                 let _ =
                     state
                         .status
@@ -206,5 +219,36 @@ unsafe extern "C" fn refill<F: FnMut(&mut [[f32; 2]]) + Send>(
                 .status
                 .compare_exchange(0, result, Ordering::AcqRel, Ordering::Acquire);
         }
+    }
+}
+
+// Preserve already-quantized music exactly; saturate the combined music/effect
+// signal to the original signed 16-bit device range. NaN casts to silence.
+fn pcm16(sample: f32) -> i16 {
+    ((sample * 32768.0) as i32).clamp(i32::from(i16::MIN), i32::from(i16::MAX)) as i16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn pcm16_conversion_clips_mixed_audio_and_preserves_original_music_pcm() {
+        for value in i16::MIN..=i16::MAX {
+            assert_eq!(pcm16(f32::from(value) / 32768.0), value);
+        }
+        for (value, expected) in [
+            (2.0, 32767),
+            (-2.0, -32768),
+            (1.0, 32767),
+            (-1.0, -32768),
+            (0.5, 16384),
+            (-0.5, -16384),
+            (f32::NAN, 0),
+            (f32::INFINITY, 32767),
+            (f32::NEG_INFINITY, -32768),
+        ] {
+            assert_eq!(pcm16(value), expected);
+        }
+        assert_eq!(BYTES, 4096);
     }
 }
