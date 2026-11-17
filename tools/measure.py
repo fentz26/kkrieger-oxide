@@ -4,9 +4,13 @@ import datetime
 import json
 import pathlib
 import platform
+import os
 import subprocess
 
 root = pathlib.Path(__file__).resolve().parent.parent
+environment = os.environ.copy()
+environment["CARGO_INCREMENTAL"] = "0"
+environment["CARGO_TARGET_DIR"] = str(root / "target")
 results = {
     "recorded_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     "platform": platform.platform(),
@@ -14,9 +18,9 @@ results = {
     "profiles": {},
 }
 metadata = json.loads(subprocess.check_output(
-    ["cargo", "metadata", "--no-deps", "--format-version=1"], cwd=root))
+    ["cargo", "metadata", "--no-deps", "--format-version=1"], cwd=root, env=environment))
 for profile in ("release", "tiny", "speed"):
-    subprocess.run(["cargo", "build", "--locked", "--bin", "kkrieger-oxide", "--profile", profile], cwd=root, check=True)
+    subprocess.run(["cargo", "build", "--locked", "--bin", "kkrieger-oxide", "--profile", profile], cwd=root, env=environment, check=True)
     binary = pathlib.Path(metadata["target_directory"]) / profile / "kkrieger-oxide"
     results["profiles"][profile] = {
         "bytes": binary.stat().st_size,
