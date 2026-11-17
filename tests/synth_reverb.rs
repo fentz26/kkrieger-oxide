@@ -125,3 +125,48 @@ fn reset_preserves_coefficients_and_short_input_does_not_modify_audio_or_state()
     assert_eq!(r.gains, [0.; 6]);
     assert_eq!([r.input_gain, r.damping, r.low_cut], [0.; 3]);
 }
+
+#[test]
+fn native_x87_underflow_samples_and_tail_recovery_match() {
+    let mut r = Reader(include_bytes!("fixtures/synth-reverb-underflow.bin"));
+    assert_eq!(r.word(), 64);
+    let words = r.word() as usize;
+    for case in 0..64 {
+        let mut effect = Reverb {
+            gains: std::array::from_fn(|_| r.float()),
+            input_gain: r.float(),
+            damping: r.float(),
+            low_cut: r.float(),
+            ..Reverb::default()
+        };
+        for line in [4, 5, 10, 11] {
+            let offset = LENGTHS[..line].iter().sum::<usize>();
+            effect.history[offset] = r.float();
+        }
+        let n = r.word() as usize;
+        let mut output = vec![[0.; 2]; n];
+        effect.process(&mut output, &vec![0.; n]).unwrap();
+        for (sample, value) in output.into_iter().flatten().enumerate() {
+            assert_eq!(
+                value.to_bits(),
+                r.word(),
+                "case {case} tiny sample {sample}"
+            );
+        }
+        r.state(&effect, case, 0);
+        let mut expected = vec![0; words - 31];
+        let count = r.word();
+        for _ in 0..count {
+            let i = r.word() as usize;
+            expected[i] = r.word();
+        }
+        for (i, (value, expected)) in effect.history.iter().zip(expected).enumerate() {
+            assert_eq!(
+                value.to_bits(),
+                expected,
+                "case {case} recovery history {i}"
+            );
+        }
+    }
+    assert!(r.0.is_empty());
+}

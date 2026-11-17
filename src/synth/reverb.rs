@@ -99,47 +99,107 @@ impl Reverb {
         {
             return Err("invalid V2 reverb delay position");
         }
+        let mut underflow = false;
         for (output, &input) in mix.iter_mut().zip(input) {
-            let input = input * self.input_gain + f32::from_bits(0x36800000);
+            let input = Float::from(input) * Float::from(self.input_gain)
+                + Float::from(f32::from_bits(0x36800000));
             for (side, out) in output.iter_mut().enumerate() {
-                let mut sum = 0.;
+                let mut sum = Float::from(0.);
                 for comb in 0..4 {
                     let line = side * 6 + comb;
                     let index = OFFSETS[line] + self.positions[line] as usize;
-                    let delayed = self.history[index] * self.gains[comb];
+                    let delayed = Float::from(self.history[index]) * Float::from(self.gains[comb]);
                     let value = if comb & 1 == 0 {
                         delayed + input
                     } else {
                         delayed - input
                     };
                     let filter = side * 4 + comb;
-                    let value =
-                        (value - self.lowpass[filter]) * self.damping + self.lowpass[filter];
-                    self.lowpass[filter] = value;
-                    self.history[index] = value;
+                    let previous = Float::from(self.lowpass[filter]);
+                    let value = (value - previous) * Float::from(self.damping) + previous;
+                    let stored = value.store(&mut underflow);
+                    self.lowpass[filter] = stored;
+                    self.history[index] = stored;
                     if comb == 0 {
                         sum = value;
                     } else {
-                        sum += value;
+                        sum = sum + value;
                     }
                     self.advance(line);
                 }
                 for allpass in 0..2 {
                     let line = side * 6 + 4 + allpass;
                     let index = OFFSETS[line] + self.positions[line] as usize;
-                    let delayed = self.history[index];
-                    let gain = self.gains[4 + allpass];
+                    let delayed = Float::from(self.history[index]);
+                    let gain = Float::from(self.gains[4 + allpass]);
                     let value = sum + delayed * gain;
-                    self.history[index] = value;
+                    self.history[index] = value.store(&mut underflow);
                     sum = delayed - value * gain;
                     self.advance(line);
                 }
-                self.highpass[side] += (sum - self.highpass[side]) * self.low_cut;
-                *out = (sum - self.highpass[side]) + *out;
+                let previous = Float::from(self.highpass[side]);
+                let high = previous + (sum - previous) * Float::from(self.low_cut);
+                self.highpass[side] = high.store(&mut underflow);
+                *out = (sum - high + Float::from(*out)).store(&mut underflow);
             }
         }
-        // TODO: reproduce the x87 underflow-status check that resets the tail.
-        // The finite normal-range path is checked against the original assembly.
+        if underflow {
+            self.reset();
+        }
         Ok(())
+    }
+}
+
+// x87 PC24 rounds arithmetic to 24 significant bits but retains its wide
+// exponent range until a float store. Keeping tiny intermediates avoids both
+// premature flushes and incorrect tail recovery on exact subnormal stores.
+#[derive(Clone, Copy)]
+struct Float(f64);
+impl From<f32> for Float {
+    fn from(value: f32) -> Self {
+        Self(f64::from(value))
+    }
+}
+impl Float {
+    #[inline]
+    fn rounded(value: f64) -> Self {
+        let magnitude = value.abs();
+        if magnitude >= f64::from(f32::MIN_POSITIVE) && magnitude <= f64::from(f32::MAX) {
+            Self(f64::from(value as f32))
+        } else if value == 0. || !value.is_finite() {
+            Self(value)
+        } else {
+            let bits = value.to_bits();
+            Self(f64::from_bits(
+                bits.wrapping_add(0x0fffffff + ((bits >> 29) & 1)) & !0x1fffffff,
+            ))
+        }
+    }
+    #[inline]
+    fn store(self, underflow: &mut bool) -> f32 {
+        let value = self.0 as f32;
+        *underflow |= self.0.abs() < f64::from(f32::MIN_POSITIVE) && self.0 != f64::from(value);
+        value
+    }
+}
+impl std::ops::Add for Float {
+    type Output = Self;
+    #[inline]
+    fn add(self, rhs: Self) -> Self {
+        Self::rounded(self.0 + rhs.0)
+    }
+}
+impl std::ops::Sub for Float {
+    type Output = Self;
+    #[inline]
+    fn sub(self, rhs: Self) -> Self {
+        Self::rounded(self.0 - rhs.0)
+    }
+}
+impl std::ops::Mul for Float {
+    type Output = Self;
+    #[inline]
+    fn mul(self, rhs: Self) -> Self {
+        Self::rounded(self.0 * rhs.0)
     }
 }
