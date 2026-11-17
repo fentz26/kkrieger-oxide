@@ -295,6 +295,83 @@ fn verify_draw(ctx: &mut dyn RenderingBackend) {
     );
     assert_eq!(cache.resource_counts(), (1, 1));
     cache.delete(ctx);
+    let mut effect = gpu_mesh::EffectJob::new(ctx, 4, 6).unwrap();
+    let packed_effect = 0x80402010;
+    let vertices = [
+        [
+            -0.25,
+            0.25,
+            0.75,
+            0.,
+            0.,
+            f32::from_bits(packed_effect),
+            0.,
+            0.,
+        ],
+        [
+            0.25,
+            0.25,
+            0.75,
+            0.,
+            0.,
+            f32::from_bits(packed_effect),
+            1.,
+            0.,
+        ],
+        [
+            -0.25,
+            -0.25,
+            0.75,
+            0.,
+            0.,
+            f32::from_bits(packed_effect),
+            0.,
+            1.,
+        ],
+        [
+            0.25,
+            -0.25,
+            0.75,
+            0.,
+            0.,
+            f32::from_bits(packed_effect),
+            1.,
+            1.,
+        ],
+    ];
+    let effect_material = gpu_mesh::Material::compile_effect(ctx, &state, 16).unwrap();
+    assert!(effect.update(ctx, &vertices, &[0, 1, 4]).is_err());
+    for _ in 0..2 {
+        effect.update(ctx, &vertices, &[0, 1, 3, 0, 3, 2]).unwrap();
+        kkrieger_oxide::gpu_texture::begin_pass(ctx, Some(pass), PassAction::default());
+        effect_material
+            .draw_effect(ctx, &effect, &[], &state, &environment)
+            .unwrap();
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(color, &mut pixels);
+        assert_eq!(
+            &pixels[(32 * 64 + 32) * 4..(32 * 64 + 32) * 4 + 4],
+            &[64, 32, 16, 255]
+        );
+    }
+    effect.update(ctx, &[], &[]).unwrap();
+    kkrieger_oxide::gpu_texture::begin_pass(
+        ctx,
+        Some(pass),
+        PassAction::clear_color(0., 0., 0., 0.),
+    );
+    effect_material
+        .draw_effect(ctx, &effect, &[], &state, &environment)
+        .unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(color, &mut pixels);
+    assert!(pixels.iter().all(|&byte| byte == 0));
+    effect_material.delete(ctx);
+    effect.delete(ctx);
+    println!(
+        "Original packed effect layout, streaming updates, and empty draws read back correctly"
+    );
+
     material.delete(ctx);
     job.delete(ctx);
     ctx.delete_render_pass(pass);
