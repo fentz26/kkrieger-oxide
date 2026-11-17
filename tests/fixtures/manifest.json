@@ -406,6 +406,14 @@
     "v2m-base.bin": {
       "bytes": 37794,
       "sha256": "0619963feef223d988ccf0eff72260e115f507601aafed23d8ed4b83882ce99a"
+    },
+    "v2m-sequence.bin": {
+      "bytes": 126636,
+      "sha256": "d3e3e416a53209999b3e8ebe5ea667446cb64dadcfb45dd2fd5b891489deb9ea"
+    },
+    "v2m-sample-delta.bin": {
+      "bytes": 16388,
+      "sha256": "ab8991182292ba765f1326197f3faba4e6a7d11121aac1edb7557afe503251a6"
     }
   }
 }

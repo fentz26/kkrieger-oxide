@@ -12,6 +12,7 @@ pub struct Channel<'a> {
     pub controls: [Stream<'a>; 7],
 }
 pub struct Song<'a> {
+    data: &'a [u8],
     pub time_division: u32,
     pub scaled_time_division: u32,
     pub maximum_time: u32,
@@ -114,6 +115,7 @@ impl<'a> Song<'a> {
             Some(data)
         };
         Ok(Self {
+            data,
             time_division,
             scaled_time_division: time_division.wrapping_mul(10000),
             maximum_time,
@@ -127,3 +129,5 @@ impl<'a> Song<'a> {
         })
     }
 }
+
+pub mod sequence;
