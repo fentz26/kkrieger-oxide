@@ -18,3 +18,5 @@ pub mod boost;
 pub mod patch;
 
 pub mod delay;
+
+pub mod compressor;

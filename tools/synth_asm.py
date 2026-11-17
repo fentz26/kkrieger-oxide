@@ -6,16 +6,20 @@ def voice_code(address=0x1000000,sections=()):
  source=(ROOT/'.reference/fr_public/werkkzeug3_kkrieger/_viruz2a.asm').read_text(encoding='cp1252')
  text=source[source.index('fastatan:'):source.index('; table for mod sources')]
  for start,end in sections:text+='\n'+source[source.index(start):source.index(end,source.index(start))]
- fields={}
+ fields={'COMPDLEN':5700}
+ def product(expression):
+  value=1
+  for part in expression.split('*'):value*=int(part) if part.isdigit() else fields[part]
+  return value
  def structure(m):
   offset=0;name=m[1]
   for line in m[2].splitlines():
    line=line.split(';')[0].strip()
    if not line:continue
-   f=re.fullmatch(r'\.(\w+)(?:\s+(resd|resb)\s+([\w.]+))?',line)
+   f=re.fullmatch(r'\.(\w+)(?:\s+(resd|resb)\s+([\w.*]+))?',line)
    assert f,(name,line)
    fields[name+'.'+f[1]]=offset
-   if f[2]:offset+=(int(f[3]) if f[3].isdigit() else fields[f[3]])*(4 if f[2]=='resd' else 1)
+   if f[2]:offset+=product(f[3])*(4 if f[2]=='resd' else 1)
   return ''
  text=re.sub(r'struc\s+(\w+)\s*\n(.*?)endstruc',structure,text,flags=re.S)
  lines=['.set icnoisemul,196314165','.set icnoiseadd,907633515','.set LOWEST,0x39000000']+[f'.set {name},{offset}' for name,offset in fields.items()];scope=''
@@ -30,7 +34,7 @@ def voice_code(address=0x1000000,sections=()):
   line=re.sub(r'\b(dword|qword|word|byte)\s+\[',r'\1 ptr [',line)
   line=re.sub(r'\bbyte\s+(-?\d+)',r'\1',line)
   line=re.sub(r'\bst([0-7])\b',r'st(\1)',line).replace('cs:','')
-  line=re.sub(r'\bshort\s+','',line)
+  line=re.sub(r'\b(?:short|near)\s+','',line)
   line=re.sub(r'^(mov\s+\w+,\s*)(vcebuf2?|chanbuf|aux[ab]buf)\b',r'\1offset \2',line)
   if re.search(r'\bdd\s',line):
    label,data=re.split(r'\bdd\s+',line,maxsplit=1);line=(label.strip()+': ' if label.strip() else '')+'.long '+data.rstrip(',')

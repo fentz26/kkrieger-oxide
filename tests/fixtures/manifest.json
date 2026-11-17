@@ -466,6 +466,10 @@
     "synth-delay.bin": {
       "bytes": 928136,
       "sha256": "8884d4a91a48a974ca71ef3d0367248c227450883bb113395d9e119822121f6d"
+    },
+    "synth-compressor.bin": {
+      "bytes": 690024,
+      "sha256": "acb35bf899680a894bb97a98c55f6926ee69da9d9524f1d78890982fcce1b846"
     }
   }
 }
