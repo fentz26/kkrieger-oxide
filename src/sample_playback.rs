@@ -18,6 +18,73 @@ impl Default for Spatial {
         }
     }
 }
+/// World-space listener. Changes become audible at the next 3D commit.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Listener {
+    pub position: [f32; 3],
+    pub velocity: [f32; 3],
+    pub up: [f32; 3],
+    pub forward: [f32; 3],
+    pub doppler: f32,
+    pub rolloff: f32,
+}
+impl Default for Listener {
+    fn default() -> Self {
+        Self {
+            position: [0.0; 3],
+            velocity: [0.0; 3],
+            up: [0.0, 1.0, 0.0],
+            forward: [0.0, 0.0, 1.0],
+            doppler: 1.0,
+            rolloff: 1.0,
+        }
+    }
+}
+impl Listener {
+    fn valid(&self) -> bool {
+        self.position
+            .iter()
+            .chain(&self.velocity)
+            .chain(&self.up)
+            .chain(&self.forward)
+            .all(|v| v.is_finite())
+            && (0.0..=10.0).contains(&self.doppler)
+            && (0.0..=10.0).contains(&self.rolloff)
+    }
+    /// Inverse-distance amplitude with clamped source distances. The game
+    /// creates buffers without MUTE3DATMAXDISTANCE, so far sounds remain audible.
+    /// https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee418662(v=vs.85)
+    pub fn distance_gain(&self, source: &Spatial) -> f32 {
+        if !self.valid() || !source.valid() {
+            return 0.0;
+        }
+        let distance = source
+            .position
+            .iter()
+            .zip(self.position)
+            .map(|(&a, b)| {
+                let d = f64::from(a) - f64::from(b);
+                d * d
+            })
+            .sum::<f64>()
+            .sqrt()
+            .clamp(f64::from(source.near), f64::from(source.far));
+        let near = f64::from(source.near);
+        (near / (near + (distance - near) * f64::from(self.rolloff))) as f32
+    }
+}
+impl Spatial {
+    fn valid(&self) -> bool {
+        self.position
+            .iter()
+            .chain(&self.velocity)
+            .all(|v| v.is_finite())
+            && self.near.is_finite()
+            && self.far.is_finite()
+            && self.near > 0.0
+            && self.far >= self.near
+    }
+}
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Voice {
     pub started: i32,
@@ -39,6 +106,8 @@ pub struct Registered<'a> {
 pub struct Pool<'a> {
     samples: Box<[Option<Registered<'a>>]>,
     pub sound_time: i32,
+    listener: Listener,
+    pending_listener: Option<Listener>,
 }
 impl Default for Pool<'_> {
     fn default() -> Self {
@@ -50,7 +119,19 @@ impl<'a> Pool<'a> {
         Self {
             samples: (0..256).map(|_| None).collect(),
             sound_time: 0,
+            listener: Listener::default(),
+            pending_listener: None,
         }
+    }
+    pub fn listener(&self) -> &Listener {
+        &self.listener
+    }
+    pub fn set_listener(&mut self, listener: Listener) -> bool {
+        if !listener.valid() {
+            return false;
+        }
+        self.pending_listener = Some(listener);
+        true
     }
     pub fn sample(&self, slot: u8) -> Option<&Registered<'a>> {
         self.samples[usize::from(slot)].as_ref()
@@ -101,6 +182,9 @@ impl<'a> Pool<'a> {
         Some(sample.uses)
     }
     pub fn spatial(&mut self, slot: u8, token: i32, parameters: Spatial) -> bool {
+        if !parameters.valid() {
+            return false;
+        }
         let Some(sample) = self.samples[usize::from(slot)].as_mut() else {
             return false;
         };
@@ -176,6 +260,9 @@ impl<'a> Pool<'a> {
                     }
                 }
             }
+        }
+        if let Some(listener) = self.pending_listener.take() {
+            self.listener = listener;
         }
         // Native expiry deliberately uses the preceding commit's clock.
         self.sound_time = now;

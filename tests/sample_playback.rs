@@ -181,3 +181,92 @@ fn out_of_range_directsound_volume_keeps_previous_buffer_setting() {
     pool.play(1, 0.0, 0.0);
     assert_eq!(pool.sample(1).unwrap().voices[0].volume, -1386);
 }
+
+#[test]
+fn listener_updates_are_deferred_and_last_update_wins() {
+    use kkrieger_oxide::sample_playback::Listener;
+    let mut pool = Pool::new();
+    let initial = *pool.listener();
+    let first = Listener {
+        position: [10.0, 0.0, 0.0],
+        ..initial
+    };
+    let last = Listener {
+        position: [20.0, 0.0, 0.0],
+        velocity: [1.0, 2.0, 3.0],
+        ..initial
+    };
+    assert!(pool.set_listener(first));
+    assert!(pool.set_listener(last));
+    assert_eq!(*pool.listener(), initial);
+    pool.commit(100);
+    assert_eq!(*pool.listener(), last);
+    let invalid = Listener {
+        rolloff: f32::NAN,
+        ..initial
+    };
+    assert!(!pool.set_listener(invalid));
+    pool.commit(200);
+    assert_eq!(*pool.listener(), last);
+}
+
+#[test]
+fn distance_gain_saturates_at_near_and_far_without_muting() {
+    use kkrieger_oxide::sample_playback::Listener;
+    let listener = Listener::default();
+    let mut sound = Spatial {
+        near: 2.0,
+        far: 8.0,
+        ..Spatial::default()
+    };
+    assert_eq!(listener.distance_gain(&sound), 1.0);
+    sound.position = [0.0, 0.0, 2.0];
+    assert_eq!(listener.distance_gain(&sound), 1.0);
+    sound.position = [0.0, 0.0, 4.0];
+    assert_eq!(listener.distance_gain(&sound), 0.5);
+    sound.position = [0.0, 0.0, 100.0];
+    assert_eq!(listener.distance_gain(&sound), 0.25);
+    let listener = Listener {
+        rolloff: 0.0,
+        ..listener
+    };
+    assert_eq!(listener.distance_gain(&sound), 1.0);
+    let listener = Listener {
+        position: sound.position,
+        ..listener
+    };
+    assert_eq!(listener.distance_gain(&sound), 1.0);
+}
+
+#[test]
+fn invalid_spatial_updates_leave_playing_voice_unchanged() {
+    let sample = sample();
+    let mut pool = Pool::new();
+    pool.add(&sample);
+    pool.commit(1);
+    let token = pool.play(7, 1.0, 0.0).unwrap();
+    let original = Spatial::default();
+    assert!(pool.spatial(7, token, original));
+    for invalid in [
+        Spatial {
+            near: 0.0,
+            ..original
+        },
+        Spatial {
+            near: 10.0,
+            far: 1.0,
+            ..original
+        },
+        Spatial {
+            position: [f32::NAN, 0.0, 0.0],
+            ..original
+        },
+        Spatial {
+            velocity: [f32::INFINITY, 0.0, 0.0],
+            ..original
+        },
+    ] {
+        assert!(!pool.spatial(7, token, invalid));
+        assert_eq!(pool.sample(7).unwrap().voices[1].spatial, Some(original));
+    }
+}
