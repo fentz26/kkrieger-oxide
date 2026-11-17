@@ -486,6 +486,10 @@
     "synth-master.bin": {
       "bytes": 1190964,
       "sha256": "d77cbec2cbedd22313c6f0f117cbae7da00594316dfee8d883248abbdd9856cf"
+    },
+    "synth-allocation.bin": {
+      "bytes": 403460,
+      "sha256": "30b18f4a006d9f2fd23ce7056341a2abd471ab945794bfbd2557fbced7a5967c"
     }
   }
 }

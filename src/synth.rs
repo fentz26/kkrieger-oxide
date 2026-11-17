@@ -26,3 +26,5 @@ pub mod channel;
 pub mod reverb;
 
 pub mod master;
+
+pub mod allocation;
