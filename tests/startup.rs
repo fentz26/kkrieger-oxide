@@ -132,3 +132,18 @@ fn menu_world_gates_simulation_and_restart_preserves_inventory() {
     );
     assert_eq!(e.switches[1], 6);
 }
+
+#[test]
+fn authored_set_painter_follows_first_inputs_and_retains_world_for_menu_mesh() {
+    let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    assert_eq!(
+        root::painter_scene(&d, d.roots[0].unwrap()).unwrap(),
+        Some(468)
+    );
+    assert_eq!(root::painter_scene(&d, d.roots[1].unwrap()).unwrap(), None);
+    assert_eq!(
+        root::painter_scene(&d, d.roots[2].unwrap()).unwrap(),
+        Some(5171)
+    );
+    assert!(root::painter_scene(&d, d.operators.len()).is_err());
+}

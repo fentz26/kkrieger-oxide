@@ -1,5 +1,5 @@
-//! Native window adapter around the authored gameplay coordinator. Startup/menu
-//! sequencing and the original audio backend are still separate porting work.
+//! Native window adapter around the authored player coordinator.
+//! The original audio backend remains separate porting work.
 use kkrieger_oxide::{
     collision::world::World,
     game::{input, simulation::Simulation},
@@ -45,7 +45,7 @@ impl Prepared {
             .ok()
             .and_then(|path| std::fs::metadata(path).ok())
             .map_or(0, |metadata| metadata.len());
-        println!("kkrieger-oxide authored gameplay assets");
+        println!("kkrieger-oxide authored player assets");
         println!("executable: {executable} bytes");
         println!("precalculation: {:.3} ms", elapsed.as_secs_f64() * 1000.);
         println!(
@@ -60,15 +60,18 @@ impl Prepared {
     }
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx"))?;
-        let root = doc.roots[2].ok_or("authored gameplay root missing")?;
+        let root = doc.roots[0].ok_or("authored intro root missing")?;
         let resources = gpu_scene::Resources::prepare(&doc, root, true, 0)?;
         let mut execution = Execution::new_player(&doc);
         execution.prepare_game_operators(&doc, root)?;
         let position = execution.game.parameters.start_position;
-        let world = World::from_document(&doc, 5171)?;
+        let scene = kkrieger_oxide::game::root::painter_scene(&doc, root)?
+            .ok_or("intro root has no painter scene")?;
+        let world = World::from_document(&doc, scene)?;
         let mut simulation =
             Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1))?;
         simulation.restart(&mut execution, [0, 0])?;
+        execution.switches[1] = 8;
         Ok(Self {
             doc,
             root,
@@ -297,6 +300,32 @@ impl App {
             window: kkrieger_oxide::game::frame::master_window(width as i32, height as i32),
         };
         self.execution.overlay.as_mut().unwrap().set_master(master);
+        let selection = self.simulation.select_root(&mut self.execution, mouse)?;
+        if selection.quit {
+            window::quit();
+            return Ok(());
+        }
+        let root = self.doc.roots[selection.index].ok_or("selected player root missing")?;
+        if root != self.root {
+            self.execution.reset_view();
+            self.execution.init_frame(0, 0, false);
+            let resources = gpu_scene::Resources::prepare(&self.doc, root, true, 0)?;
+            self.execution.prepare_game_operators(&self.doc, root)?;
+            self.execution.finish_events();
+            if let Some(scene) = kkrieger_oxide::game::root::painter_scene(&self.doc, root)? {
+                let world = World::from_document(&self.doc, scene)?;
+                self.simulation
+                    .reset_root(world, &mut self.execution, mouse, false)?;
+            } else {
+                self.simulation.restart(&mut self.execution, mouse)?;
+            }
+            let mut graphics = self.graphics.borrow_mut();
+            let Graphics { ctx, scene, .. } = &mut *graphics;
+            let replacement = gpu_scene::Scene::new(&mut **ctx, resources, 24)?;
+            ctx.commit_frame();
+            std::mem::replace(scene, replacement).delete(&mut **ctx);
+            self.root = root;
+        }
         self.execution.aspect = 2.;
         self.graphics.borrow_mut().fps = frame.fps;
         self.simulation
@@ -365,6 +394,7 @@ fn key_code(key: KeyCode) -> Option<u32> {
         KeyCode::Space => Some(32),
         KeyCode::Enter => Some(input::ENTER),
         KeyCode::Backspace => Some(input::BACKSPACE),
+        KeyCode::Escape => Some(input::ESCAPE),
         KeyCode::Up => Some(input::UP),
         KeyCode::Down => Some(input::DOWN),
         KeyCode::Left => Some(input::LEFT),
@@ -385,7 +415,6 @@ impl EventHandler for App {
     fn key_down_event(&mut self, key: KeyCode, _: KeyMods, repeat: bool) {
         if key == KeyCode::Escape {
             self.capture(false);
-            return;
         }
         if !repeat && let Some(key) = key_code(key) {
             self.key(key);
@@ -431,6 +460,7 @@ mod tests {
         assert_eq!(key_code(KeyCode::LeftShift), Some(input::SHIFT_LEFT));
         assert_eq!(key_code(KeyCode::RightControl), Some(input::CONTROL_RIGHT));
         assert_eq!(key_code(KeyCode::Up), Some(input::UP));
+        assert_eq!(key_code(KeyCode::Escape), Some(input::ESCAPE));
         assert_eq!(
             key_code(KeyCode::W).unwrap() | input::BREAK,
             119 | input::BREAK

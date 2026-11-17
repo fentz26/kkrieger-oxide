@@ -72,3 +72,28 @@ impl State {
         }
     }
 }
+
+/// Original SetPainter: unwrap DEMO/IPP first inputs until a scene cache is
+/// reached. A mesh or an empty chain leaves the previous collision world intact.
+pub fn painter_scene(
+    doc: &crate::kx::Document<'_>,
+    root: usize,
+) -> Result<Option<usize>, crate::scene::Error> {
+    let mut current = root;
+    for _ in 0..=doc.operators.len() {
+        if let Some(scene) = crate::scene::cache_scene_identity(doc, current)? {
+            return Ok(Some(scene));
+        }
+        if crate::scene::presentation_kind(doc, current)? == crate::scene::PresentationKind::Other {
+            return Ok(None);
+        }
+        let Some(&next) = doc.operators[current].inputs.first() else {
+            return Ok(None);
+        };
+        current = next;
+    }
+    Err(crate::scene::Error {
+        operator: root,
+        reason: "painter input cycle",
+    })
+}
