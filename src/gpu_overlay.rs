@@ -1,4 +1,4 @@
-//! Original IPP copy, blur, color and merge materials on double-UV GPU quads.
+//! Original IPP copy, blur, color, merge and mask materials on double-UV GPU quads.
 use crate::{
     gpu_mesh::{EffectJob, Material},
     material::State,
@@ -20,7 +20,27 @@ pub fn copy_state(mode: usize, color: u32) -> Result<State, &'static str> {
     Ok(state)
 }
 pub fn material_state(material: usize, color: u32) -> Result<State, &'static str> {
-    if (8..=24).contains(&material) {
+    if matches!(material, 25 | 26) {
+        let mut state = State::default();
+        state.words[0] = 0x20002 | if material == 26 { 0x2000 } else { 0 };
+        state.words[4] = 0x101;
+        state.words[9] = 0x10;
+        state.words[11] = 0xb0;
+        state.words[28] = 0x00408040;
+        state.textures[0] = Some(0);
+        if material == 25 {
+            state.words[5] = 0x111;
+            state.words[12] = 0x40;
+            state.textures[1] = Some(1);
+        } else {
+            state.words[6] = 0x111;
+            state.words[15] = 0xa0;
+            state.words[17] = 0x40;
+            state.words[30] = 0x00ffffff;
+            state.textures[2] = Some(2);
+        }
+        Ok(state)
+    } else if (8..=24).contains(&material) {
         let mut state = State::default();
         let operation = if material < 16 {
             material - 8
@@ -98,12 +118,14 @@ impl Overlays {
         if let Some(amplify) = draw.color2 {
             state.words[30] = amplify;
         }
-        let required = state.textures.iter().flatten().count();
-        if sources.len() != required
-            || draw.texture1.is_some() != (required == 2)
-            || draw.texture2.is_some()
+        let supplied = [Some(draw.texture), draw.texture1, draw.texture2, None];
+        if sources.len() != state.textures.iter().flatten().count()
+            || supplied
+                .iter()
+                .zip(&state.textures)
+                .any(|(supplied, required)| supplied.is_some() != required.is_some())
         {
-            return Err("overlay source count does not match original material".into());
+            return Err("overlay source slots do not match original material".into());
         }
         let mode = if draw.material == 6 {
             27
@@ -119,7 +141,13 @@ impl Overlays {
             vertex[7] = 1. - vertex[7];
         }
         self.quad.update(ctx, &vertices, &[0, 1, 2, 0, 2, 3])?;
-        for (stage, &source) in sources.iter().enumerate() {
+        for (&source, (stage, _)) in sources.iter().zip(
+            state
+                .textures
+                .iter()
+                .enumerate()
+                .filter(|(_, texture)| texture.is_some()),
+        ) {
             ctx.texture_set_filter(source, FilterMode::Linear, MipmapFilterMode::None);
             let wrap = if state.words[4 + stage] & 0x100 != 0 {
                 TextureWrap::Clamp

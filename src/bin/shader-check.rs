@@ -56,6 +56,7 @@ fn main() {
                 verify_overlay_copy(&mut *ctx);
                 verify_overlay_blur(&mut *ctx);
                 verify_overlay_color_merge(&mut *ctx);
+                verify_overlay_mask(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -1459,4 +1460,147 @@ fn verify_overlay_color_merge(ctx: &mut dyn RenderingBackend) {
     overlays.delete(ctx);
     targets.delete(ctx);
     println!("Original eight color operations and nine merge materials read back correctly");
+}
+
+fn verify_overlay_mask(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        gpu_overlay::Overlays,
+        gpu_target::Targets,
+        scene::{
+            camera::Environment,
+            overlay::{Draw, Viewport, fx_quad},
+        },
+    };
+    let viewport = Viewport {
+        screen: -1,
+        render_target: 200,
+        window: [0, 0, 32, 32],
+    };
+    let background = Viewport {
+        render_target: 201,
+        ..viewport
+    };
+    let foreground = Viewport {
+        render_target: 202,
+        ..viewport
+    };
+    let destination = Viewport {
+        render_target: 203,
+        ..viewport
+    };
+    let mut targets = Targets::default();
+    let mask = targets
+        .begin(ctx, viewport, [32, 32], 3, 0xff8040c0)
+        .unwrap();
+    ctx.end_render_pass();
+    let back = targets
+        .begin(ctx, background, [32, 32], 3, 0xff2060a0)
+        .unwrap();
+    ctx.end_render_pass();
+    let front = targets
+        .begin(ctx, foreground, [32, 32], 3, 0xffc08040)
+        .unwrap();
+    ctx.end_render_pass();
+    let output = targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    ctx.end_render_pass();
+    let mut overlays = Overlays::new(ctx, 24).unwrap();
+    let mut draw = Draw {
+        viewport: destination,
+        environment: Environment {
+            orthogonal: 1,
+            ..Default::default()
+        },
+        material: 25,
+        texture: 200,
+        texture1: Some(201),
+        texture2: None,
+        color: 0x408040,
+        color2: Some(u32::MAX),
+        vertices: fx_quad(None, None, None, None),
+    };
+    let weight = (128. * 64. + 64. * 128. + 192. * 64.) / (255. * 255.);
+    let mut pixels = vec![0; 32 * 32 * 4];
+    targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    overlays.draw_sources(ctx, &draw, &[mask, back]).unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(output, &mut pixels);
+    for (channel, value) in [32., 96., 160.].into_iter().enumerate() {
+        let expected: f32 = value * weight;
+        assert!(pixels[(16 * 32 + 16) * 4 + channel].abs_diff(expected.round() as u8) <= 2);
+    }
+    draw.material = 26;
+    draw.texture1 = None;
+    draw.texture2 = Some(202);
+    draw.color2 = Some(0xffffff);
+    targets.begin(ctx, destination, [32, 32], 0, 0).unwrap();
+    overlays.draw_sources(ctx, &draw, &[mask, front]).unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(output, &mut pixels);
+    for (channel, (back, front)) in [32., 96., 160.]
+        .into_iter()
+        .zip([192., 128., 64.])
+        .enumerate()
+    {
+        let expected: f32 = back * weight + front * (1. - weight);
+        assert!(
+            pixels[(16 * 32 + 16) * 4 + channel].abs_diff(expected.round() as u8) <= 2,
+            "mask channel {channel}"
+        );
+    }
+    assert_eq!(pixels[(16 * 32 + 16) * 4 + 3], 255);
+    targets
+        .begin(ctx, foreground, [32, 32], 3, 0xffff0000)
+        .unwrap();
+    ctx.end_render_pass();
+    targets
+        .begin(
+            ctx,
+            Viewport {
+                window: [8, 4, 24, 12],
+                ..foreground
+            },
+            [32, 32],
+            1,
+            0xff0000ff,
+        )
+        .unwrap();
+    ctx.end_render_pass();
+    let mut front_pixels = vec![0; pixels.len()];
+    ctx.texture_read_pixels(front, &mut front_pixels);
+    draw.vertices = fx_quad(None, None, None, Some([0., 1., 1., 0.]));
+    draw.material = 25;
+    draw.texture1 = Some(201);
+    draw.texture2 = None;
+    draw.color2 = Some(u32::MAX);
+    targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    overlays.draw_sources(ctx, &draw, &[mask, back]).unwrap();
+    ctx.end_render_pass();
+    draw.material = 26;
+    draw.texture1 = None;
+    draw.texture2 = Some(202);
+    draw.color2 = Some(0xffffff);
+    targets.begin(ctx, destination, [32, 32], 0, 0).unwrap();
+    overlays.draw_sources(ctx, &draw, &[mask, front]).unwrap();
+    ctx.end_render_pass();
+    ctx.texture_read_pixels(output, &mut pixels);
+    for y in 0..32 {
+        for x in 0..32 {
+            for (channel, background) in [32., 96., 160.].into_iter().enumerate() {
+                let index = (y * 32 + x) * 4 + channel;
+                let foreground = front_pixels[((31 - y) * 32 + x) * 4 + channel] as f32;
+                let expected: f32 = background * weight + foreground * (1. - weight);
+                assert!(
+                    pixels[index].abs_diff(expected.round() as u8) <= 2,
+                    "mask UV1 at {x},{y} channel {channel}"
+                );
+            }
+        }
+    }
+    // Same count at the wrong original texture slot must fail, rather than
+    // silently sampling UV0/UV1 with incorrect sampler state.
+    draw.texture1 = draw.texture2.take();
+    assert!(overlays.draw_sources(ctx, &draw, &[mask, front]).is_err());
+    overlays.delete(ctx);
+    targets.delete(ctx);
+    println!("Original two-pass RGB mask and sparse third texture binding read back correctly");
 }

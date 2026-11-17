@@ -130,6 +130,14 @@ impl Renderer for Bridge {
                 );
             }
 
+            if let Some(texture) = draw.texture2 {
+                sources.push(
+                    targets
+                        .texture(-1, texture)
+                        .ok_or_else(|| fail("third overlay target has not been rendered"))?,
+                );
+            }
+
             targets
                 .begin(&mut **ctx, draw.viewport, dimensions, 0, 0)
                 .map_err(fail)?;
