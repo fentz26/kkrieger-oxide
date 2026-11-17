@@ -402,6 +402,10 @@
     "scene-walk.bin": {
       "bytes": 584968,
       "sha256": "0c9399568178f5666fc1f458ce89ac732be4cbd7c75b8298c96de613c805ca2f"
+    },
+    "v2m-base.bin": {
+      "bytes": 37794,
+      "sha256": "0619963feef223d988ccf0eff72260e115f507601aafed23d8ed4b83882ce99a"
     }
   }
 }
