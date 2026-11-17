@@ -169,7 +169,10 @@ pub fn build_static_frame(
             .get(*operator)
             .ok_or_else(|| fail("paint job operator out of range"))?;
         let id = doc.classes[op.class].id;
-        if matches!(id, 0x61 | 0x64) {
+        if matches!(
+            super::cached_object(doc, *operator)?,
+            super::CachedObject::Effect(_)
+        ) {
             continue;
         }
         if !crate::mesh_graph::implemented(id) {

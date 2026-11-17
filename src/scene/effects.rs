@@ -6,6 +6,17 @@ pub enum Content {
     Print(Box<super::print::Draw>),
     Particles(Vec<[[f32; 8]; 4]>),
 }
+pub struct Rendering {
+    pub camera: super::camera::Environment,
+    pub materials: std::collections::BTreeMap<usize, std::rc::Rc<crate::material::Material>>,
+    pub pages: std::collections::BTreeMap<u8, crate::bitmap::FontPage>,
+    pub fps: f32,
+}
+pub struct Leaf {
+    pub operator: usize,
+    pub material: Option<usize>,
+    pub content: Content,
+}
 pub struct Draw {
     pub operator: usize,
     pub sort_key: u32,
@@ -47,14 +58,11 @@ pub fn schedule(
         else {
             continue;
         };
-        let op = doc.operators.get(*operator).ok_or(Error {
-            operator: *operator,
-            reason: "effect job operator out of range",
-        })?;
-        let class = doc.classes[op.class].id;
-        if !matches!(class, 0x61 | 0x64) {
+        let super::CachedObject::Effect(owner) = super::cached_object(doc, *operator)? else {
             continue;
-        }
+        };
+        let op = &doc.operators[owner];
+        let class = doc.classes[op.class].id;
         let first = op.links.first().copied().flatten().and_then(&mut material);
         let (pass, usage) = match (class, first) {
             (0x64, Some((pass, _))) => (pass, 7),
@@ -88,7 +96,10 @@ pub fn schedule_prepared(
         let Job::Paint { operator, .. } = &jobs[entry.job] else {
             unreachable!()
         };
-        if let Some(material) = doc.operators[*operator].links.first().copied().flatten()
+        let super::CachedObject::Effect(owner) = super::cached_object(doc, *operator)? else {
+            unreachable!()
+        };
+        if let Some(material) = doc.operators[owner].links.first().copied().flatten()
             && !materials.contains_key(&material)
         {
             return Err(Error {

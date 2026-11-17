@@ -25,6 +25,26 @@ pub struct DrawParameters {
     pub gravity: f32,
     pub flags: u32,
 }
+impl DrawParameters {
+    pub fn from_words(words: &[u32]) -> Result<(usize, Self), &'static str> {
+        let p = words
+            .get(..12)
+            .ok_or("truncated particle system parameters")?;
+        Ok((
+            p[0] as usize,
+            Self {
+                appearance: Appearance {
+                    colors: [p[2], p[3], p[4]],
+                    sizes: std::array::from_fn(|i| f32::from_bits(p[5 + i])),
+                    middle: f32::from_bits(p[8]),
+                    fade: f32::from_bits(p[9]),
+                },
+                gravity: f32::from_bits(p[10]),
+                flags: p[11],
+            },
+        ))
+    }
+}
 impl Appearance {
     /// Produce the original TSPACE3 quad using transposed, normalized camera
     /// axes (or the operator axes when PartSystem flag 1 is set).

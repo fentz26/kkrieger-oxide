@@ -12,6 +12,31 @@ pub struct Draw {
     pub environment: super::camera::Environment,
     pub geometry: Geometry,
 }
+pub fn draw(
+    words: &[u32],
+    text: Option<&[u8]>,
+    matrix: crate::mesh::Matrix,
+    context: &Context<'_>,
+    values: &Values<'_>,
+) -> Result<Option<Draw>, &'static str> {
+    let layout = Layout::from_words(words)?;
+    if context.material_passes.unwrap_or(0) == 0 {
+        return Ok(None);
+    }
+    let page = ((layout.flags >> 4) & 7) as u8;
+    let letters = &context
+        .pages
+        .get(&page)
+        .ok_or("Print font atlas has not been prepared")?
+        .letters;
+    let text = text.ok_or("missing Print string")?;
+    let geometry = layout.generate(text, values, letters)?;
+    Ok(Some(Draw {
+        page,
+        environment: layout.environment(context.camera, matrix),
+        geometry,
+    }))
+}
 
 pub struct Values<'a> {
     pub inventory: &'a crate::game::Inventory,

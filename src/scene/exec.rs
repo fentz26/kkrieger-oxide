@@ -108,6 +108,8 @@ pub struct Execution {
     current_clip: Rect,
     visibility_history: std::collections::BTreeMap<usize, Rect>,
     effect_ranges: std::collections::BTreeMap<usize, Option<std::ops::Range<usize>>>,
+    effect_context: Option<Rc<super::effects::Rendering>>,
+    effect_output: Vec<super::effects::Leaf>,
 }
 impl Execution {
     /// Execute both authored effect types in the engine's stable paint order.
@@ -121,45 +123,154 @@ impl Execution {
         fps: f32,
     ) -> Result<Vec<super::effects::Draw>, Error> {
         let scheduled = super::effects::schedule_prepared(doc, &pass.jobs, materials)?;
-        let modelview = crate::material::uniforms::trans_r(pass.camera.space);
+        let rendering = Rc::new(super::effects::Rendering {
+            camera: pass.camera.clone(),
+            materials: materials.clone(),
+            pages: pages.clone(),
+            fps,
+        });
         let mut draws = Vec::new();
         for entry in scheduled {
-            let job = &pass.jobs[entry.job];
-            let Job::Paint { operator, .. } = job else {
-                unreachable!()
+            let leaves =
+                self.draw_deferred_effect(doc, &pass.jobs[entry.job], Rc::clone(&rendering))?;
+            draws.extend(leaves.into_iter().map(|leaf| super::effects::Draw {
+                operator: leaf.operator,
+                sort_key: entry.sort_key,
+                material: leaf.material,
+                content: leaf.content,
+            }));
+        }
+        Ok(draws)
+    }
+    /// Run the original effect operator, including alias/control-flow handlers,
+    /// with its own SceneMemLink chain. The cached owner supplies sort metadata;
+    /// reached leaves supply the actual materials and generated geometry.
+    pub fn draw_deferred_effect(
+        &mut self,
+        doc: &Document<'_>,
+        job: &Job,
+        rendering: Rc<super::effects::Rendering>,
+    ) -> Result<Vec<super::effects::Leaf>, Error> {
+        let Job::Paint {
+            operator,
+            matrix,
+            effect_variables,
+            ..
+        } = job
+        else {
+            return Err(Error {
+                operator: 0,
+                reason: "effect draw requires a paint job",
+            });
+        };
+        let fail = |reason| Error {
+            operator: *operator,
+            reason,
+        };
+        if !matches!(
+            super::cached_object(doc, *operator)?,
+            super::CachedObject::Effect(_)
+        ) {
+            return Err(fail("paint job does not cache an effect"));
+        }
+        if let Some(snapshot) = effect_variables {
+            let end = snapshot
+                .start
+                .checked_add(snapshot.values.len())
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?;
+            self.vm
+                .variables
+                .get_mut(snapshot.start..end)
+                .ok_or_else(|| fail("invalid effect variable snapshot"))?
+                .copy_from_slice(&snapshot.values);
+        }
+        let old_context = self.effect_context.replace(rendering);
+        let old_output = std::mem::take(&mut self.effect_output);
+        let cursor = self.instances.enter(Scope::Scene(*operator));
+        let result = self.visit(doc, *operator, *matrix);
+        self.instances.restore(cursor);
+        let output = std::mem::replace(&mut self.effect_output, old_output);
+        self.effect_context = old_context;
+        result?;
+        Ok(output)
+    }
+    fn emit_deferred_leaf(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        words: &[u32],
+        matrix: Matrix,
+    ) -> Result<(), Error> {
+        let fail = |reason| Error {
+            operator: root,
+            reason,
+        };
+        let rendering = self
+            .effect_context
+            .as_ref()
+            .cloned()
+            .ok_or_else(|| fail("effect requires deferred render context"))?;
+        let op = &doc.operators[root];
+        let material = op.links.first().copied().flatten();
+        let material_passes = match material {
+            Some(index) => Some(
+                rendering
+                    .materials
+                    .get(&index)
+                    .ok_or_else(|| fail("effect material has not been prepared"))?
+                    .passes
+                    .len(),
+            ),
+            None => None,
+        };
+        let content = if doc.classes[op.class].id == 0x61 {
+            let context = super::print::Context {
+                camera: &rendering.camera,
+                pages: &rendering.pages,
+                material_passes,
+                fps: rendering.fps,
             };
-            let op = &doc.operators[*operator];
-            let material = op.links.first().copied().flatten();
-            let material_passes = material
-                .and_then(|index| materials.get(&index))
-                .map(|m| m.passes.len());
-            let content = if doc.classes[op.class].id == 0x61 {
-                let context = super::print::Context {
-                    camera: &pass.camera,
-                    pages,
-                    material_passes,
-                    fps,
-                };
-                let Some(draw) = self.draw_print_job(doc, job, &context)? else {
-                    continue;
-                };
-                super::effects::Content::Print(Box::new(draw))
-            } else {
-                super::effects::Content::Particles(self.draw_particle_job(
-                    doc,
-                    job,
+            let values = super::print::Values {
+                inventory: &self.game.inventory,
+                current_weapon: self.game.weapon.current,
+                switches: &self.switches,
+                fps: rendering.fps,
+            };
+            super::print::draw(
+                words,
+                op.strings.first().copied(),
+                matrix,
+                &context,
+                &values,
+            )
+            .map_err(fail)?
+            .map(|draw| super::effects::Content::Print(Box::new(draw)))
+        } else {
+            let (slot, parameters) =
+                super::particles::DrawParameters::from_words(words).map_err(fail)?;
+            let modelview = crate::material::uniforms::trans_r(rendering.camera.space);
+            let quads = self
+                .particles
+                .get_mut(slot)
+                .ok_or_else(|| fail("particle slot out of range"))?
+                .draw(
+                    &parameters,
+                    self.time_delta,
+                    matrix,
                     modelview,
                     material_passes,
-                )?)
-            };
-            draws.push(super::effects::Draw {
-                operator: *operator,
-                sort_key: entry.sort_key,
+                )
+                .map_err(fail)?;
+            Some(super::effects::Content::Particles(quads))
+        };
+        if let Some(content) = content {
+            self.effect_output.push(super::effects::Leaf {
+                operator: root,
                 material,
                 content,
             });
         }
-        Ok(draws)
+        Ok(())
     }
     /// Execute Print at its deferred paint position, using its captured
     /// animation range and the live game inventory/switch values.
@@ -259,28 +370,34 @@ impl Execution {
         materials: &std::collections::BTreeMap<usize, Rc<crate::material::Material>>,
     ) -> Result<Vec<super::effects::ParticleDraw>, Error> {
         let scheduled = super::effects::schedule_prepared(doc, &pass.jobs, materials)?;
-        let modelview = crate::material::uniforms::trans_r(pass.camera.space);
+        let rendering = Rc::new(super::effects::Rendering {
+            camera: pass.camera.clone(),
+            materials: materials.clone(),
+            pages: Default::default(),
+            fps: 0.,
+        });
         let mut packets = Vec::new();
         for entry in scheduled {
             let job = &pass.jobs[entry.job];
             let Job::Paint { operator, .. } = job else {
                 unreachable!()
             };
-            let op = &doc.operators[*operator];
-            if doc.classes[op.class].id != 0x64 {
+            let super::CachedObject::Effect(owner) = super::cached_object(doc, *operator)? else {
+                unreachable!()
+            };
+            if doc.classes[doc.operators[owner].class].id != 0x64 {
                 continue;
             }
-            let material = op.links.first().copied().flatten();
-            let passes = material
-                .and_then(|index| materials.get(&index))
-                .map(|m| m.passes.len());
-            let quads = self.draw_particle_job(doc, job, modelview, passes)?;
-            packets.push(super::effects::ParticleDraw {
-                operator: *operator,
-                sort_key: entry.sort_key,
-                material,
-                quads,
-            });
+            for leaf in self.draw_deferred_effect(doc, job, Rc::clone(&rendering))? {
+                if let super::effects::Content::Particles(quads) = leaf.content {
+                    packets.push(super::effects::ParticleDraw {
+                        operator: leaf.operator,
+                        material: leaf.material,
+                        sort_key: entry.sort_key,
+                        quads,
+                    });
+                }
+            }
         }
         Ok(packets)
     }
@@ -383,6 +500,8 @@ impl Execution {
         Self {
             vm: Vm::new(),
             effect_ranges: std::collections::BTreeMap::new(),
+            effect_context: None,
+            effect_output: Vec::new(),
             audio: None,
             particles: std::array::from_fn(|_| super::particles::System::default()),
             random: crate::random::Random::new(1),
@@ -842,8 +961,12 @@ impl Execution {
     }
     fn inputs(&mut self, doc: &Document<'_>, root: usize, matrix: Matrix) -> Result<(), Error> {
         for &input in &doc.operators[root].inputs {
-            let class = doc.classes[doc.operators[input].class].id;
-            let mesh = super::cache_mesh_identity(doc, input)?;
+            let cached = super::cached_object(doc, input)?;
+            let mesh = match cached {
+                super::CachedObject::Mesh(owner) => Some(owner),
+                _ => None,
+            };
+            let effect = matches!(cached, super::CachedObject::Effect(_));
             if mesh.is_some()
                 && let Some(id) = self.current_event
             {
@@ -867,9 +990,9 @@ impl Execution {
                     }
                 }
             }
-            if mesh.is_some() || matches!(class, 0x61 | 0x64) {
+            if mesh.is_some() || effect {
                 let effect_variables =
-                    if matches!(class, 0x61 | 0x64) {
+                    if effect {
                         if let std::collections::btree_map::Entry::Vacant(entry) =
                             self.effect_ranges.entry(input)
                         {
@@ -949,6 +1072,7 @@ impl Execution {
             Ok(srt_matrix(&std::array::from_fn(|i| f32::from_bits(p[i]))))
         };
         let result = (|| match id {
+            0x61 | 0x64 => self.emit_deferred_leaf(doc, root, &p, parent),
             id if mesh_graph::implemented(id) => self.exec_inputs(doc, root, parent),
             0x63 => {
                 let p = p
