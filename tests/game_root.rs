@@ -2,13 +2,14 @@ use kkrieger_oxide::{
     collision::world::World,
     game::simulation::Simulation,
     kx::Document,
-    material,
     random::Random,
     scene::{
-        effects::Content,
+        culling::Frustum,
+        effects::{Content, Rendering},
         exec::{Execution, Job},
         light,
         overlay::{Pool, Viewport},
+        paint::{self, DrawKind},
     },
     texture,
 };
@@ -17,18 +18,8 @@ use kkrieger_oxide::{
 fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     let root = d.roots[2].unwrap();
-    let material_roots: Vec<_> = d
-        .operators
-        .iter()
-        .enumerate()
-        .filter(|(_, op)| matches!(d.classes[op.class].id, 0xd0 | 0xd1))
-        .map(|(i, _)| i)
-        .collect();
-    let materials: std::collections::BTreeMap<_, _> = material_roots
-        .iter()
-        .copied()
-        .zip(material::generate_many(&d, &material_roots).unwrap())
-        .collect();
+    let assets = paint::prepare_scene_assets(&d, root, true).unwrap();
+    let materials = &assets.materials;
     let mut needed = vec![false; d.operators.len()];
     let mut pending = vec![root];
     while let Some(i) = pending.pop() {
@@ -55,18 +46,22 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     let mut print_vertices = 0;
     let mut prepared_lights = 0;
     let mut max_lights = 0;
+    let mut mesh_paints = 0;
+    let mut effect_jobs = 0;
     let mut draw_effects = |e: &mut Execution| {
         for pass in e.render_passes.clone() {
             let [x0, y0, x1, y1] = pass.viewport.window;
             let lighting =
                 light::Context::from_camera(&pass.camera, [x1 - x0, y1 - y0], true).unwrap();
             let mut visible_lights = 0;
+            let mut paint_lights = Vec::new();
             for job in &pass.jobs {
                 if !matches!(job, Job::Light { .. }) {
                     continue;
                 }
                 if let Some(light) = lighting.prepare(job).unwrap() {
                     visible_lights += 1;
+                    paint_lights.push(light.paint_light());
                     assert!(light.importance.is_finite() && light.amplify.is_finite());
                     assert!(light.rect.into_iter().all(f32::is_finite));
                     for frustum in [&light.shadow, &light.zfail] {
@@ -80,9 +75,59 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
             }
             prepared_lights += visible_lights;
             max_lights = max_lights.max(visible_lights);
-            let packets = e
-                .draw_effect_pass(&d, &pass, &materials, &fonts.font_pages, 60.)
+            let environment = pass
+                .camera
+                .material_environment([x1 - x0, y1 - y0])
                 .unwrap();
+            let frustum =
+                Frustum::from_view_projection(environment.view_projection, [-1., -1., 1., 1.]);
+            // Exercise every visible candidate here; light selection profiles
+            // are verified separately against their source/beta implementations.
+            let view = paint::View {
+                usage_mask: u32::MAX,
+                frustum: frustum.planes[..5].try_into().unwrap(),
+                lights: &paint_lights,
+                light_capacity: 16,
+            };
+            let frame = paint::build_static_frame(
+                &d,
+                &pass.jobs,
+                &assets.meshes,
+                materials,
+                &view,
+                |_, _| 0,
+            )
+            .unwrap();
+            assert!(
+                frame
+                    .jobs
+                    .windows(2)
+                    .all(|pair| pair[0].sort_key <= pair[1].sort_key)
+            );
+            let rendering = std::rc::Rc::new(Rendering {
+                camera: pass.camera.clone(),
+                materials: materials.clone(),
+                pages: fonts.font_pages.clone(),
+                fps: 60.,
+            });
+            let mut packets = Vec::new();
+            for job in frame.jobs {
+                assert!(matches!(pass.jobs[job.scene_job], Job::Paint { .. }));
+                match job.kind {
+                    DrawKind::Mesh(_) => mesh_paints += 1,
+                    DrawKind::Effect => {
+                        effect_jobs += 1;
+                        packets.extend(
+                            e.draw_deferred_effect(
+                                &d,
+                                &pass.jobs[job.scene_job],
+                                std::rc::Rc::clone(&rendering),
+                            )
+                            .unwrap(),
+                        );
+                    }
+                }
+            }
             for packet in packets {
                 match packet.content {
                     Content::Particles(quads) => {
@@ -164,6 +209,9 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
         "authored particle packets={particle_packets} quads={particle_quads} Print packets={print_packets} vertices={print_vertices}"
     );
     eprintln!("authored prepared lights={prepared_lights} max visible per pass={max_lights}");
+    eprintln!("authored mesh paints={mesh_paints} effect jobs={effect_jobs}");
+    assert!(mesh_paints > 0);
+    assert!(effect_jobs > 0);
     assert!(prepared_lights > 0);
     assert!(print_packets > 0);
     assert!(print_vertices > 0);
