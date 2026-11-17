@@ -490,6 +490,10 @@
     "synth-allocation.bin": {
       "bytes": 403460,
       "sha256": "30b18f4a006d9f2fd23ce7056341a2abd471ab945794bfbd2557fbced7a5967c"
+    },
+    "synth-midi.bin": {
+      "bytes": 193695,
+      "sha256": "00974782c43a7b2fc01bb09e26904cf323b08850bb4a33c72574e696bd4f9c5a"
     }
   }
 }

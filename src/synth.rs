@@ -28,3 +28,5 @@ pub mod reverb;
 pub mod master;
 
 pub mod allocation;
+
+pub mod midi;
