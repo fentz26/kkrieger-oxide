@@ -23,6 +23,7 @@ enum State {
     Delay(delay::State),
     Sample(super::sample::State),
     Emitter(super::particles::Emitter),
+    Scatter(super::scatter::State),
     Physic(Physic),
     Splash(bool),
     Trigger(super::trigger::State),
@@ -76,6 +77,18 @@ impl Memory {
     pub fn monster(&mut self, operator: usize) -> Result<&mut Option<Monster>, Error> {
         match self.next(operator, || State::Monster(None))? {
             State::Monster(monster) => Ok(monster),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
+    }
+    pub fn scatter(&mut self, operator: usize) -> Result<&mut super::scatter::State, Error> {
+        match self.next(
+            operator,
+            || State::Scatter(super::scatter::State::default()),
+        )? {
+            State::Scatter(state) => Ok(state),
             _ => Err(Error {
                 operator,
                 reason: "instance memory type differs during replay",

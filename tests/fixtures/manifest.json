@@ -390,6 +390,10 @@
     "overlay-sharpen.bin": {
       "bytes": 1223416,
       "sha256": "60bdf3daebbae58b569155f55f3936dea48736d7bb0fa862032d546a2df7722c"
+    },
+    "scene-particles.bin": {
+      "bytes": 613640,
+      "sha256": "5d1dc1652585d393264cf3b35302c0bf8dd29a31b2f291ca57cda86e33c1d955"
     }
   }
 }

@@ -1862,6 +1862,42 @@ impl Execution {
                 });
                 Ok(())
             }
+            0xc5 => {
+                let parameters = p
+                    .get(..16)
+                    .ok_or_else(|| fail("truncated scene particle parameters"))?;
+                let spline = op
+                    .splines
+                    .first()
+                    .copied()
+                    .flatten()
+                    .map(|index| {
+                        doc.splines
+                            .get(index)
+                            .ok_or_else(|| fail("scene particle spline out of range"))
+                    })
+                    .transpose()?;
+                let matrices = self
+                    .instances
+                    .scatter(root)?
+                    .matrices(
+                        super::scatter::Parameters {
+                            mode: parameters[0] as i32,
+                            count: parameters[1] as i32,
+                            seed: parameters[2] as i32,
+                            spread: std::array::from_fn(|i| f32::from_bits(parameters[3 + i])),
+                        },
+                        f32::from_bits(parameters[12]),
+                        std::array::from_fn(|i| f32::from_bits(parameters[13 + i])),
+                        spline,
+                        &mut self.random,
+                    )
+                    .map_err(fail)?;
+                for matrix in matrices {
+                    self.inputs(doc, root, multiply(matrix, parent))?;
+                }
+                Ok(())
+            }
             0xc9 => {
                 let axis = *p.get(3).ok_or_else(|| fail("missing rotation axis"))? as i32;
                 let matrix = super::camera::rotate(
