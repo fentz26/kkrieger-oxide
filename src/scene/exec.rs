@@ -1864,6 +1864,40 @@ impl Execution {
                 });
                 Ok(())
             }
+            0xc8 => {
+                let parameters = super::walk::Parameters::from_words(&p).map_err(fail)?;
+                let spline = op
+                    .splines
+                    .first()
+                    .copied()
+                    .flatten()
+                    .map(|index| {
+                        doc.splines
+                            .get(index)
+                            .ok_or_else(|| fail("walker spline out of range"))
+                    })
+                    .transpose()?;
+                let frame = self
+                    .instances
+                    .walk(root)?
+                    .advance(
+                        &parameters,
+                        parent,
+                        self.current_time,
+                        self.time_reset,
+                        spline,
+                    )
+                    .map_err(fail)?;
+                let saved: [[f32; 4]; 8] = self.vm.variables[16..24].try_into().unwrap();
+                let saved_time = self.vm.variables[27];
+                let count = frame.count;
+                self.vm.variables[16..16 + count].copy_from_slice(&frame.feet[..count]);
+                self.vm.variables[27] = frame.time;
+                let result = self.exec_inputs(doc, root, frame.transform);
+                self.vm.variables[16..16 + count].copy_from_slice(&saved[..count]);
+                self.vm.variables[27] = saved_time;
+                result
+            }
             0xc7 => {
                 if op.inputs.len() != 2 {
                     return Ok(());

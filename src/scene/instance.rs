@@ -24,6 +24,7 @@ enum State {
     Sample(super::sample::State),
     Emitter(super::particles::Emitter),
     Scatter(super::scatter::State),
+    Walk(Box<super::walk::State>),
     Physic(Physic),
     Splash(bool),
     Trigger(super::trigger::State),
@@ -77,6 +78,15 @@ impl Memory {
     pub fn monster(&mut self, operator: usize) -> Result<&mut Option<Monster>, Error> {
         match self.next(operator, || State::Monster(None))? {
             State::Monster(monster) => Ok(monster),
+            _ => Err(Error {
+                operator,
+                reason: "instance memory type differs during replay",
+            }),
+        }
+    }
+    pub fn walk(&mut self, operator: usize) -> Result<&mut super::walk::State, Error> {
+        match self.next(operator, || State::Walk(Box::default()))? {
+            State::Walk(state) => Ok(state),
             _ => Err(Error {
                 operator,
                 reason: "instance memory type differs during replay",

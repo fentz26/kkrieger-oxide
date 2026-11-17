@@ -21,6 +21,7 @@ pub mod sample;
 pub mod scatter;
 pub mod trigger;
 pub mod viewport;
+pub mod walk;
 
 pub type Handle = Rc<RefCell<Scene>>;
 #[derive(Clone, Debug)]
