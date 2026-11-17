@@ -202,6 +202,10 @@ impl<'a, S: Speech> Engine<'a, S> {
         speech.reset(sample_rate)?;
         Ok(Self { core, speech })
     }
+    pub fn reset(&mut self, sample_rate: u32) -> Result<(), &'static str> {
+        self.core = Core::new(self.core.bank, sample_rate, self.core.seed)?;
+        self.speech.reset(sample_rate)
+    }
     pub fn set_globals(&mut self, globals: &[u8]) -> Result<(), &'static str> {
         self.core.master.set(globals, &self.core.rate)
     }
@@ -281,12 +285,7 @@ impl<'a, S: Speech> Engine<'a, S> {
                 .controls
                 .program(channel, message.data[0], &mut self.core.allocator)?,
             15 if channel == 15 => {
-                self.core = Core::new(
-                    self.core.bank,
-                    self.core.controls.sample_rate,
-                    self.core.seed,
-                )?;
-                self.speech.reset(self.core.controls.sample_rate)?;
+                self.reset(self.core.controls.sample_rate)?;
             }
             _ => {}
         }

@@ -510,6 +510,10 @@
     "synth-speech-sequence.bin": {
       "bytes": 2266899,
       "sha256": "cc950d3e6e8f967ce756052dffb2baf3c5fccea554090bf2800f22683ffee4c9"
+    },
+    "v2m-playback.bin": {
+      "bytes": 482275,
+      "sha256": "c09a0837d543a69fa954bb44315a169d829cde4abe5f2a6b289f52a0858edda7"
     }
   }
 }
