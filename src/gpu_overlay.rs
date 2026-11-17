@@ -1,4 +1,4 @@
-//! Original IPP copy and two-sample blur materials on double-UV GPU quads.
+//! Original IPP copy, blur, color and merge materials on double-UV GPU quads.
 use crate::{
     gpu_mesh::{EffectJob, Material},
     material::State,
@@ -20,7 +20,30 @@ pub fn copy_state(mode: usize, color: u32) -> Result<State, &'static str> {
     Ok(state)
 }
 pub fn material_state(material: usize, color: u32) -> Result<State, &'static str> {
-    if matches!(material, 4 | 5) {
+    if (8..=24).contains(&material) {
+        let mut state = State::default();
+        let operation = if material < 16 {
+            material - 8
+        } else {
+            if material == 24 { 0 } else { material - 16 }
+        };
+        let combiner = [0x20, 0x80, 0xa0, 0x30, 0x40, 0x50, 0x98, 0xb0][operation];
+        state.words[0] = 0x20002;
+        state.words[4] = 0x101;
+        state.words[28] = color;
+        state.words[15] = 0x60;
+        state.textures[0] = Some(0);
+        if material < 16 {
+            state.words[9] = 0x10;
+            state.words[11] = combiner;
+        } else {
+            state.words[11] = 0x10;
+            state.words[12] = if material == 24 { 0x195 } else { combiner };
+            state.words[5] = 0x111;
+            state.textures[1] = Some(1);
+        }
+        Ok(state)
+    } else if matches!(material, 4 | 5) {
         let mut state = State::default();
         state.words[0] = 0x20002 | if material == 5 { 0x2000 } else { 0 };
         state.words[4] = 0x101;
@@ -71,7 +94,10 @@ impl Overlays {
         draw: &Draw,
         sources: &[TextureId],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let state = material_state(draw.material, draw.color)?;
+        let mut state = material_state(draw.material, draw.color)?;
+        if let Some(amplify) = draw.color2 {
+            state.words[30] = amplify;
+        }
         let required = state.textures.iter().flatten().count();
         if sources.len() != required
             || draw.texture1.is_some() != (required == 2)

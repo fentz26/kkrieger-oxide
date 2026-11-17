@@ -55,6 +55,7 @@ fn main() {
                 verify_targets(&mut *ctx);
                 verify_overlay_copy(&mut *ctx);
                 verify_overlay_blur(&mut *ctx);
+                verify_overlay_color_merge(&mut *ctx);
             }));
             if checked.is_err() {
                 std::process::exit(1);
@@ -1346,4 +1347,116 @@ fn verify_overlay_blur(ctx: &mut dyn RenderingBackend) {
     println!(
         "Original two-pass blur weights, alpha accumulation, and independent UV sets read back correctly"
     );
+}
+
+fn verify_overlay_color_merge(ctx: &mut dyn RenderingBackend) {
+    use kkrieger_oxide::{
+        gpu_overlay::Overlays,
+        gpu_target::Targets,
+        scene::{
+            camera::Environment,
+            overlay::{Draw, Viewport, fx_quad},
+        },
+    };
+    let viewport = Viewport {
+        screen: -1,
+        render_target: 200,
+        window: [0, 0, 32, 32],
+    };
+    let second = Viewport {
+        render_target: 201,
+        ..viewport
+    };
+    let destination = Viewport {
+        render_target: 202,
+        ..viewport
+    };
+    let mut targets = Targets::default();
+    let source = targets
+        .begin(ctx, viewport, [32, 32], 3, 0x80406080)
+        .unwrap();
+    ctx.end_render_pass();
+    let source1 = targets.begin(ctx, second, [32, 32], 3, 0x40802040).unwrap();
+    ctx.end_render_pass();
+    let output = targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+    ctx.end_render_pass();
+    let mut overlays = Overlays::new(ctx, 24).unwrap();
+    let mut draw = Draw {
+        viewport: destination,
+        environment: Environment {
+            orthogonal: 1,
+            ..Default::default()
+        },
+        material: 8,
+        texture: 200,
+        texture1: None,
+        texture2: None,
+        color: 0x80204060,
+        color2: Some(0x00404040),
+        vertices: fx_quad(None, None, None, None),
+    };
+    fn combine(a: [f32; 3], b: [f32; 3], operation: usize, alpha: f32) -> [f32; 3] {
+        std::array::from_fn(|i| match operation {
+            0 => a[i] + b[i],
+            1 => a[i] * (1. - b[i]) + b[i],
+            2 => b[i] - a[i],
+            3 => a[i] - b[i],
+            4 => a[i] * b[i],
+            5 => a[i] * b[i] * 2.,
+            6 => a[i] * alpha + b[i] * (1. - alpha),
+            _ => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+        })
+    }
+    let mut pixels = vec![0; 32 * 32 * 4];
+    for material in 8..=24 {
+        draw.material = material;
+        let (a, b, operation, alpha) = if material < 16 {
+            draw.texture1 = None;
+            (
+                [32. / 255., 64. / 255., 96. / 255.],
+                [64. / 255., 96. / 255., 128. / 255.],
+                material - 8,
+                128. / 255.,
+            )
+        } else {
+            draw.texture1 = Some(201);
+            draw.color = 0x80000000;
+            // Native AlphaSrc construction masks to the low nibble. Thus
+            // MERGE8's authored INVERTA flag is ignored, just as in source.
+            (
+                [64. / 255., 96. / 255., 128. / 255.],
+                [128. / 255., 32. / 255., 64. / 255.],
+                if material == 24 { 6 } else { material - 16 },
+                if material == 24 {
+                    64. / 255.
+                } else {
+                    128. / 255.
+                },
+            )
+        };
+        let expected =
+            combine(a, b, operation, alpha).map(|v| (v * (4. * 64. / 255.)).clamp(0., 1.));
+        targets.begin(ctx, destination, [32, 32], 3, 0).unwrap();
+        if material < 16 {
+            overlays.draw(ctx, &draw, source).unwrap();
+        } else {
+            overlays
+                .draw_sources(ctx, &draw, &[source, source1])
+                .unwrap();
+        }
+        ctx.end_render_pass();
+        ctx.texture_read_pixels(output, &mut pixels);
+        for (channel, value) in expected.into_iter().enumerate() {
+            let wanted = (value * 255.).round() as u8;
+            assert!(
+                pixels[(16 * 32 + 16) * 4 + channel].abs_diff(wanted) <= 2,
+                "overlay material {material} channel {channel}: got {} expected {wanted}",
+                pixels[(16 * 32 + 16) * 4 + channel]
+            );
+        }
+        assert_eq!(pixels[(16 * 32 + 16) * 4 + 3], 255);
+    }
+    overlays.delete(ctx);
+    targets.delete(ctx);
+    println!("Original eight color operations and nine merge materials read back correctly");
 }
