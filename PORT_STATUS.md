@@ -850,3 +850,11 @@ start-inside abort; an independent verifier runs those same scenarios through
 the complete released world cast with no callee stubs and confirms all selected
 plane/distance bits, cell identity and interrupt state. Broader dynamic-world
 integration, registry adapters, zone logic and the beta game remain unfinished.
+
+Released Particle::Hit's final event-state transition now has a portable helper
+for the 180-byte beta layout. Its 256-case oracle runs the actual full hit routine
+with null effect slots, comparing all 45 event words across null events,
+reflection, monster contact, arbitrary initial state and signed/wrapping times.
+Non-reflected or monster hits set Select=1 and Stop's Start=0/End=1; reflection
+preserves those fields, while both update ShotTime. Effect allocation/dispatch
+must precede this helper when hit-effect slots are present and remains pending.

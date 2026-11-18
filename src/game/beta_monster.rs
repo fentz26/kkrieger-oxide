@@ -3,6 +3,7 @@
 
 pub mod body;
 pub mod collision;
+pub mod hit;
 pub mod hull;
 pub mod physics;
 pub mod subtractive;

@@ -594,6 +594,10 @@
     "beta-zones.bin": {
       "bytes": 38916,
       "sha256": "521fd0160b398f9bd72e836d7f58ea64f27d163fec5b677a29c414dcc22a2c12"
+    },
+    "beta-hit-state.bin": {
+      "bytes": 96260,
+      "sha256": "3747cecfb97c9adc1eca3b072e2a88a3f3b7271b3f32311620d8ee0b8d710de9"
     }
   }
 }
