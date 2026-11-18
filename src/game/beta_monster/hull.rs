@@ -77,3 +77,14 @@ pub fn intersect_in(
     }
     result
 }
+
+/// Released FindCell returns the first containing cell in registry order.
+/// Boundary points are inside; an empty registry returns None.
+pub fn find_cell<'a>(
+    cells: impl IntoIterator<Item = (usize, &'a [[f32; 4]])>,
+    point: [f32; 4],
+) -> Option<usize> {
+    cells
+        .into_iter()
+        .find_map(|(id, planes)| (outside_mask(planes, point, 0.) == 0).then_some(id))
+}

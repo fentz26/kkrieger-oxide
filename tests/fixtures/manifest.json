@@ -586,6 +586,10 @@
     "beta-dynamic-scan.bin": {
       "bytes": 427012,
       "sha256": "67683dbc5d4cb2ee344060c299cdcae9e3be450f8b087c880ec206d1e6806fe2"
+    },
+    "beta-find-cell.bin": {
+      "bytes": 12292,
+      "sha256": "10670a30d2e6ec0d06ab66c06723249cd53f358ef9b53f27727ccd978beeb231"
     }
   }
 }

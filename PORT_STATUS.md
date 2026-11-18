@@ -825,3 +825,10 @@ NaN/nonpositive mass and aliased first/primary identities. Native outcomes are
 11 misses and 245 hits. Effect allocation/dispatch, general callback mutation,
 world/registry ownership and integration into gameplay remain unfinished; this
 establishes scan orchestration, not complete beta game behavior.
+
+Released FindCell now has a portable registry-order lookup using the verified
+beta OutsideMask kernel. Its 256-case oracle executes the actual FindCell and
+OutsideMask routines with zero through six shuffled, overlapping box cells.
+The selected identity matches, including boundaries, empty registries and NaN
+coordinates. The iterator API preserves caller-owned identities without pointer
+storage or allocation. World ownership and runtime integration remain pending.
