@@ -50,6 +50,21 @@ impl Registry {
             .iter()
             .map(|token| Rc::clone(&self.actors[token]))
     }
+    /// Visit persistent storage in registration order, releasing each borrow
+    /// before the next entry so repeated registrations remain valid.
+    pub fn visit_active<F>(&self, mut visit: F) -> Result<(), &'static str>
+    where
+        F: FnMut(u32, &mut Actor) -> Result<(), &'static str>,
+    {
+        for &token in &self.active {
+            let mut actor = self.actors[&token]
+                .try_borrow_mut()
+                .map_err(|_| "released actor already borrowed")?;
+            visit(token, &mut actor)?;
+        }
+        Ok(())
+    }
+
     pub fn remove(&mut self, token: u32) -> Option<Handle> {
         self.active.retain(|&id| id != token);
         self.actors.remove(&token)

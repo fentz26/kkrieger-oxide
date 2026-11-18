@@ -1276,3 +1276,11 @@ and an ordered per-frame registration list. Failed spawn does not consume an
 identity. Removal clears registrations and identities are never reused. Registry
 checks cover frame resets, duplicate registration order, retained handles and
 removed identities. Scene instance ownership and frame-loop wiring remain pending.
+
+### Ordered access to registered actor storage
+
+Registry::visit_active releases each actor borrow before advancing, preserving
+repeated registration order over shared persistent storage. Borrow conflicts
+return an error. Checks verify ordered mutations, repeated identities, conflict
+reporting and subsequent access after the borrow is released. Runtime phase and
+scene-instance integration remain pending.
