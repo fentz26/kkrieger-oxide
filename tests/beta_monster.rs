@@ -61,3 +61,37 @@ fn released_hit_box_matches_actual_math_callees() {
     }
     assert!(words.next().is_none());
 }
+#[test]
+fn released_spawn_prefix_matches_original_event_and_spline_routines() {
+    use kkrieger_oxide::game::beta_monster::InitialState;
+    let bytes = include_bytes!("fixtures/beta-monster-spawn.bin");
+    let mut words = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b));
+    assert_eq!(words.next(), Some(256));
+    for case in 0..256 {
+        let input: [u32; 26] = std::array::from_fn(|_| words.next().unwrap());
+        let parent =
+            std::array::from_fn(|_| std::array::from_fn(|_| f32::from_bits(words.next().unwrap())));
+        let spline = words.next().unwrap();
+        let actor = words.next().unwrap();
+        let state = InitialState::decode(&input, parent, spline, actor).unwrap();
+        let actual = state
+            .matrix
+            .into_iter()
+            .flatten()
+            .map(f32::to_bits)
+            .chain(state.copied.parameters)
+            .chain(state.event_words)
+            .chain(state.death_event_words)
+            .chain([state.spline_token, state.life as u32])
+            .chain(state.cell_query_position.map(f32::to_bits))
+            .chain([state.cell_query_mode]);
+        for (field, value) in actual.enumerate() {
+            assert_eq!(value, words.next().unwrap(), "case {case} field {field}");
+        }
+    }
+    assert!(words.next().is_none());
+}

@@ -668,3 +668,14 @@ zero and subnormal Euler inputs. The implementation preserves x87's 24-bit
 arithmetic with wide exponents, directed rounding, exact cancellation signs and
 the observed intermediate f32 stores. This establishes local collision geometry;
 released actor ownership, world placement and AI remain separate unfinished work.
+
+Released spawn fields now have a separate `InitialState` decoder. A third oracle
+runs the actual spawn prefix through its Event.Init, spline lookup and transform
+callees, stopping immediately before FindCell. Across 256 cases it checks the
+parent matrix, converted parameter block, both 180-byte event layouts, spline
+identity, life, and the exact cell-query arguments. The query uses parent.l with
+0.5 added to y and mode 3; the event translation separately adds the authored
+position offset. Token fields represent original identities without storing
+native Rust pointers. This remains a construction primitive: FindCell, collider
+initialization, dynamic-cell preparation, actor registration and AI still need
+their released behavior integrated before the beta root can run.

@@ -158,3 +158,67 @@ impl HitBox {
         })
     }
 }
+
+/// Released spawn fields before collider construction. Event words retain the
+/// released layout; they must not be reinterpreted as development KEvent fields.
+#[derive(Clone, Debug, PartialEq)]
+pub struct InitialState {
+    pub copied: InitialCopy,
+    pub matrix: crate::mesh::Matrix,
+    pub event_words: [u32; 45],
+    pub death_event_words: [u32; 45],
+    pub spline_token: u32,
+    pub life: i32,
+    pub cell_query_position: [f32; 4],
+    pub cell_query_mode: u32,
+}
+impl InitialState {
+    /// Tokens represent released object identities, never native Rust pointers.
+    pub fn decode(
+        words: &[u32],
+        parent: crate::mesh::Matrix,
+        spline_token: u32,
+        actor_token: u32,
+    ) -> Result<Self, &'static str> {
+        let copied = InitialCopy::decode(words)?;
+        let mut event_words = [0; 45];
+        // actor+0xbc and actor+0xcc, relative to Event at actor+0x78.
+        for axis in 0..3 {
+            event_words[17 + axis] = copied.vectors[0][axis].to_bits();
+            event_words[21 + axis] = down(add(
+                f64::from(copied.vectors[1][axis]),
+                f64::from(parent[3][axis]),
+            ))
+            .to_bits();
+        }
+        // Init() at actor+0xe4 constructs the identity, then replaces l.xyz
+        // from actor+0xcc and l.w with 1. Actor identity follows at +0x124.
+        let mut matrix = crate::mesh::identity();
+        for axis in 0..3 {
+            matrix[3][axis] = f32::from_bits(event_words[21 + axis]);
+        }
+        for (out, value) in event_words[27..43]
+            .iter_mut()
+            .zip(matrix.into_iter().flatten())
+        {
+            *out = value.to_bits();
+        }
+        event_words[43] = actor_token;
+        let life = copied.parameters[4] as i32;
+        Ok(Self {
+            copied,
+            matrix: parent,
+            event_words,
+            death_event_words: [0; 45],
+            spline_token,
+            life,
+            cell_query_position: [
+                parent[3][0],
+                down(add(f64::from(parent[3][1]), 0.5)),
+                parent[3][2],
+                parent[3][3],
+            ],
+            cell_query_mode: 3,
+        })
+    }
+}

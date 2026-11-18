@@ -534,6 +534,10 @@
     "beta-monster-geometry.bin": {
       "bytes": 78852,
       "sha256": "26a485e0edd69b8285379971529ea61139e87c106d876d35eace1f66a526f820"
+    },
+    "beta-monster-spawn.bin": {
+      "bytes": 175108,
+      "sha256": "1286b09ab13b83a8d12dcb423932c534223c521696d1e252697118b51097fe93"
     }
   }
 }
