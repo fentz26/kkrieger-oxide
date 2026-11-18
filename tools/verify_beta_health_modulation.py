@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Released AI life ratio and event selection writeback."""
+"""Released AI life ratio and event culling-distance writeback."""
 import runpy,pathlib,struct,random,hashlib
 s=runpy.run_path(str(pathlib.Path(__file__).with_name('verify_beta_actor_spawn.py')))
 globals().update({k:v for k,v in s.items() if not k.startswith('__')})

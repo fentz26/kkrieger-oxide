@@ -1090,7 +1090,7 @@ scene dispatch integration remain pending.
 
 ### Released life event modulation
 
-Life ratio and event selection mask 0x23 match 128 native executions at
+Life ratio and event culling distance 35 match 128 native executions at
 0x81d7b8..0x81d7d1. Cases include signed extremes, zero maximum life, infinity
 and x87 indefinite NaN. Full beta AI tick and scene integration remain pending.
 
@@ -1187,3 +1187,10 @@ applies melee hits through player Inventory::hit, returning the hurt sound.
 Ranged events enter the shared pending-event queue. Integration checks cover
 actual floor queries, player health changes, hurt sound and ranged queue output.
 Scene actor registration and pending-event scheduler integration remain pending.
+
+### Released event word 44 semantics
+
+The final event word is CullDist, consistent with the 180-byte released layout.
+The AI writes 0x23 (35) there, while Select remains at word 12. Comments and
+verification naming now identify culling distance correctly. Stored bits are
+unchanged. This distinction matters when bridging events to the scene scheduler.

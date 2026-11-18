@@ -128,7 +128,7 @@ impl Actor {
             super::down(super::mul(angle, 0.15915493866300567)).to_bits();
     }
 
-    /// Publish life modulation and the released event selection mask.
+    /// Publish life modulation and the released 35-unit event culling distance.
     pub fn update_health_modulation(&mut self) {
         let numerator = f64::from(self.initial.life);
         let denominator = f64::from(self.initial.copied.parameters[4] as i32);

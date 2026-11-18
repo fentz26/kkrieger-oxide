@@ -1,6 +1,6 @@
 use kkrieger_oxide::{game::beta_monster::actor::Actor, mesh::identity};
 #[test]
-fn life_ratio_and_selection_match_released_ai() {
+fn life_ratio_and_culling_distance_match_released_ai() {
     let bytes = include_bytes!("fixtures/beta-health-modulation.bin");
     assert_eq!(bytes.len(), 2052);
     for record in bytes[4..].as_chunks::<16>().0 {
