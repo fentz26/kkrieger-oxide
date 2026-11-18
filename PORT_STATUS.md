@@ -2,8 +2,50 @@
 
 Required outcome: the entire original .kkrieger game implemented in Rust,
 preserving its content and gameplay, with no invented game content. Runtime
-performance and distribution size must be measured and optimized. The current
-prototype does not satisfy that outcome. The goal remains active.
+performance and distribution size must be measured and optimized. The authored
+runtime is implemented in Rust, but complete original-game fidelity and a full
+playthrough remain unverified. The goal remains active.
+
+## Current runtime evidence
+
+This section supersedes historical “pending” statements in the progress notes
+below; those notes record the state when individual subsystems were ported.
+
+- The main executable loads the unchanged development project, executes its
+  authored intro, menus and gameplay roots, and uses the shared original-order
+  simulation, events, collision world and actor registry. It no longer runs the
+  invented prototype room or HUD.
+- Native macOS audio plays the Rust V2/Ronan synthesizer and precomputed VFX bank.
+  Game sounds and listener updates reach the mixer, with rotating effect slots,
+  distance attenuation, stereo positioning and Doppler resampling. Portable
+  speaker routing and interpolation are not verified against a Windows driver.
+- Music restarts, seeks and effect-request processing have allocation-counting
+  checks. Synth reset and MIDI workspace reuse avoid heap operations in those
+  tested paths. Audio output uses the original 44,100 Hz stereo PCM16 format.
+- The authored menu GPU capture shows readable text after correcting OS/2
+  Windows ascent/descent offsets. GDI hinting and exact coverage remain unproven.
+  Menu navigation and original resolution/shadow options have regression checks.
+- A five-minute simulated movement/firing run passes 30,000 ticks and 60,002
+  scene passes, checking actor count, player placement and finite render geometry.
+  This is a CPU render-preparation check, not five minutes of GPU pixel parity,
+  level traversal, or a complete playthrough.
+- A separate 30-tick GPU movement/firing check passes 62 scene passes. The menu
+  checker exercises compositing and captures the final target. Shadow disabling
+  retains mesh draws and produces no shadow draws in the tested authored frame.
+- Build-time project packing decodes byte for byte to the original export. The
+  measured macOS ARM64 release executable after packing was 1,151,600 bytes,
+  66,048 bytes smaller than the preceding build. Later changes require remeasurement.
+
+The current local audit passes 343 tests across 147 test binaries, with 28
+ignored checks. `cargo fmt --all --check` and Clippy across all targets pass.
+Ignored GPU/native/long-running checks require explicit execution; the count
+does not imply their requirements are complete.
+
+Remaining completion gates include released-beta ABI/content differences,
+original-executable pixel and full-gameplay comparisons, complete level traversal
+and ending, cross-platform audio, and further size/performance measurement.
+The runtime currently mixes some verified released light ordering with published
+source geometry; that combination must not be presented as released-binary parity.
 
 ## Reference state
 
