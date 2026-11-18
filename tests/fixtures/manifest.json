@@ -654,6 +654,10 @@
     "beta-cooldowns.bin": {
       "bytes": 6148,
       "sha256": "f51d618c3f7fbb634a437817e6324be3098602f7953720dab660d5ab747e8dfc"
+    },
+    "beta-attack.bin": {
+      "bytes": 17440,
+      "sha256": "3e2ffa95e5ed7536d672ada8ec333975f7842be96457c727d2e38991a1c07bd6"
     }
   }
 }

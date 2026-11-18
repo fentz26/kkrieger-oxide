@@ -6,6 +6,13 @@ use super::{
     dynamic::{MovingCell, Pose},
 };
 use crate::mesh::Matrix;
+/// Attack effects to apply to the player or enqueue in the released event list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Attack {
+    Melee(i32),
+    Ranged([u32; 45]),
+}
+
 #[derive(Clone, Debug)]
 pub struct Actor {
     pub initial: InitialState,
@@ -67,6 +74,48 @@ impl Actor {
 }
 
 impl Actor {
+    /// Select an attack after advancing cooldowns. The ranged visibility ray
+    /// starts at the player and ends at the actor matrix translation, each
+    /// raised by one unit. Its progress resets even when the ray is blocked.
+    pub fn select_attack<F>(
+        &mut self,
+        distance: f32,
+        player_position: [f32; 4],
+        mut blocked: F,
+    ) -> Option<Attack>
+    where
+        F: FnMut([f32; 4], [f32; 4]) -> bool,
+    {
+        if !self.active || self.cooldowns != [1., 1.] {
+            return None;
+        }
+        if distance < 1.5 {
+            let hits = self.initial.copied.parameters[6] as i32;
+            if hits <= 0 {
+                return None;
+            }
+            self.cooldowns[0] = 0.;
+            Some(Attack::Melee(hits))
+        } else {
+            if self.initial.copied.parameters[8] as i32 <= 0 || self.initial.spline_token == 0 {
+                return None;
+            }
+            self.cooldowns[1] = 0.;
+            let mut start = player_position;
+            let mut end = self.initial.matrix[3];
+            start[1] = super::down(super::add(f64::from(start[1]), 1.));
+            end[1] = super::down(super::add(f64::from(end[1]), 1.));
+            if blocked(start, end) {
+                return None;
+            }
+            let mut event = [0; 45];
+            event[0] = self.initial.spline_token;
+            event[17..25].copy_from_slice(&self.initial.event_words[17..25]);
+            event[43] = self.initial.event_words[43];
+            Some(Attack::Ranged(event))
+        }
+    }
+
     /// Advance the active branch's attack progress. The caller applies the
     /// AI's life check before entering the per-tick branches.
     pub fn advance_cooldowns(&mut self) {

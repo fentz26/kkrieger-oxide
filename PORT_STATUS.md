@@ -1049,3 +1049,12 @@ very small/large periods, and progress below zero and above one. Division and
 addition preserve x87 precision and the comparison before the final f32 spill.
 Inactive actors retain progress. Attack selection, damage/event emission and
 full beta AI/scene integration remain pending.
+
+### Released attack selection
+
+Attack selection and ranged event construction match 384 native executions
+of 0x81d4a4..0x81d5dd. Coverage includes equal/unequal cooldowns, NaNs,
+the 1.5-unit boundary, missing operators, disabled damage and blocked rays.
+The oracle intercepts player damage, visibility, allocation and event insertion,
+and executes the original event constructor. Rust returns the resulting effect
+for caller dispatch. Full beta AI tick and scene dispatch integration remain pending.
