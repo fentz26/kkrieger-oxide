@@ -1345,3 +1345,12 @@ registrations. Only active actors enter this ordered collider list. Frame start
 and failed execution clear it alongside other dynamic registrations. Scene tests
 cover inactive spawn, active replay and subsequent deactivation while retaining
 the living AI registration. Runtime consumption of this roster remains pending.
+
+### Released collider frame capture
+
+ActorFrame captures scene collider geometry separately from mutable actor
+storage, assigns stable particle identities with a caller-selected base, and
+builds body-to-owned-cell mappings. Borrowed collision views remain usable while
+actors mutate. Checks cover reordered actors, inactive body mappings, invalid
+tokens and identity overflow. Runtime frame ownership and dynamic reconciliation
+publication remain pending.
