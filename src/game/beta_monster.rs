@@ -1,6 +1,8 @@
 //! Released 2004 monster initialization ABI. This is separate from the later
 //! development actor: no walk-style, weapon-kind or spawn-switch words exist.
 
+pub mod body;
+
 /// Fields copied by the released handler at 0x81d82f..0x81d85e.
 /// The first vector feeds InitEuler in radians; the second is added to the
 /// parent translation by the released initializer.
@@ -170,7 +172,7 @@ pub struct InitialState {
     pub spline_token: u32,
     pub life: i32,
     pub cell_query_position: [f32; 4],
-    pub cell_query_mode: u32,
+    pub collider_type: u32,
 }
 impl InitialState {
     /// Tokens represent released object identities, never native Rust pointers.
@@ -218,7 +220,7 @@ impl InitialState {
                 parent[3][2],
                 parent[3][3],
             ],
-            cell_query_mode: 3,
+            collider_type: 3,
         })
     }
 }

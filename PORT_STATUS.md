@@ -674,8 +674,22 @@ runs the actual spawn prefix through its Event.Init, spline lookup and transform
 callees, stopping immediately before FindCell. Across 256 cases it checks the
 parent matrix, converted parameter block, both 180-byte event layouts, spline
 identity, life, and the exact cell-query arguments. The query uses parent.l with
-0.5 added to y and mode 3; the event translation separately adds the authored
+0.5 added to y; collider type 3 remains on the stack for Collider::Init.
+The event translation separately adds the authored
 position offset. Token fields represent original identities without storing
 native Rust pointers. This remains a construction primitive: FindCell, collider
 initialization, dynamic-cell preparation, actor registration and AI still need
 their released behavior integrated before the beta root can run.
+
+The released collider uses five particles and ten constraints, rather than the
+later development sphere. Its particle/constraint constructor is now ported to
+Rust with fixed arrays and index-based links. An oracle executes the complete
+released Collider::Init with every original callee, then compares its first
+840 bytes against the portable state (relocating identity links at the test
+boundary). All 256 cases match, including signed-zero positions, four collider
+types and present/absent world cells. The final particle and constraint have
+special flags, and the original vector copies and rest lengths are preserved.
+The dynamic collision cell, constraint solver, world interaction and actor
+integration remain unfinished. The spawn API now correctly calls the trailing
+stack word `collider_type`: FindCell's RET 0x10 leaves it for Collider::Init,
+so it is not a FindCell mode argument.

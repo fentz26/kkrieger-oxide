@@ -40,7 +40,10 @@ for case in range(256):
     out.extend(u.mem_read(actor,0x40));out.extend(u.mem_read(actor+0x40,56))
     out.extend(u.mem_read(actor+0x78,180));out.extend(u.mem_read(actor+0x12c,180))
     out.extend(u.mem_read(actor+0x1e0,8))
+    # FindCell returns with RET 0x10: the trailing word is retained for
+    # Collider::Init(position, cell, type), not an argument of FindCell.
     query = u.mem_read(u.reg_read(UC_X86_REG_ESP),20)
+    assert image[0x81b152-base:0x81b155-base] == bytes.fromhex('c21000')
     assert struct.unpack_from('<I',query,16)[0] == 3
     out.extend(query)
 path=root/'tests/fixtures/beta-monster-spawn.bin';path.write_bytes(out)

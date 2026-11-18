@@ -538,6 +538,10 @@
     "beta-monster-spawn.bin": {
       "bytes": 175108,
       "sha256": "1286b09ab13b83a8d12dcb423932c534223c521696d1e252697118b51097fe93"
+    },
+    "beta-collider.bin": {
+      "bytes": 222212,
+      "sha256": "b5f8a7cbaf1bf76acdfa326e69eb8e46dd5c01541dc7699bac677519ea7fb6ea"
     }
   }
 }
