@@ -598,6 +598,10 @@
     "beta-hit-state.bin": {
       "bytes": 96260,
       "sha256": "3747cecfb97c9adc1eca3b072e2a88a3f3b7271b3f32311620d8ee0b8d710de9"
+    },
+    "beta-hit-effect.bin": {
+      "bytes": 153604,
+      "sha256": "0515d0b34237569e8e698f054bc551829d6480cb200687922572625d4ff401c7"
     }
   }
 }

@@ -858,3 +858,14 @@ reflection, monster contact, arbitrary initial state and signed/wrapping times.
 Non-reflected or monster hits set Select=1 and Stop's Start=0/End=1; reflection
 preserves those fields, while both update ShotTime. Effect allocation/dispatch
 must precede this helper when hit-effect slots are present and remains pending.
+
+Released Particle::Hit now constructs effect-event words in fixed Rust storage,
+including kind/selection/operator gating, wrapping signed cooldown checks,
+monster bypass, source modulation update, position and normal-derived rotation.
+A 256-case full-handler oracle replaces only allocation and event-list insertion;
+every state/math callee runs original code. It compares all source and emitted
+words in 129 emitting cases and 127 skipped cases, including axis/signed-zero
+normals, reflection, null events/operators and cooldown equality. The constructor
+avoids a heap allocation; the caller still owns event identity and scheduler
+insertion. This supersedes the event-construction-pending note, while real slot
+lookup, registry ownership and runtime effect insertion remain unfinished.
