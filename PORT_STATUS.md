@@ -704,3 +704,17 @@ Both endpoints match bit for bit, including x87's negative indefinite NaN for
 identifies the four particle vectors as Pos, OldCollPos, OldPos and NewPos.
 This ports one relaxation operation; scheduling its iterations, particle
 integration, world response and the beta actor path remain unfinished.
+
+Released PhysicPart arithmetic and control flow now have a Rust implementation:
+position verification/reacquisition, five-particle height leveling, kind-specific
+gravity/damping, position-history integration and collision-return adjustments.
+A 256-case oracle runs the actual routine and math, controlling only OutsideMask,
+FindCell and collision response. It verifies world-call order, exact callback
+inputs and every particle state word afterward, including callback mutations.
+The final force-add/clear phase is also compared against the actual Physic pass
+with particle updates stubbed and no registered constraints/dynamic cells. These
+cases include signed-zero and subnormal forces. Bounds/group errors leave the
+body untouched and make no world calls. Both operations use fixed storage.
+The world-response boundary is deliberately explicit: released collision
+resolution, dynamic-cell processing, full tick scheduling and actor integration
+remain unfinished; these tests do not establish complete beta physics parity.

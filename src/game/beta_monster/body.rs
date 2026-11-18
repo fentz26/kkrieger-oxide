@@ -8,6 +8,8 @@ pub struct Particle {
     pub flags: [u32; 7],
     pub cell: Option<usize>,
     pub weight: f32,
+    pub damping: f32,
+    pub force: [f32; 4],
     /// Pos, OldCollPos, OldPos and NewPos at offsets 0x40..0x70.
     pub vectors: [[f32; 4]; 4],
 }
@@ -59,6 +61,8 @@ impl Body {
                 flags,
                 cell,
                 weight: 1.,
+                damping: 0.,
+                force: [0.; 4],
                 vectors: [point, position, delta, point],
             }
         });

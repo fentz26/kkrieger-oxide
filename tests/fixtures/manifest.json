@@ -546,6 +546,10 @@
     "beta-constraint.bin": {
       "bytes": 36868,
       "sha256": "12825995625e4e0a6ff5d49bf27a4573f0f4e2d204c5465165149bb22f3135eb"
+    },
+    "beta-particle.bin": {
+      "bytes": 544772,
+      "sha256": "4906863040935d3599635ade19b4c8686f487961274880f1703e413f61843f62"
     }
   }
 }

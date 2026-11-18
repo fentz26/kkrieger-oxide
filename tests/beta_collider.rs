@@ -21,7 +21,9 @@ fn particle_and_constraint_state_matches_released_initializer() {
             raw[..7].copy_from_slice(&state.flags);
             raw[7] = cell_token;
             raw[8] = body_token + 0x348;
+            raw[10] = state.damping.to_bits();
             raw[11] = state.weight.to_bits();
+            raw[12..16].copy_from_slice(&state.force.map(f32::to_bits));
             for (out, value) in raw[16..]
                 .iter_mut()
                 .zip(state.vectors.into_iter().flatten())
