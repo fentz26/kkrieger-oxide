@@ -128,4 +128,38 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
         "stopped shot suppresses zone masks"
     );
     assert_eq!(runtime.candidates.dynamic_cells[0].mode, 1);
+
+    runtime.hits.shots.insert(
+        7,
+        Shot {
+            kind: 3,
+            event: None,
+        },
+    );
+    body = Body::new([-0.5, 0., 0., 1.], None, 3);
+    let settings = kkrieger_oxide::game::beta_monster::physics::Settings {
+        gravity: 0.02,
+        gravity_player: 0.01,
+        damping_player_air: 0.,
+        damping_player_ground: 0.,
+        fly_mode: 0,
+        on_ground: false,
+    };
+    runtime.step_particle(&mut body, 0, settings).unwrap();
+    assert_eq!(
+        body.particles[0].cell,
+        Some(0),
+        "reacquired containing hull"
+    );
+    assert_eq!(body.particles[0].flags[5], 0);
+    assert!(body.particles[0].vectors[0][1] < -0.0099 && body.particles[0].vectors[0][1] > -0.0101);
+    assert_eq!(body.particles[0].vectors[2][1].to_bits(), 0);
+    assert_eq!(body.particles[0].vectors[0][1].to_bits(), 0xbc23d70a);
+    let before = body.clone();
+    runtime.particle_id = 99;
+    assert_eq!(
+        runtime.step_particle(&mut body, 0, settings),
+        Err("shot identity missing")
+    );
+    assert_eq!(body, before, "registry errors fail before physics mutation");
 }

@@ -183,3 +183,70 @@ impl ResponseWorld for CollisionRuntime<'_, '_> {
         }
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// Advance one particle through released integration and real collision.
+    /// Caller selects the registered particle identity before each invocation.
+    pub fn step_particle(
+        &mut self,
+        body: &mut super::body::Body,
+        index: usize,
+        settings: super::physics::Settings,
+    ) -> Result<(), &'static str> {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        let particle = body
+            .particles
+            .get(index)
+            .ok_or("particle index out of range")?;
+        let identity = self.hits.first_particle(self.particle_id)?;
+        if identity.kind != particle.flags[3] {
+            return Err("particle kind differs from registry");
+        }
+        if self
+            .skip_cell
+            .is_some_and(|id| id >= self.candidates.dynamic_cells.len())
+        {
+            return Err("skip cell out of range");
+        }
+        body.step_particle(index, settings, self)?;
+        if let Some(error) = self.error.or(self.hits.error) {
+            Err(error)
+        } else {
+            Ok(())
+        }
+    }
+}
+impl super::physics::World for CollisionRuntime<'_, '_> {
+    fn outside(&mut self, cell: usize, point: [f32; 4]) -> bool {
+        match self.adds.get(cell) {
+            Some(cell) => super::hull::outside_mask(cell.planes, point, 0.) != 0,
+            None => {
+                self.fail("particle world cell out of range");
+                true
+            }
+        }
+    }
+    fn find_cell(&mut self, point: [f32; 4]) -> Option<usize> {
+        if self.error.is_some() {
+            return None;
+        }
+        super::hull::find_cell(
+            self.adds
+                .iter()
+                .enumerate()
+                .map(|(id, cell)| (id, cell.planes)),
+            point,
+        )
+    }
+    fn collide(&mut self, particle: &mut Particle) -> bool {
+        match CollisionRuntime::collide(self, particle, false) {
+            Ok(completion) => completion != Completion::Clear,
+            Err(error) => {
+                self.fail(error);
+                false
+            }
+        }
+    }
+}

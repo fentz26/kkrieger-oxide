@@ -890,3 +890,13 @@ fail before particle mutation; later geometry/callback errors are reported after
 cleanup and may retain prior effects. The adapter does not advance physics or
 consume pending effects. Real beta world/actor ownership, scheduler insertion,
 dynamic geometry updates and game-loop integration remain unfinished.
+
+CollisionRuntime now implements the released particle world boundary and exposes
+a checked single-particle integration method. It uses beta hull containment and
+registry-order lookup, then the real response adapter. An independent verifier
+runs original collider Init and PhysicPart with actual world/response callees,
+no stubs, for the hull-reacquisition/gravity integration case; Rust matches its
+exact position-y and history-zero bits. Integration tests also verify registry
+errors before body mutation. The caller still selects particle identity for
+each step. Constraint/pass scheduling, dynamic geometry updates, effects dispatch
+and the complete beta actor/game loop remain unfinished.
