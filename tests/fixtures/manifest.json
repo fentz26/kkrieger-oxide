@@ -618,6 +618,10 @@
     "beta-motion-delta.bin": {
       "bytes": 24580,
       "sha256": "a6f059e845217dd450e5370847df8b1106358b511f0fbbdcb64d82ee3a825865"
+    },
+    "beta-dynamic-projection.bin": {
+      "bytes": 12804,
+      "sha256": "4574290b69d87a3f7584d4796702b43b277014e382da32e10297a56979beff5b"
     }
   }
 }

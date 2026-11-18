@@ -942,3 +942,13 @@ reflected, translated and arbitrary finite affine bases. This intentionally
 retains the released inverse algorithm rather than substituting a general
 inverse with different arithmetic. Particle motion reconciliation, dynamic-phase
 integration and the complete beta game remain unfinished.
+
+Moving-cell particle projection now preserves the released full-vector transform,
+normalized displacement, hull-entry query and outward separation offset. Its
+128-case instruction-slice oracle executes original math/hull callees and checks
+proposal bits or the no-motion blocked branch. The oracle stops blocked paths
+before the native missing-intersection path could consume unspecified stack
+outputs; Rust supplies no proposal for a missing intersection. Callers must still
+apply containment/ownership filters, probe collision in mode 1, restore particle
+Pos and decide cell acceptance. This is a verified projection prerequisite, not
+complete dynamic reconciliation or game-loop integration.

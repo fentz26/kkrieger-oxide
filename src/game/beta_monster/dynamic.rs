@@ -113,3 +113,53 @@ pub fn motion_delta(mut confirmed: Matrix, current: Matrix) -> Matrix {
         })
     })
 }
+
+/// Proposed particle position for moving-cell reconciliation. The caller first
+/// checks containment and ownership filters, then probes world collision in mode
+/// 1 and restores Pos. None blocks the cell; it supplies no position to commit.
+pub fn project_particle(point: [f32; 4], delta: Matrix, planes: &[[f32; 4]]) -> Option<[f32; 4]> {
+    let moved: [f32; 3] = std::array::from_fn(|axis| {
+        let a = down(mul(f64::from(point[0]), f64::from(delta[0][axis])));
+        let b = down(add(
+            mul(f64::from(point[1]), f64::from(delta[1][axis])),
+            f64::from(a),
+        ));
+        let c = down(add(
+            mul(f64::from(point[2]), f64::from(delta[2][axis])),
+            f64::from(b),
+        ));
+        down(add(
+            mul(f64::from(point[3]), f64::from(delta[3][axis])),
+            f64::from(c),
+        ))
+    });
+    let direction: [f32; 3] =
+        std::array::from_fn(|i| down(add(f64::from(point[i]), -f64::from(moved[i]))));
+    let squared = dot(direction, direction);
+    if squared < 1e-16 {
+        return None;
+    }
+    let factor = inverse_scale(direction);
+    let direction = direction.map(|v| down(mul(f64::from(v), f64::from(factor))));
+    let hit = super::hull::intersect_in(
+        planes,
+        point,
+        [direction[0], direction[1], direction[2], 0.],
+    )?;
+    let mut proposal = point;
+    for axis in 0..3 {
+        proposal[axis] = down(add(
+            mul(f64::from(direction[axis]), f64::from(hit.distance)),
+            f64::from(proposal[axis]),
+        ));
+        proposal[axis] = down(add(
+            mul(
+                f64::from(hit.plane[axis]),
+                -f64::from(super::collision::SEPARATION),
+            ),
+            f64::from(proposal[axis]),
+        ));
+    }
+    proposal[3] = 1.;
+    Some(proposal)
+}
