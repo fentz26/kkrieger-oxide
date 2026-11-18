@@ -1176,7 +1176,7 @@ registration, attack dispatch and complete runtime integration remain pending.
 ### Released attack operator identity
 
 The initializer field at actor+0x1e0 is now named attack_operator. The released
-call at 0x81d863 reads input operator zero through 0x80e11f, and ranged event
+call at 0x81d863 reads link operator zero through 0x80e11f, and ranged event
 creation copies that operator to the new event. The earlier spline_token name
 was misleading. Initialization and repeated ranged-event comparisons pass.
 
@@ -1210,3 +1210,12 @@ Resolution failure preserves the queued payloads and scheduler, allowing retry.
 Successful publication clears the queue. Checks cover resolution failure, retry,
 identity mapping, ordering and repeated publication without duplicates. Concrete
 scene-owned token maps and beta actor registration remain pending.
+
+### AI event pipeline integration
+
+The collision-runtime integration now follows a ranged attack through real hull
+queries, pending-event storage, token resolution and scene scheduler insertion.
+Operator/actor identities and emitted rotation/translation survive publication.
+The released initializer reads its attack operator from link zero (0x80e11f),
+while its living scene executes input zero (0x80e106). Concrete scene-owned
+registration and token maps remain pending.

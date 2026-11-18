@@ -338,4 +338,23 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     assert_eq!(inventory.amounts[0], 90);
     assert_eq!(world.runtime.hits.pending.len(), 1);
     assert_eq!(world.runtime.hits.pending[0][0], 123);
+    use kkrieger_oxide::scene::event::{ReleasedReference, Scheduler};
+    let emitted = world.runtime.hits.pending[0];
+    let mut scheduler = Scheduler::default();
+    let events = scheduler
+        .publish_released(&mut world.runtime.hits.pending, |kind, token| {
+            match (kind, token) {
+                (ReleasedReference::Operator, 123) => Ok(17),
+                (ReleasedReference::Monster, 1) => Ok(0),
+                _ => Err("unexpected event token"),
+            }
+        })
+        .unwrap();
+    assert!(world.runtime.hits.pending.is_empty());
+    assert_eq!(events.len(), 1);
+    let event = scheduler.events[&events[0]].borrow();
+    assert_eq!(event.operator, Some(17));
+    assert_eq!(event.monster, Some(0));
+    assert_eq!(event.rotate.map(f32::to_bits), emitted[17..21]);
+    assert_eq!(event.translate.map(f32::to_bits), emitted[21..25]);
 }
