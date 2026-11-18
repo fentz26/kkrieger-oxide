@@ -1093,3 +1093,10 @@ scene dispatch integration remain pending.
 Life ratio and event selection mask 0x23 match 128 native executions at
 0x81d7b8..0x81d7d1. Cases include signed extremes, zero maximum life, infinity
 and x87 indefinite NaN. Full beta AI tick and scene integration remain pending.
+
+### Released event position and facing
+
+Event position and rotation words match 128 native executions at
+0x81d720..0x81d762. Position follows the main physics particle, and facing
+uses the released FPATAN operand order and stored turns conversion constant.
+Full beta AI tick and scene integration remain pending.

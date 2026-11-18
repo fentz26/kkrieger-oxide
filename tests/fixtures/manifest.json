@@ -678,6 +678,10 @@
     "beta-health-modulation.bin": {
       "bytes": 2052,
       "sha256": "6b3f64249b057413ca6d327eb844750c27687aa67920c6f3fc9cae975a5fca23"
+    },
+    "beta-facing.bin": {
+      "bytes": 8196,
+      "sha256": "78cda18cb14d81663de5b7f154136c68bd3c120f8366799187a8994ec29b0ba3"
     }
   }
 }

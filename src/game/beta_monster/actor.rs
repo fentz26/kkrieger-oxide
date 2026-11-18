@@ -74,6 +74,16 @@ impl Actor {
 }
 
 impl Actor {
+    /// Copy the current physics position and horizontal facing into the event.
+    pub fn update_event_pose(&mut self, direction: [f32; 4]) {
+        self.initial.event_words[21..25]
+            .copy_from_slice(&self.body.particles[0].vectors[0].map(f32::to_bits));
+        self.initial.event_words[17..21].fill(0);
+        let angle = (-f64::from(direction[0])).atan2(-f64::from(direction[2]));
+        self.initial.event_words[18] =
+            super::down(super::mul(angle, 0.15915493866300567)).to_bits();
+    }
+
     /// Publish life modulation and the released event selection mask.
     pub fn update_health_modulation(&mut self) {
         let numerator = f64::from(self.initial.life);
