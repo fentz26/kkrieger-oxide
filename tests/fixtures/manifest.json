@@ -558,6 +558,10 @@
     "beta-second-slide.bin": {
       "bytes": 41988,
       "sha256": "674342094ccbafb54c18521f0166b96721e3adffb4966e6c456d07e7095b340c"
+    },
+    "beta-finish.bin": {
+      "bytes": 102404,
+      "sha256": "9a372035dda63e922ba4b561d12e3677c873ae9373f537d9e213c7a411d34b35"
     }
   }
 }

@@ -740,3 +740,14 @@ travel; origin, target, direction and reset effects match bit for bit. Shared
 plane projection avoids recomputing discarded first-contact direction work.
 Final-contact fallback, world casts, callbacks and full driver integration
 remain unfinished; this establishes the second-contact arithmetic only.
+
+Released collision finalization now has a Rust implementation for clear,
+contact and blocked return bytes (0, 1 and 2). A 256-case tail oracle checks
+commit/rollback stores, both modes, kind-zero zone suppression, callback argument
+order and callback mutations to particle state and the candidate target. It uses
+arbitrary word patterns to verify exact copies, including NaN payloads. Commit
+always replaces OldCollPos and Cell; rollback uses the post-callback OldCollPos
+without committing the candidate cell. Mode skips the final Pos store on commit
+and the Pos/OldPos stores on rollback. The oracle's SkipCell is null: owned-cell
+cleanup, cast orchestration, actual zone behavior and driver integration remain
+unfinished. This ports the final state transition, not the complete response.

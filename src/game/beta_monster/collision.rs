@@ -188,3 +188,45 @@ impl Travel {
         }
     }
 }
+
+/// Released collision return byte, including its nonzero blocked fallback.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum Completion {
+    Clear = 0,
+    Contact = 1,
+    Blocked = 2,
+}
+/// Commit or roll back after the casts. The driver still owns skip-cell cleanup.
+/// Zone callbacks may change particle state and the candidate target before the
+/// original stores run. `mode` skips the final Pos store on commit and the
+/// Pos/OldPos stores on rollback. Commit always updates OldCollPos and Cell.
+pub fn finish_particle<F>(
+    particle: &mut super::body::Particle,
+    mut target: [f32; 4],
+    cell: Option<usize>,
+    mode: bool,
+    completion: Completion,
+    zones: F,
+) -> Completion
+where
+    F: FnOnce(&mut super::body::Particle, &mut [f32; 4], Option<usize>, Option<usize>),
+{
+    if particle.flags[3] != 0 {
+        let old_cell = particle.cell;
+        zones(particle, &mut target, old_cell, cell);
+    }
+    if completion == Completion::Blocked {
+        if !mode {
+            particle.vectors[2] = particle.vectors[1];
+            particle.vectors[0] = particle.vectors[1];
+        }
+    } else {
+        particle.vectors[1] = target;
+        particle.cell = cell;
+        if !mode {
+            particle.vectors[0] = target;
+        }
+    }
+    completion
+}
