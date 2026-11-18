@@ -162,4 +162,55 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
         Err("shot identity missing")
     );
     assert_eq!(body, before, "registry errors fail before physics mutation");
+
+    use kkrieger_oxide::game::beta_monster::{
+        dynamic::{MovingCell, Pose},
+        runtime::BodyRegistration,
+    };
+    runtime.particle_id = 99;
+    runtime.skip_cell = None;
+    for (i, p) in body.particles.iter_mut().enumerate() {
+        runtime.hits.shots.insert(
+            i,
+            Shot {
+                kind: p.flags[3],
+                event: None,
+            },
+        );
+        p.cell = Some(0);
+        p.vectors[0][3] = 1.;
+    }
+    let first = kkrieger_oxide::mesh::identity();
+    let mut current = first;
+    current[3][0] = 0.2;
+    let mut moving = MovingCell {
+        original: planes,
+        count: 6,
+        confirmed: first,
+        current,
+        mode: 1,
+        monster: false,
+        pose: Pose::apply(&planes, first).unwrap(),
+    };
+    let before = std::array::from_fn::<_, 5, _>(|i| body.particles[i].vectors[0]);
+    runtime
+        .reconcile_cell(
+            0,
+            &mut moving,
+            std::slice::from_mut(&mut body),
+            &[BodyRegistration {
+                particles: [0, 1, 2, 3, 4],
+                skip_cell: None,
+            }],
+        )
+        .unwrap();
+    assert!(
+        moving.pose.blocked,
+        "real collision rejects particles already inside the registered hull"
+    );
+    for (p, position) in body.particles.iter().zip(before) {
+        assert_eq!(p.vectors[0], position);
+    }
+    assert_eq!(runtime.particle_id, 99);
+    assert_eq!(runtime.skip_cell, None);
 }

@@ -353,3 +353,62 @@ impl CollisionRuntime<'_, '_> {
         result
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// Reconcile one moving cell against registered bodies using real mode-1
+    /// collision probes. Publish its accepted collision view after this returns.
+    pub fn reconcile_cell(
+        &mut self,
+        index: usize,
+        cell: &mut super::dynamic::MovingCell,
+        bodies: &mut [super::body::Body],
+        registrations: &[BodyRegistration],
+    ) -> Result<(), &'static str> {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        if index >= self.candidates.dynamic_cells.len() {
+            return Err("moving cell index out of range");
+        }
+        if bodies.len() != registrations.len() {
+            return Err("body registration count differs");
+        }
+        for (body, registration) in bodies.iter().zip(registrations) {
+            if registration
+                .skip_cell
+                .is_some_and(|i| i >= self.candidates.dynamic_cells.len())
+            {
+                return Err("skip cell out of range");
+            }
+            for (p, id) in body.particles.iter().zip(registration.particles) {
+                if self.hits.first_particle(id)?.kind != p.flags[3] {
+                    return Err("particle kind differs from registry");
+                }
+            }
+        }
+        let previous = (self.particle_id, self.skip_cell);
+        let particles = bodies
+            .iter_mut()
+            .zip(registrations)
+            .flat_map(|(body, registration)| {
+                body.particles
+                    .iter_mut()
+                    .zip(registration.particles)
+                    .map(move |(particle, id)| {
+                        (
+                            particle,
+                            registration.skip_cell == Some(index),
+                            (id, registration.skip_cell),
+                        )
+                    })
+            });
+        let result = cell.reconcile_with(particles, |(id, skip), particle| {
+            self.particle_id = id;
+            self.skip_cell = skip;
+            self.collide(particle, true)
+        });
+        self.particle_id = previous.0;
+        self.skip_cell = previous.1;
+        result
+    }
+}

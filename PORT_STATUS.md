@@ -982,3 +982,13 @@ its plane count. Callers must drop views before mutating moving cells, rebuild
 views after each phase and persist updated collided masks in registry metadata.
 This provides the geometry-view boundary; the complete owned-world phase driver,
 part-box processing and beta actor/game registration remain unfinished.
+
+CollisionRuntime now reconciles a moving cell against registered bodies using
+its real mode-1 response adapter. A context-carrying iterator supplies particle
+identity and owned-cell exclusion without allocating a flattened particle list.
+The original callback-only reconciler delegates to the same implementation.
+Integration tests verify a blocked moving hull with actual world collision,
+restored temporary positions and restored caller identity/skip context. Existing
+native reconciliation comparisons still cover the shared geometry/control path.
+Accepted geometry publication remains an explicit caller step; the owned-world
+phase driver, part-box updates and complete beta gameplay remain unfinished.

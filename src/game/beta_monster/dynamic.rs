@@ -185,6 +185,27 @@ impl MovingCell {
         I: IntoIterator<Item = (&'p mut super::body::Particle, bool)>,
         F: FnMut(&mut super::body::Particle) -> Result<super::collision::Completion, &'static str>,
     {
+        self.reconcile_with(
+            particles
+                .into_iter()
+                .map(|(particle, owned)| (particle, owned, ())),
+            |(), particle| probe(particle),
+        )
+    }
+    /// Reconcile with caller-owned per-particle identity/context. No temporary
+    /// collection is needed when traversing registered body arrays.
+    pub fn reconcile_with<'p, C, I, F>(
+        &mut self,
+        particles: I,
+        mut probe: F,
+    ) -> Result<(), &'static str>
+    where
+        I: IntoIterator<Item = (&'p mut super::body::Particle, bool, C)>,
+        F: FnMut(
+            C,
+            &mut super::body::Particle,
+        ) -> Result<super::collision::Completion, &'static str>,
+    {
         let original = self
             .original
             .get(..self.count)
@@ -192,7 +213,7 @@ impl MovingCell {
         let proposed = Pose::apply(original, self.current)?;
         let delta = motion_delta(self.confirmed, self.current);
         let mut blocked = false;
-        for (particle, owned) in particles {
+        for (particle, owned, context) in particles {
             if owned || (self.monster && !(8..16).contains(&particle.flags[3])) {
                 continue;
             }
@@ -206,7 +227,7 @@ impl MovingCell {
                 continue;
             };
             particle.vectors[0] = target;
-            let result = probe(particle);
+            let result = probe(context, particle);
             particle.vectors[0] = position;
             match result {
                 Ok(super::collision::Completion::Clear) => {}
