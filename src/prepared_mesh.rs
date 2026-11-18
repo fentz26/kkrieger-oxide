@@ -360,3 +360,5 @@ pub fn generate_many_with_materials(
         materials,
     })
 }
+
+pub mod skinning;
