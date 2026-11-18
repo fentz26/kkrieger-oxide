@@ -1293,3 +1293,11 @@ remain ordered without simultaneously borrowing the same actor. Both body paths
 share registration validation and restore caller particle/skip-cell context.
 Integration and native body-pass checks pass. Scene registration and full frame
 wiring remain pending.
+
+### AI over registered shared actors
+
+CollisionRuntime::tick_registered validates registrations, ticks shared actors in
+registration order and dispatches their attacks through inventory/pending events.
+The caller's skip-cell context is restored. Integration checks advance the same
+registry actors through physics and AI with real hull queries. Scene instance
+registration and the complete game frame loop remain pending.

@@ -474,4 +474,18 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][0] > 0.);
 
     assert_eq!(world.runtime.skip_cell, None);
+    let sounds = world
+        .runtime
+        .tick_registered(
+            &registry,
+            &registered,
+            [-1., 0., 0., 1.],
+            Some(0),
+            &settings,
+            &mut inventory,
+        )
+        .unwrap();
+    assert!(sounds.is_empty());
+    assert!(registry.get(token).unwrap().borrow().active);
+    assert_eq!(world.runtime.skip_cell, None);
 }

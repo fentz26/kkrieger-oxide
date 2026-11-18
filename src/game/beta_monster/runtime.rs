@@ -644,3 +644,36 @@ impl CollisionRuntime<'_, '_> {
         result
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    pub fn tick_registered(
+        &mut self,
+        registry: &super::registry::Registry,
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+        player: [f32; 4],
+        player_cell: Option<usize>,
+        settings: &super::ai::Settings,
+        inventory: &mut crate::game::Inventory,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        registry.visit_active(|token, actor| {
+            let registration = registrations
+                .get(&token)
+                .ok_or("released body registration missing")?;
+            self.validate_body(&actor.body, registration)
+        })?;
+        let previous = self.skip_cell;
+        let mut sounds = Vec::new();
+        let result = registry.visit_active(|token, actor| {
+            self.skip_cell = registrations[&token].skip_cell;
+            if let Some(sound) = self.tick_actor(actor, player, player_cell, settings, inventory)? {
+                sounds.push(sound);
+            }
+            Ok(())
+        });
+        self.skip_cell = previous;
+        result.map(|()| sounds)
+    }
+}
