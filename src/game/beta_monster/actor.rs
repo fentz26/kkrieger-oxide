@@ -74,6 +74,24 @@ impl Actor {
 }
 
 impl Actor {
+    /// Signed scale applied to the horizontal monster-to-player vector.
+    pub fn steering_scale(&self, distance: f32) -> f32 {
+        let parameter = |i| f64::from(f32::from_bits(self.initial.copied.parameters[i]));
+        let speed = parameter(0);
+        let target = if f64::from(distance) < parameter(2) {
+            parameter(13)
+        } else {
+            parameter(12)
+        };
+        let mut scale = super::add(f64::from(distance), -target);
+        if scale >= speed {
+            scale = speed;
+        } else if scale < -speed {
+            scale = -speed;
+        }
+        super::down(-scale)
+    }
+
     /// Select an attack after advancing cooldowns. The ranged visibility ray
     /// starts at the player and ends at the actor matrix translation, each
     /// raised by one unit. Its progress resets even when the ray is blocked.

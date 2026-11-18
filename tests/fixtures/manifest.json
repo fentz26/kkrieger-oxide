@@ -658,6 +658,10 @@
     "beta-attack.bin": {
       "bytes": 17440,
       "sha256": "3e2ffa95e5ed7536d672ada8ec333975f7842be96457c727d2e38991a1c07bd6"
+    },
+    "beta-steering.bin": {
+      "bytes": 6148,
+      "sha256": "750f73f5cd1ac47479aebb22b5ea4e3eab8fbcbce436ad13f9c13188446d7e5b"
     }
   }
 }

@@ -1058,3 +1058,10 @@ the 1.5-unit boundary, missing operators, disabled damage and blocked rays.
 The oracle intercepts player damage, visibility, allocation and event insertion,
 and executes the original event constructor. Rust returns the resulting effect
 for caller dispatch. Full beta AI tick and scene dispatch integration remain pending.
+
+### Released steering scale
+
+The horizontal steering scale matches 256 native executions of
+0x81d5dd..0x81d62c, covering both target-distance branches and signed speed
+limits. The comparison order and directed subtraction/spill are preserved.
+Terrain-height correction and complete beta AI tick integration remain pending.
