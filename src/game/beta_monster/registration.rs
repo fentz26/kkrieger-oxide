@@ -9,6 +9,7 @@ use super::{
 use std::collections::BTreeMap;
 pub struct ActorFrame {
     pub cells: Vec<(u32, MovingCell)>,
+    collided: Vec<u32>,
     pub bodies: BTreeMap<u32, BodyRegistration>,
     pub particles: BTreeMap<usize, Shot>,
 }
@@ -59,21 +60,59 @@ impl ActorFrame {
             );
             Ok(())
         })?;
+        let collided = vec![0; cells.len()];
         Ok(Self {
+            collided,
             cells,
             bodies,
             particles,
         })
     }
+    pub fn save_collision_masks(&mut self, masks: &[u32]) -> Result<(), &'static str> {
+        if masks.len() != self.cells.len() {
+            return Err("released collision mask count differs");
+        }
+        self.collided.copy_from_slice(masks);
+        Ok(())
+    }
+    /// Commit accepted geometry only after all actor identities can be borrowed.
+    pub fn publish_geometry(&self, registry: &Registry) -> Result<(), &'static str> {
+        let mut latest = BTreeMap::new();
+        for (index, (token, _)) in self.cells.iter().enumerate() {
+            latest.insert(*token, index);
+        }
+        let handles = latest
+            .keys()
+            .map(|&token| {
+                registry
+                    .get(token)
+                    .ok_or("released collider identity missing")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut actors = handles
+            .iter()
+            .map(|handle| {
+                handle
+                    .try_borrow_mut()
+                    .map_err(|_| "released actor already borrowed")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for (actor, index) in actors.iter_mut().zip(latest.values()) {
+            actor.hit_cell = self.cells[*index].1.clone();
+        }
+        Ok(())
+    }
+
     pub fn dynamic_views(&self) -> Result<Vec<DynamicCell<'_>>, &'static str> {
         self.cells
             .iter()
-            .map(|(token, cell)| {
+            .enumerate()
+            .map(|(index, (token, cell))| {
                 cell.collision_view(CollisionProperties {
                     only_for_shot: false,
                     player: false,
                     part_box: Some(*token as usize),
-                    collided: 0,
+                    collided: self.collided[index],
                 })
             })
             .collect()

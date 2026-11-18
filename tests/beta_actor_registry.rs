@@ -65,7 +65,7 @@ fn scene_collider_capture_keeps_particle_ids_stable_and_actor_borrows_free() {
     let second = registry.spawn(&data, identity(), 0, |_| Some(0)).unwrap();
     registry.register(second).unwrap();
     registry.register(first).unwrap();
-    let frame = ActorFrame::capture(&registry, &[second], 100).unwrap();
+    let mut frame = ActorFrame::capture(&registry, &[second], 100).unwrap();
     assert_eq!(frame.bodies[&first].particles, [100, 101, 102, 103, 104]);
     assert_eq!(frame.bodies[&second].particles, [105, 106, 107, 108, 109]);
     assert_eq!(frame.bodies[&first].skip_cell, None);
@@ -81,6 +81,15 @@ fn scene_collider_capture_keeps_particle_ids_stable_and_actor_borrows_free() {
     assert_eq!(registry.get(second).unwrap().borrow().initial.life, 9);
     assert_eq!(views[0].mode, frame.cells[0].1.mode);
     assert_eq!(frame.particles.len(), 10);
+    drop(views);
+    assert!(frame.save_collision_masks(&[]).is_err());
+    frame.save_collision_masks(&[0x80]).unwrap();
+    assert_eq!(frame.dynamic_views().unwrap()[0].collided, 0x80);
+    frame.cells[0].1.mode = 1;
+    frame.publish_geometry(&registry).unwrap();
+    assert_eq!(registry.get(second).unwrap().borrow().hit_cell.mode, 1);
+    assert_eq!(registry.get(second).unwrap().borrow().initial.life, 9);
+
     assert!(ActorFrame::capture(&registry, &[99], 100).is_err());
     assert!(ActorFrame::capture(&registry, &[], usize::MAX).is_err());
 }

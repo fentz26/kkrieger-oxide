@@ -1363,3 +1363,11 @@ identities are unique in the probe set, while AI/physics registration traversal
 retains its order. The registered physics integration invokes reconciliation
 inside the dynamic callback and passes. Complete frame ownership and accepted
 geometry publication back to scene actors remain pending.
+
+### Accepted actor geometry writeback
+
+ActorFrame retains collided masks across rebuilt views and can publish accepted
+moving-cell geometry back to persistent actors. Publication resolves and borrows
+all target identities before changing any geometry. Checks cover mask-size
+validation, retained masks and geometry writeback preserving actor life. Full
+frame-stage composition and game-loop integration remain pending.
