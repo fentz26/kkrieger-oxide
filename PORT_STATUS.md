@@ -934,3 +934,11 @@ nonuniform scaling and very small/large scales. Every output plane, center and
 matrix word matches. More than six original planes is rejected. Dynamic-cell
 motion reconciliation against particles, registry geometry ownership and actual
 dynamic-phase integration remain unfinished.
+
+Released dynamic motion-delta construction now preserves its scale-aware inverse
+algorithm and full four-term matrix multiply. A 128-case oracle executes both
+actual routines and their math callees, comparing every delta word for scaled,
+reflected, translated and arbitrary finite affine bases. This intentionally
+retains the released inverse algorithm rather than substituting a general
+inverse with different arithmetic. Particle motion reconciliation, dynamic-phase
+integration and the complete beta game remain unfinished.

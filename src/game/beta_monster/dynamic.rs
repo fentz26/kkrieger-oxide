@@ -61,3 +61,55 @@ impl Pose {
         })
     }
 }
+
+fn inverse_scale(v: [f32; 3]) -> f32 {
+    let squared = dot(v, v);
+    let root = squared.sqrt();
+    let root = rounded_arithmetic(root, (-root).mul_add(root, squared));
+    let q = 1. / root;
+    down(rounded_arithmetic(q, (-q).mul_add(root, 1.) / root))
+}
+/// Exact released dynamic-motion delta, including the original inverse
+/// algorithm for scaled bases. It is not a general-purpose matrix inverse.
+pub fn motion_delta(mut confirmed: Matrix, current: Matrix) -> Matrix {
+    let factors: [f32; 3] = std::array::from_fn(|row| {
+        inverse_scale([confirmed[row][0], confirmed[row][1], confirmed[row][2]])
+    });
+    for (row, factor) in confirmed[..3].iter_mut().zip(factors) {
+        for value in &mut row[..3] {
+            *value = down(mul(f64::from(*value), f64::from(factor)));
+        }
+    }
+    for row in 0..3 {
+        for axis in row + 1..3 {
+            let value = confirmed[row][axis];
+            confirmed[row][axis] = confirmed[axis][row];
+            confirmed[axis][row] = value;
+        }
+    }
+    for (row, factor) in confirmed[..3].iter_mut().zip(factors) {
+        for value in &mut row[..3] {
+            *value = down(mul(f64::from(*value), f64::from(factor)));
+        }
+    }
+    let translation = rotate(
+        [-confirmed[3][0], -confirmed[3][1], -confirmed[3][2]],
+        confirmed,
+    );
+    confirmed[3][..3].copy_from_slice(&translation);
+    std::array::from_fn(|row| {
+        std::array::from_fn(|axis| {
+            let mut value = mul(f64::from(confirmed[row][3]), f64::from(current[3][axis]));
+            for term in (0..3).rev() {
+                value = add(
+                    value,
+                    mul(
+                        f64::from(confirmed[row][term]),
+                        f64::from(current[term][axis]),
+                    ),
+                );
+            }
+            down(value)
+        })
+    })
+}

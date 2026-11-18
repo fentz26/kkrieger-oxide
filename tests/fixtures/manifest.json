@@ -614,6 +614,10 @@
     "beta-dynamic-planes.bin": {
       "bytes": 37300,
       "sha256": "7ff349cd7ce3cca90e3878431fd8fdba0538384459def0ea0017ed4ed645e0ad"
+    },
+    "beta-motion-delta.bin": {
+      "bytes": 24580,
+      "sha256": "a6f059e845217dd450e5370847df8b1106358b511f0fbbdcb64d82ee3a825865"
     }
   }
 }
