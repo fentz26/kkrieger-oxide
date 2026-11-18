@@ -105,6 +105,13 @@ impl Event {
         ]
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReleasedReference {
+    Operator,
+    Spline,
+    Monster,
+}
+
 #[derive(Default)]
 pub struct Scheduler {
     pub beat: i32,
@@ -115,6 +122,40 @@ pub struct Scheduler {
     active: BTreeMap<usize, Vec<Id>>,
 }
 impl Scheduler {
+    /// Resolve and publish a complete released-event batch in queue order.
+    /// Resolution failure preserves both the queue and scheduler contents.
+    pub fn publish_released<F>(
+        &mut self,
+        pending: &mut Vec<[u32; 45]>,
+        mut resolve: F,
+    ) -> Result<Vec<Id>, &'static str>
+    where
+        F: FnMut(ReleasedReference, u32) -> Result<usize, &'static str>,
+    {
+        let mut events = Vec::with_capacity(pending.len());
+        for words in pending.iter() {
+            let mut reference = |kind, token| {
+                if token == 0 {
+                    Ok(None)
+                } else {
+                    resolve(kind, token).map(Some)
+                }
+            };
+            events.push(Event::from_released_words(
+                words,
+                reference(ReleasedReference::Operator, words[0])?,
+                reference(ReleasedReference::Spline, words[26])?,
+                reference(ReleasedReference::Monster, words[43])?,
+            ));
+        }
+        let identities = events
+            .into_iter()
+            .map(|event| self.insert(event, true))
+            .collect();
+        pending.clear();
+        Ok(identities)
+    }
+
     pub fn from_document(doc: &Document<'_>) -> Self {
         let mut scheduler = Self::default();
         for source in &doc.events {

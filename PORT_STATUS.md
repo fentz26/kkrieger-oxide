@@ -1202,3 +1202,11 @@ storage after pointer tokens have been resolved to portable identities. Native
 actor-event fixtures verify pose, scale modulation, matrix and culling fields
 through scheduler insertion and variable access. Token ownership, pending-queue
 publication and beta actor scene registration remain pending.
+
+### Released pending-event publication
+
+The scheduler can resolve and publish a released-event batch in queue order.
+Resolution failure preserves the queued payloads and scheduler, allowing retry.
+Successful publication clears the queue. Checks cover resolution failure, retry,
+identity mapping, ordering and repeated publication without duplicates. Concrete
+scene-owned token maps and beta actor registration remain pending.
