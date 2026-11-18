@@ -288,3 +288,36 @@ impl MovingCell {
         self.reconcile(particles, probe)
     }
 }
+
+/// Registry metadata retained while geometric views are rebuilt after motion.
+#[derive(Clone, Copy, Debug)]
+pub struct CollisionProperties {
+    pub only_for_shot: bool,
+    pub player: bool,
+    pub part_box: Option<usize>,
+    pub collided: u32,
+}
+impl MovingCell {
+    /// Borrow the accepted hull for a cast. Drop views before reconciliation and
+    /// rebuild afterward; blocked proposals never replace the accepted planes.
+    /// The caller copies updated collided masks back into registry metadata.
+    pub fn collision_view(
+        &self,
+        properties: CollisionProperties,
+    ) -> Result<super::subtractive::DynamicCell<'_>, &'static str> {
+        let planes = self
+            .pose
+            .planes
+            .get(..self.pose.count)
+            .ok_or("dynamic plane capacity exceeded")?;
+        Ok(super::subtractive::DynamicCell {
+            planes,
+            mode: self.mode,
+            only_for_shot: properties.only_for_shot,
+            monster: self.monster,
+            player: properties.player,
+            part_box: properties.part_box,
+            collided: properties.collided,
+        })
+    }
+}

@@ -973,3 +973,12 @@ MovingCell::reconcile_frame connects this transform to reconciliation; an
 integration check verifies accepted confirmed pose and mode updates. Publishing
 accepted geometry, part-box processing and wiring the phase into the full game
 remain unfinished.
+
+Accepted moving-cell poses now expose borrowed DynamicCell collision views with
+registry metadata preserved. Integration tests cast before/after accepted motion
+and after blocked reconciliation, proving that scans use accepted planes rather
+than an unconfirmed proposal. The view avoids plane allocation/cloning and checks
+its plane count. Callers must drop views before mutating moving cells, rebuild
+views after each phase and persist updated collided masks in registry metadata.
+This provides the geometry-view boundary; the complete owned-world phase driver,
+part-box processing and beta actor/game registration remain unfinished.
