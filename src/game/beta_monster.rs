@@ -9,6 +9,7 @@ pub mod dynamic;
 pub mod hit;
 pub mod hull;
 pub mod physics;
+pub mod registry;
 pub mod runtime;
 pub mod static_world;
 pub mod subtractive;

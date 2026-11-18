@@ -1268,3 +1268,11 @@ builder, then reconstructs released hulls and connectivity from source vertices.
 It requires the beta document layout. The independently extracted beta level at
 root 4357 built successfully and passed registry bounds checks in 26.25 seconds.
 Scene actor registration and the complete beta frame loop remain pending.
+
+### Persistent released actor registry
+
+Released actors now have stable nonzero event tokens, shared persistent handles
+and an ordered per-frame registration list. Failed spawn does not consume an
+identity. Removal clears registrations and identities are never reused. Registry
+checks cover frame resets, duplicate registration order, retained handles and
+removed identities. Scene instance ownership and frame-loop wiring remain pending.
