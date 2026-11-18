@@ -689,3 +689,59 @@ impl CollisionRuntime<'_, '_> {
         result.map(|()| sounds)
     }
 }
+
+struct BorrowedActor<'a>(std::cell::RefMut<'a, super::actor::Actor>);
+impl AsRef<super::body::Body> for BorrowedActor<'_> {
+    fn as_ref(&self) -> &super::body::Body {
+        &self.0.body
+    }
+}
+impl AsMut<super::body::Body> for BorrowedActor<'_> {
+    fn as_mut(&mut self) -> &mut super::body::Body {
+        &mut self.0.body
+    }
+}
+impl CollisionRuntime<'_, '_> {
+    pub fn reconcile_registered(
+        &mut self,
+        index: usize,
+        cell: &mut super::dynamic::MovingCell,
+        registry: &super::registry::Registry,
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+    ) -> Result<(), &'static str> {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut handles = Vec::new();
+        let mut registration_list = Vec::new();
+        for &token in registry.active_ids() {
+            if !seen.insert(token) {
+                continue;
+            }
+            let actor = registry
+                .get(token)
+                .ok_or("released actor identity missing")?;
+            let active = actor
+                .try_borrow()
+                .map_err(|_| "released actor already borrowed")?
+                .active;
+            if !active {
+                continue;
+            }
+            registration_list.push(
+                *registrations
+                    .get(&token)
+                    .ok_or("released body registration missing")?,
+            );
+            handles.push(actor);
+        }
+        let mut actors = handles
+            .iter()
+            .map(|actor| {
+                actor
+                    .try_borrow_mut()
+                    .map(BorrowedActor)
+                    .map_err(|_| "released actor already borrowed")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        self.reconcile_cell(index, cell, &mut actors, &registration_list)
+    }
+}

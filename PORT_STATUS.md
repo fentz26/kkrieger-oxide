@@ -1354,3 +1354,12 @@ builds body-to-owned-cell mappings. Borrowed collision views remain usable while
 actors mutate. Checks cover reordered actors, inactive body mappings, invalid
 tokens and identity overflow. Runtime frame ownership and dynamic reconciliation
 publication remain pending.
+
+### Dynamic probes against registered actor bodies
+
+CollisionRuntime::reconcile_registered borrows active physical actor bodies for
+the existing moving-cell probe phase and releases them afterward. Physical
+identities are unique in the probe set, while AI/physics registration traversal
+retains its order. The registered physics integration invokes reconciliation
+inside the dynamic callback and passes. Complete frame ownership and accepted
+geometry publication back to scene actors remain pending.

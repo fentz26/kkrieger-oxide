@@ -460,7 +460,8 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
                 fly_mode: 0,
                 on_ground: false,
             },
-            |_, registry| {
+            |runtime, registry| {
+                runtime.reconcile_registered(0, &mut moving_cell, registry, &registered)?;
                 registry.visit_active(|_, actor| {
                     actor.body.particles[0].force[0] = 0.01;
                     Ok(())
