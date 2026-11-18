@@ -47,6 +47,21 @@ and ending, cross-platform audio, and further size/performance measurement.
 The runtime currently mixes some verified released light ordering with published
 source geometry; that combination must not be presented as released-binary parity.
 
+## Mesh animation follow-up
+
+`prepared_mesh::skinning` ports the later source's `EngMesh::EvalBones` routine.
+A pinned C++ oracle checks 2,048 weighted vertices, including normal/tangent
+cleanup, bit for bit in debug and release. This routine is not yet wired into
+GPU rendering. The development export uses the older GenMesh path; its editor
+bone recorder is excluded under `sINTRO`, while the later engine uses GenMinMesh
+animation ownership and per-job animation matrices. These paths must be traced
+separately before attaching skeleton data or claiming animated-mesh parity.
+
+Explicit release-mode full-asset checks currently pass for development and
+locally extracted beta collision worlds and prepared geometry, plus authored
+menu/gameplay paint dependencies and gameplay texture/font resources. They
+verify preparation and bounds/index invariants, not complete animated rendering.
+
 ## Reference state
 
 - Official source pinned to `farbrausch/fr_public@8c8f82c2ae01133370e649bbc05916e7aceecadd`.
