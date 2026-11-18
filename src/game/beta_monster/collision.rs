@@ -2,7 +2,7 @@
 //! are supplied through explicit boundaries, with portable response arithmetic.
 use super::{add, down, mul, rounded_arithmetic};
 const MIN_TRAVEL_SQUARED: f64 = 1e-16;
-const SEPARATION: f32 = f32::from_bits(0x38d1b717);
+pub(super) const SEPARATION: f32 = f32::from_bits(0x38d1b717);
 fn dot(a: [f32; 3], b: [f32; 3]) -> f64 {
     let a = a.map(f64::from);
     let b = b.map(f64::from);

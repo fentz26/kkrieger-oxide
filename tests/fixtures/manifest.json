@@ -574,6 +574,10 @@
     "beta-world-cast.bin": {
       "bytes": 48900,
       "sha256": "1df368aaa999ae5f6d294adcfdba3ab0d1dfd62930d80939e6005bca8be7d0a4"
+    },
+    "beta-subtractive.bin": {
+      "bytes": 108548,
+      "sha256": "aab51750c2846d485be29e15d504a508817fe4b7f9450e5172a6084caf2d2f21"
     }
   }
 }

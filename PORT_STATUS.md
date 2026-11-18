@@ -788,3 +788,14 @@ between boundary/subtractive hits. The terminal callback runs exactly once;
 invalid Rust indices fail before invoking it. False-hit out-buffer contents are
 not exposed by the Option contact API. Subtractive/dynamic candidate resolution,
 world/registry integration and the complete beta game remain unfinished.
+
+Released CollideRaySub2 now has a Rust single-cell clipping kernel. It preserves
+exact mode gating (1, or 9 with monster mode), start-inside interruption, shared
+outside-plane rejection, strict candidate priority, the positive 0.0001 margin
+check and all-four-word normal negation. Its 512-case complete-routine oracle
+uses every original hull/vector callee, comparing accepted/inside outcomes,
+interrupt effects and all output bits. Cases include disabled modes, empty
+hulls, corner misses, NaNs, boundary zero distance and equal-distance rejection.
+The observed split is 452 misses, 40 contacts and 20 inside aborts. World-level
+static/dynamic scanning, actor side effects and registry integration remain
+unfinished; this kernel does not yet provide complete world collision.
