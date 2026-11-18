@@ -97,6 +97,7 @@ pub struct Execution {
     /// Backend texture viewports keyed by authored bitmap operator identity.
     pub render_textures: std::collections::BTreeMap<usize, super::overlay::Viewport>,
     pub overlay_draws: Vec<super::overlay::Draw>,
+    pub released_colliders: Vec<u32>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
     pub event_spline: Option<usize>,
@@ -544,6 +545,7 @@ impl Execution {
             overlay: None,
             render_textures: std::collections::BTreeMap::new(),
             overlay_draws: Vec::new(),
+            released_colliders: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
             event_spline: None,
@@ -804,6 +806,7 @@ impl Execution {
         self.render_passes.clear();
         self.render_commands.clear();
         self.dynamic_cells.clear();
+        self.released_colliders.clear();
         self.game.monsters.begin_frame();
         self.game.released_monsters.begin_frame();
         self.next_monster_override = None;
@@ -820,6 +823,7 @@ impl Execution {
             self.render_passes.clear();
             self.render_commands.clear();
             self.dynamic_cells.clear();
+            self.released_colliders.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
         }
@@ -942,6 +946,7 @@ impl Execution {
             self.render_passes.clear();
             self.render_commands.clear();
             self.dynamic_cells.clear();
+            self.released_colliders.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
             self.visibility_history.clear();
@@ -2205,6 +2210,9 @@ impl Execution {
                 .inputs
                 .first()
                 .ok_or_else(|| fail("monster has no living input"))?;
+            if actor.borrow().active {
+                self.released_colliders.push(token);
+            }
             let collision_matrix = actor.borrow().initial.matrix;
             actor.borrow_mut().hit_cell.current = collision_matrix;
             self.execute_event(doc, input, instance.live, identity())?;

@@ -1337,3 +1337,11 @@ only for active monsters. Registered physics now skips inactive actors during
 validation, constraints, particle updates and force application. An integration
 check confirms an inactive actor with no body registration retains its entire
 body and pending force. Active physics checks and Clippy pass.
+
+### Scene-owned released collider roster
+
+Scene execution now records released collider tokens separately from living AI
+registrations. Only active actors enter this ordered collider list. Frame start
+and failed execution clear it alongside other dynamic registrations. Scene tests
+cover inactive spawn, active replay and subsequent deactivation while retaining
+the living AI registration. Runtime consumption of this roster remains pending.

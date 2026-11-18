@@ -347,11 +347,14 @@ fn released_monster_scene_uses_beta_storage_and_replays_instance() {
     assert!(execution.game.monsters.active_ids().is_empty());
     let actor = execution.game.released_monsters.get(1).unwrap();
     assert_eq!(actor.borrow().initial.attack_operator, 3);
+    assert!(execution.released_colliders.is_empty());
+    actor.borrow_mut().active = true;
     actor.borrow_mut().initial.life = 7;
     actor.borrow_mut().initial.matrix[3][0] = 3.;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.game.released_monsters.active_ids(), [1]);
     assert_eq!(actor.borrow().hit_cell.current[3][0], 3.);
+    assert_eq!(execution.released_colliders, [1]);
     assert_eq!(
         execution
             .game
@@ -363,6 +366,10 @@ fn released_monster_scene_uses_beta_storage_and_replays_instance() {
             .life,
         7
     );
+    actor.borrow_mut().active = false;
+    execution.frame(&doc, 0).unwrap();
+    assert!(execution.released_colliders.is_empty());
+    assert_eq!(execution.game.released_monsters.active_ids(), [1]);
 }
 
 #[test]
