@@ -135,3 +135,14 @@ impl Body {
         Ok(())
     }
 }
+
+impl Body {
+    /// Released collider translation changes current particle positions.
+    pub fn translate(&mut self, delta: [f32; 4]) {
+        for particle in &mut self.particles {
+            for (position, displacement) in particle.vectors[0][..3].iter_mut().zip(delta) {
+                *position = super::down(super::add(f64::from(*position), f64::from(displacement)));
+            }
+        }
+    }
+}

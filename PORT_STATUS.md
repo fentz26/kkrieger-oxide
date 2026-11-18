@@ -1065,3 +1065,10 @@ The horizontal steering scale matches 256 native executions of
 0x81d5dd..0x81d62c, covering both target-distance branches and signed speed
 limits. The comparison order and directed subtraction/spill are preserved.
 Terrain-height correction and complete beta AI tick integration remain pending.
+
+### Released collider translation
+
+Body translation matches 128 native collider executions at 0x819d55.
+Current positions change with directed addition while history, force, weight,
+damping, flags and cell links are preserved. Full beta AI movement integration
+and terrain-height correction remain pending.

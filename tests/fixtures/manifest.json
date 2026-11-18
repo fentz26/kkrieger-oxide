@@ -662,6 +662,10 @@
     "beta-steering.bin": {
       "bytes": 6148,
       "sha256": "750f73f5cd1ac47479aebb22b5ea4e3eab8fbcbce436ad13f9c13188446d7e5b"
+    },
+    "beta-body-translate.bin": {
+      "bytes": 165892,
+      "sha256": "3709a5617163eb0a32d1992935bf35a797091a3befcbeecb04141e19fad40dc1"
     }
   }
 }
