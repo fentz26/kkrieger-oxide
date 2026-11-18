@@ -1194,3 +1194,11 @@ The final event word is CullDist, consistent with the 180-byte released layout.
 The AI writes 0x23 (35) there, while Select remains at word 12. Comments and
 verification naming now identify culling distance correctly. Stored bits are
 unchanged. This distinction matters when bridging events to the scene scheduler.
+
+### Released event conversion for scene scheduling
+
+Event::from_released_words maps the 180-byte event payload into scene event
+storage after pointer tokens have been resolved to portable identities. Native
+actor-event fixtures verify pose, scale modulation, matrix and culling fields
+through scheduler insertion and variable access. Token ownership, pending-queue
+publication and beta actor scene registration remain pending.

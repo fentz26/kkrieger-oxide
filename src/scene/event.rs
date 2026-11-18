@@ -48,6 +48,35 @@ impl Default for Event {
     }
 }
 impl Event {
+    /// Convert the released 180-byte event after resolving its pointer tokens
+    /// to portable operator, spline and actor identities.
+    pub fn from_released_words(
+        words: &[u32; 45],
+        operator: Option<usize>,
+        spline: Option<usize>,
+        monster: Option<usize>,
+    ) -> Self {
+        let vector = |offset| std::array::from_fn(|axis| f32::from_bits(words[offset + axis]));
+        Self {
+            matrix: std::array::from_fn(|row| vector(27 + row * 4)),
+            operator,
+            start: words[2] as i32,
+            end: words[3] as i32,
+            shot_time: words[5] as i32,
+            velocity: f32::from_bits(words[9]),
+            modulation: f32::from_bits(words[10]),
+            select: words[12] as i32,
+            scale: vector(13),
+            rotate: vector(17),
+            translate: vector(21),
+            color: words[25],
+            spline,
+            interval: [0., 1.],
+            monster,
+            cull_distance: words[44] as i32,
+        }
+    }
+
     pub fn stop(&mut self) {
         self.start = 0;
         self.end = 1;
