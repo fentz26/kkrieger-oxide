@@ -1244,3 +1244,19 @@ physics phase. The actor-storage integration runs reconciliation inside the
 dynamic callback, while existing native reconciliation checks continue to pass.
 This preserves persistent actor storage through the physics and dynamic phases.
 Scene registration and complete frame-loop integration remain pending.
+
+### Full regression run after actor-storage integration
+
+At commit 75aec4b, all test targets compiled and the complete cargo test run
+finished successfully with 426 passed, zero failed and 29 ignored across 200
+result targets. This verifies the current test coverage. Full released-game
+playthrough, scene registration and runtime parity remain outstanding.
+
+### Owned released static collision registry
+
+StaticWorld owns released hulls reconstructed from source vertices and builds
+connectivity from their released bounds. Additive neighbors use additive-registry
+indices, while subtractive and zone lists retain source-cell indices. Borrowed
+views feed the existing cast runtime. An interleaved-cell integration check covers
+index mapping, neighbor lists and a real subtractive cast. Scene-world extraction
+and frame-loop ownership remain pending.
