@@ -687,6 +687,7 @@ impl Execution {
         self.time_reset = true;
         self.markers.fill(identity());
         self.game.monsters.begin_frame();
+        self.game.released_monsters.begin_frame();
     }
     /// Original InitFrame CPU state. Document and game event registration follow
     /// this call, after the previous frame's simulation has already run.
@@ -753,7 +754,11 @@ impl Execution {
             self.clear_scope(Scope::Event(monster.death));
             self.events.events.remove(&monster.live);
             self.events.events.remove(&monster.death);
-            self.game.monsters.remove(monster.actor);
+            if monster.released {
+                self.game.released_monsters.remove(monster.actor as u32);
+            } else {
+                self.game.monsters.remove(monster.actor);
+            }
         }
     }
     pub fn finish_events(&mut self) {
@@ -800,6 +805,7 @@ impl Execution {
         self.render_commands.clear();
         self.dynamic_cells.clear();
         self.game.monsters.begin_frame();
+        self.game.released_monsters.begin_frame();
         self.next_monster_override = None;
         if let Some(hit) = self.actors.as_ref().and_then(|a| a.player_hit.as_ref()) {
             self.dynamic_cells.push(Rc::clone(hit));
@@ -815,6 +821,7 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
+            self.game.released_monsters.begin_frame();
         }
         result
     }
@@ -936,6 +943,7 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.game.monsters.begin_frame();
+            self.game.released_monsters.begin_frame();
             self.visibility_history.clear();
         }
         result
@@ -1643,6 +1651,9 @@ impl Execution {
                 result
             }
             0x11 => {
+                if doc.layout == crate::kx::Layout::Beta2004 {
+                    return self.exec_released_monster(doc, root, parent, &p);
+                }
                 let context = self
                     .actors
                     .clone()
@@ -1656,6 +1667,7 @@ impl Execution {
                     let live = self.events.insert_shared(Rc::clone(&actor.event), false);
                     let death = self.events.insert_shared(Rc::clone(&actor.death), false);
                     let instance = super::instance::Monster {
+                        released: false,
                         actor: actor.id,
                         live,
                         death,
@@ -2106,4 +2118,95 @@ pub fn multiply(a: Matrix, b: Matrix) -> Matrix {
     }
     out[3][3] = 1.;
     out
+}
+
+impl Execution {
+    fn exec_released_monster(
+        &mut self,
+        doc: &Document<'_>,
+        root: usize,
+        parent: Matrix,
+        words: &[u32],
+    ) -> Result<(), Error> {
+        let fail = |reason| Error {
+            operator: root,
+            reason,
+        };
+        let context = self
+            .actors
+            .clone()
+            .ok_or_else(|| fail("monster scene execution requires collision world"))?;
+        let op = &doc.operators[root];
+        let existing = *self.instances.monster(root)?;
+        let instance = if let Some(instance) = existing {
+            if !instance.released {
+                return Err(fail("monster instance ABI differs"));
+            }
+            instance
+        } else {
+            let attack = op
+                .links
+                .first()
+                .copied()
+                .flatten()
+                .map(|id| {
+                    u32::try_from(id)
+                        .ok()
+                        .and_then(|id| id.checked_add(1))
+                        .ok_or("attack operator identity exhausted")
+                })
+                .transpose()
+                .map_err(fail)?
+                .unwrap_or(0);
+            let token = self
+                .game
+                .released_monsters
+                .spawn(words, parent, attack, |position| {
+                    let world = context.world.borrow();
+                    world
+                        .find_cell(position)
+                        .and_then(|source| world.adds.iter().position(|&id| id == source))
+                })
+                .map_err(fail)?;
+            let actor = self.game.released_monsters.get(token).unwrap();
+            let event = super::event::Event::from_released_words(
+                &actor.borrow().initial.event_words,
+                None,
+                None,
+                Some(token as usize),
+            );
+            let live = self.events.insert(event, false);
+            let death = self.events.insert(super::event::Event::default(), false);
+            let instance = super::instance::Monster {
+                released: true,
+                actor: token as usize,
+                live,
+                death,
+            };
+            self.instances.set_last_monster(root, instance)?;
+            instance
+        };
+        let token = instance.actor as u32;
+        let actor = self
+            .game
+            .released_monsters
+            .get(token)
+            .ok_or_else(|| fail("released actor instance missing"))?;
+        if actor.borrow().initial.life > 0 {
+            self.game.released_monsters.register(token).map_err(fail)?;
+            let event = super::event::Event::from_released_words(
+                &actor.borrow().initial.event_words,
+                None,
+                None,
+                Some(token as usize),
+            );
+            *self.events.events[&instance.live].borrow_mut() = event;
+            let input = *op
+                .inputs
+                .first()
+                .ok_or_else(|| fail("monster has no living input"))?;
+            self.execute_event(doc, input, instance.live, identity())?;
+        }
+        Ok(())
+    }
 }

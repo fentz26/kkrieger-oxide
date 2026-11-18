@@ -335,3 +335,30 @@ fn root_replacement_exits_zone_and_shot_chains_but_keeps_weapon_chain() {
     assert!(sim.events.shots.is_empty());
     assert!(sim.events.zones.is_empty());
 }
+
+#[test]
+fn released_monster_scene_uses_beta_storage_and_replays_instance() {
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    doc.operators[0].parameters.truncate(26);
+    doc.operators[0].links = vec![Some(2)];
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.game.released_monsters.active_ids(), [1]);
+    assert!(execution.game.monsters.active_ids().is_empty());
+    let actor = execution.game.released_monsters.get(1).unwrap();
+    assert_eq!(actor.borrow().initial.attack_operator, 3);
+    actor.borrow_mut().initial.life = 7;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.game.released_monsters.active_ids(), [1]);
+    assert_eq!(
+        execution
+            .game
+            .released_monsters
+            .get(1)
+            .unwrap()
+            .borrow()
+            .initial
+            .life,
+        7
+    );
+}

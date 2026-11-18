@@ -1301,3 +1301,14 @@ registration order and dispatches their attacks through inventory/pending events
 The caller's skip-cell context is restored. Integration checks advance the same
 registry actors through physics and AI with real hull queries. Scene instance
 registration and the complete game frame loop remain pending.
+
+### Released monster scene execution
+
+Beta operator 0x11 now creates a 26-word released actor in persistent instance
+storage, reads its attack operator from link zero, registers living actors and
+executes living input zero with the converted event. Replay preserves actor
+identity and life. Scene instance cleanup removes actors from the corresponding
+ABI registry, and frame resets clear both registration lists. Existing monster
+scene tests and the new beta replay check pass. Spawn cell lookup currently
+maps the scene world's additive identities. Released dynamic-view registration,
+physics/AI frame scheduling and feedback of scene-modified matrices remain pending.

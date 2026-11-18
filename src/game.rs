@@ -99,6 +99,7 @@ pub struct State {
     pub reset_by_operator: bool,
     pub weapon: weapon::State,
     pub monsters: monster_registry::Registry,
+    pub released_monsters: beta_monster::registry::Registry,
     pub checkpoints: [checkpoint::Checkpoint; 16],
 }
 impl Default for State {
@@ -111,6 +112,7 @@ impl Default for State {
             reset_by_operator: true,
             weapon: weapon::State::default(),
             monsters: monster_registry::Registry::default(),
+            released_monsters: beta_monster::registry::Registry::default(),
             checkpoints: [checkpoint::Checkpoint::default(); 16],
         }
     }

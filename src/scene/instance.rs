@@ -33,6 +33,7 @@ enum State {
 
 #[derive(Clone, Copy, Debug)]
 pub struct Monster {
+    pub released: bool,
     pub actor: usize,
     pub live: super::event::Id,
     pub death: super::event::Id,
@@ -74,6 +75,28 @@ impl Memory {
     /// KEvent::Init loses the old instance chain without DeleteChain.
     pub fn forget(&mut self, scope: Scope) {
         self.lists.remove(&scope);
+    }
+    pub fn set_last_monster(&mut self, operator: usize, value: Monster) -> Result<(), Error> {
+        let fail = || Error {
+            operator,
+            reason: "monster instance slot missing",
+        };
+        let index = self.cursor.next.checked_sub(1).ok_or_else(fail)?;
+        let slot = self
+            .lists
+            .get_mut(&self.cursor.scope)
+            .and_then(|list| list.get_mut(index))
+            .ok_or_else(fail)?;
+        if slot.operator != operator {
+            return Err(fail());
+        }
+        match &mut slot.state {
+            State::Monster(target) => {
+                *target = Some(value);
+                Ok(())
+            }
+            _ => Err(fail()),
+        }
     }
     pub fn monster(&mut self, operator: usize) -> Result<&mut Option<Monster>, Error> {
         match self.next(operator, || State::Monster(None))? {
