@@ -64,6 +64,37 @@ impl Actor {
 }
 
 impl Actor {
+    /// Released AI notice-radius gate. Visibility is queried only across a
+    /// strict radius boundary; failed activation leaves particle cells intact.
+    pub fn update_visibility<V, F>(&mut self, distance: f32, mut blocked: V, mut find_cell: F)
+    where
+        V: FnMut() -> bool,
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        let radius = f32::from_bits(self.initial.copied.parameters[1]);
+        if !self.active {
+            if distance < radius && !blocked() {
+                self.activate(&mut find_cell);
+            }
+        } else if distance > radius && blocked() {
+            self.active = false;
+        }
+    }
+
+    fn activate<F>(&mut self, find_cell: &mut F)
+    where
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        if !self.active
+            && let Some(cell) = find_cell(self.body.particles[0].vectors[0])
+        {
+            self.active = true;
+            for particle in &mut self.body.particles {
+                particle.cell = Some(cell);
+            }
+        }
+    }
+
     /// Released monster Hit: activate/reacquire first, then armor damage and
     /// wrapping kill-switch update. Missing world cells do not suppress damage.
     pub fn hit<F>(
@@ -82,14 +113,7 @@ impl Actor {
         if kill > 255 {
             return Err("monster kill switch out of range");
         }
-        if !self.active
-            && let Some(cell) = find_cell(self.body.particles[0].vectors[0])
-        {
-            self.active = true;
-            for particle in &mut self.body.particles {
-                particle.cell = Some(cell);
-            }
-        }
+        self.activate(&mut find_cell);
         let armor = self.initial.copied.parameters[5] as i32;
         let delta = if hits > armor {
             armor.wrapping_sub(armor / 4).wrapping_sub(hits)

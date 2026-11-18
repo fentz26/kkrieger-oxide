@@ -1031,3 +1031,12 @@ damage, signed extremes and kill-switch wrap. Invalid positive switch indices
 are rejected before mutation. Spawn initializes active=false as in the released
 zeroed actor. AI progression, damage dispatch from the scene/world registry and
 complete beta root execution remain unfinished.
+
+### Released monster visibility activation
+
+The notice-radius activation gate now matches 144 cases executed from beta
+AI addresses 0x81d3d0..0x81d44c. The oracle controls only the visibility result;
+activation executes the original world lookup and five particle-cell updates.
+Strict comparisons preserve equality and NaN behavior, and deactivation retains
+cell links. Damage and visibility share the released activation operation.
+This gate is not yet connected to a complete beta AI tick or scene registry.

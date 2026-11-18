@@ -646,6 +646,10 @@
     "beta-actor-damage.bin": {
       "bytes": 72196,
       "sha256": "e3fe1af9896a40a2152b7c79be5fc2cf97977eee950a6af5b9ecb433cdac7670"
+    },
+    "beta-visibility.bin": {
+      "bytes": 6916,
+      "sha256": "174cdb4b46dbc6482720a8a7c061cc05c7635f0d0b430b85f29681df5cf3f04a"
     }
   }
 }
