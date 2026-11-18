@@ -108,3 +108,169 @@ pub fn scan_static(
     }
     Ok(accepted)
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct ParticleInfo {
+    pub kind: u32,
+    pub mass: f32,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct FirstParticle {
+    pub id: usize,
+    pub kind: u32,
+    /// None represents a null ShotEvent; otherwise this is its current Select.
+    pub shot_select: Option<i32>,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct CandidateQuery {
+    pub ray: Ray,
+    pub particle: Option<ParticleInfo>,
+    pub first: Option<FirstParticle>,
+    pub monster_mode: bool,
+}
+#[derive(Clone, Debug)]
+pub struct DynamicCell<'a> {
+    pub planes: &'a [[f32; 4]],
+    pub mode: u32,
+    pub only_for_shot: bool,
+    pub monster: bool,
+    pub player: bool,
+    pub part_box: Option<usize>,
+    pub collided: u32,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct ParticleContact {
+    pub cell: usize,
+    pub particle: usize,
+    pub kind: u32,
+    pub position: [f32; 4],
+    pub plane: [f32; 4],
+    pub monster: bool,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct PartBoxContact {
+    pub cell: usize,
+    pub part_box: usize,
+    pub position: [f32; 4],
+    pub delta: [f32; 3],
+    pub mass: f32,
+}
+pub trait DynamicEffects {
+    fn particle_hit(&mut self, contact: ParticleContact, shot_select: &mut Option<i32>);
+    /// The released handler is RET 0x0c. The default preserves that no-op;
+    /// an observer can still verify the original call arguments.
+    fn part_box_hit(&mut self, _contact: PartBoxContact) {}
+}
+fn contact_point(ray: Ray, distance: f32) -> [f32; 4] {
+    let mut point = ray.end;
+    for axis in 0..3 {
+        point[axis] = down(add(
+            mul(f64::from(ray.direction[axis]), f64::from(distance)),
+            f64::from(point[axis]),
+        ));
+    }
+    point
+}
+pub fn scan_dynamic<E: DynamicEffects>(
+    cells: &mut [DynamicCell<'_>],
+    query: &mut CandidateQuery,
+    best: &mut Intersection,
+    interrupted: &mut bool,
+    mut accepted: bool,
+    effects: &mut E,
+) -> bool {
+    let non_player = !matches!(query.particle.map(|p| p.kind), Some(1 | 2));
+    for (index, cell) in cells.iter_mut().enumerate() {
+        if cell.mode != 1
+            || (non_player && cell.only_for_shot)
+            || ((cell.monster || cell.player) && query.particle.is_none())
+        {
+            continue;
+        }
+        match clip(cell.planes, cell.mode, query.monster_mode, query.ray, best) {
+            ClipOutcome::Miss => continue,
+            ClipOutcome::Inside => *interrupted = true,
+            ClipOutcome::Hit => {}
+        }
+        accepted = true;
+        if *interrupted {
+            return true;
+        }
+        if let Some(first) = query.first.as_mut()
+            && first.shot_select.is_none_or(|select| select == 0)
+        {
+            cell.collided |= 1u32.wrapping_shl(first.kind);
+            effects.particle_hit(
+                ParticleContact {
+                    cell: index,
+                    particle: first.id,
+                    kind: first.kind,
+                    position: contact_point(query.ray, best.distance),
+                    plane: best.plane,
+                    monster: cell.monster,
+                },
+                &mut first.shot_select,
+            );
+        }
+        if let Some(particle) = query.particle
+            && particle.mass > 0.
+            && let Some(part_box) = cell.part_box
+        {
+            let delta = std::array::from_fn(|axis| {
+                down(add(
+                    f64::from(query.ray.end[axis]),
+                    -f64::from(query.ray.start[axis]),
+                ))
+            });
+            effects.part_box_hit(PartBoxContact {
+                cell: index,
+                part_box,
+                position: contact_point(query.ray, best.distance),
+                delta,
+                mass: particle.mass,
+            });
+        }
+    }
+    accepted
+}
+/// A borrowed view for the complete candidate scan; geometry is immutable,
+/// while dynamic collision masks and registry/event state remain mutable.
+pub struct CandidateWorld<'a, 'g> {
+    pub static_cells: &'a [StaticCell<'g>],
+    pub lists: &'a [&'g [usize]],
+    pub dynamic_cells: &'a mut [DynamicCell<'g>],
+}
+impl CandidateWorld<'_, '_> {
+    pub fn scan<E: DynamicEffects>(
+        &mut self,
+        visited: &[usize],
+        query: &mut CandidateQuery,
+        best: &mut Intersection,
+        interrupted: &mut bool,
+        effects: &mut E,
+    ) -> Result<bool, &'static str> {
+        let accepted = scan_static(
+            self.static_cells,
+            self.lists,
+            visited,
+            StaticQuery {
+                ray: query.ray,
+                particle_kind: query.particle.map(|p| p.kind),
+                monster_mode: query.monster_mode,
+            },
+            best,
+            interrupted,
+        )?;
+        if accepted && *interrupted {
+            return Ok(true);
+        }
+        Ok(scan_dynamic(
+            self.dynamic_cells,
+            query,
+            best,
+            interrupted,
+            accepted,
+            effects,
+        ))
+    }
+}

@@ -810,3 +810,18 @@ player/monster/weapon contexts, reordered lists, misses, inside aborts and prior
 interrupt states. The native result split is 65 misses and 191 hits. Invalid list
 or cell indices return errors. Dynamic-cell scanning, actor/particle side effects
 and integration into the released game runtime remain unfinished.
+
+Released dynamic candidate scanning now follows the static phase through a
+borrowed CandidateWorld view. It preserves exact mode/shot-only filtering,
+player/monster exclusion for null particle queries, interrupt stopping, collided
+kind masks and callback order. Explicit effect boundaries carry particle-hit
+and part-box arguments; selector changes feed back into later candidates. The
+released part-box handler is a no-op, retained as the default observer boundary.
+A 256-case complete CollideRaySub oracle executes actual clipping and Particle::Hit
+with null hit-effect slots, observing rather than replacing callees. Output
+contacts, flags, masks, selectors and 106 callback records match, including
+wrapped kind 35 masks, reflection, static/dynamic competition, absent shot events,
+NaN/nonpositive mass and aliased first/primary identities. Native outcomes are
+11 misses and 245 hits. Effect allocation/dispatch, general callback mutation,
+world/registry ownership and integration into gameplay remain unfinished; this
+establishes scan orchestration, not complete beta game behavior.

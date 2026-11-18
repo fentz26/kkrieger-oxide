@@ -582,6 +582,10 @@
     "beta-static-scan.bin": {
       "bytes": 192516,
       "sha256": "6bd956c55a385135a006d9b6e30979f9ec6f1492cacfaa58bac6bf8397b99c52"
+    },
+    "beta-dynamic-scan.bin": {
+      "bytes": 427012,
+      "sha256": "67683dbc5d4cb2ee344060c299cdcae9e3be450f8b087c880ec206d1e6806fe2"
     }
   }
 }
