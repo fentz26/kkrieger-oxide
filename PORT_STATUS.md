@@ -841,3 +841,12 @@ list, shot-select suppression, wrapped particle kinds, NaN points and each
 inside/outside transition. The implementation retains registry order without
 allocating. Zone logic consumption, registry ownership and the full collision
 adapter remain unfinished; this establishes the mask-update phase only.
+
+A combined world-cast API now connects additive traversal to CandidateWorld's
+static/dynamic scan, preserving current-cell updates, contact selection and the
+caller-owned interrupt flag. Candidate-list errors propagate through the terminal
+callback. Integration tests exercise portal traversal into a static obstacle and
+start-inside abort; an independent verifier runs those same scenarios through
+the complete released world cast with no callee stubs and confirms all selected
+plane/distance bits, cell identity and interrupt state. Broader dynamic-world
+integration, registry adapters, zone logic and the beta game remain unfinished.

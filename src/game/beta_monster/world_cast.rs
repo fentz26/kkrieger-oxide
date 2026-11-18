@@ -72,3 +72,38 @@ where
         }));
     }
 }
+
+/// Compose released additive traversal with static/dynamic candidate scanning.
+/// The interrupt flag remains caller-owned, as in the original response driver.
+/// Geometry errors propagate after any preceding traversal or callback effects.
+pub fn cast_world<E: super::subtractive::DynamicEffects>(
+    cells: &[AdditiveCell<'_>],
+    current: &mut usize,
+    world: &mut super::subtractive::CandidateWorld<'_, '_>,
+    query: &mut super::subtractive::CandidateQuery,
+    interrupted: &mut bool,
+    effects: &mut E,
+) -> Result<Option<Intersection>, &'static str> {
+    let ray = query.ray;
+    let kind = query.particle.map(|p| p.kind);
+    let mut error = None;
+    let result = cast_additive(cells, current, ray, kind, |visited| {
+        let mut best = Intersection {
+            plane: [0.; 4],
+            distance: 0.,
+        };
+        match world.scan(visited, query, &mut best, interrupted, effects) {
+            Ok(true) => Some(best),
+            Ok(false) => None,
+            Err(reason) => {
+                error = Some(reason);
+                None
+            }
+        }
+    })?;
+    if let Some(error) = error {
+        Err(error)
+    } else {
+        Ok(result)
+    }
+}
