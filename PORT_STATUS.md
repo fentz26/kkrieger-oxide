@@ -912,3 +912,15 @@ Error tests verify that failed dynamic processing prevents force consumption.
 This API is deliberately single-body: multiple bodies require global phase
 ordering, and actual dynamic processing must be supplied. The full actor/game
 scheduler and dynamic geometry remain unfinished.
+
+The physics pass now preserves global ordering across multiple registered bodies:
+all constraint lists, all particle lists, one dynamic-geometry phase, then all
+forces. Registrations include each body's particle identities and skip-cell link;
+caller context is restored on error as well as success. The single-body entry
+point delegates to this shared scheduler. A 24-case no-stub native Physic oracle
+registers one through three bodies and executes one through four passes with
+random forces; every portable particle field matches after relocating links.
+Tests also check all-body prevalidation, phase visibility and failed dynamic
+processing without force consumption. The old single-body-only limitation is
+superseded. Actual dynamic geometry processing and actor/game-loop registration
+remain unfinished, so these checks do not establish full game equivalence.
