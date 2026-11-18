@@ -1329,3 +1329,11 @@ check builds the level world at root 4357 and runs the full root on a 32 MiB
 test thread stack. The default test-thread stack overflowed during traversal.
 The reproducible check passed in 11.48 seconds. GPU parity, runtime physics/AI
 frame wiring and complete game playthrough remain pending.
+
+### Inactive released actors excluded from physics
+
+The native scene handler registers living monsters for AI but adds colliders
+only for active monsters. Registered physics now skips inactive actors during
+validation, constraints, particle updates and force application. An integration
+check confirms an inactive actor with no body registration retains its entire
+body and pending force. Active physics checks and Clippy pass.

@@ -607,6 +607,9 @@ impl CollisionRuntime<'_, '_> {
             return Err(error);
         }
         registry.visit_active(|token, actor| {
+            if !actor.active {
+                return Ok(());
+            }
             let registration = registrations
                 .get(&token)
                 .ok_or("released body registration missing")?;
@@ -616,12 +619,18 @@ impl CollisionRuntime<'_, '_> {
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
             registry.visit_active(|_, actor| {
+                if !actor.active {
+                    return Ok(());
+                }
                 for i in 0..actor.body.constraints.len() {
                     actor.body.solve_constraint(i)?;
                 }
                 Ok(())
             })?;
             registry.visit_active(|token, actor| {
+                if !actor.active {
+                    return Ok(());
+                }
                 let registration = &registrations[&token];
                 self.skip_cell = registration.skip_cell;
                 for (index, id) in registration.particles.into_iter().enumerate() {
@@ -635,6 +644,9 @@ impl CollisionRuntime<'_, '_> {
                 return Err(error);
             }
             registry.visit_active(|_, actor| {
+                if !actor.active {
+                    return Ok(());
+                }
                 actor.body.apply_forces();
                 Ok(())
             })

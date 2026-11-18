@@ -438,6 +438,7 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
         })
         .unwrap();
     registry.register(token).unwrap();
+    registry.get(token).unwrap().borrow_mut().active = true;
     let mut registered = std::collections::BTreeMap::new();
     registered.insert(
         token,
@@ -488,4 +489,27 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     assert!(sounds.is_empty());
     assert!(registry.get(token).unwrap().borrow().active);
     assert_eq!(world.runtime.skip_cell, None);
+    let inactive = registry
+        .spawn(&data, kkrieger_oxide::mesh::identity(), 0, |_| None)
+        .unwrap();
+    registry.register(inactive).unwrap();
+    registry.get(inactive).unwrap().borrow_mut().body.particles[0].force[0] = 0.03;
+    let inactive_body = registry.get(inactive).unwrap().borrow().body.clone();
+    world
+        .runtime
+        .step_registered(
+            &registry,
+            &registered,
+            physics::Settings {
+                gravity: 0.,
+                gravity_player: 0.,
+                damping_player_air: 0.,
+                damping_player_ground: 0.,
+                fly_mode: 0,
+                on_ground: false,
+            },
+            |_, _| Ok(()),
+        )
+        .unwrap();
+    assert_eq!(registry.get(inactive).unwrap().borrow().body, inactive_body);
 }
