@@ -1156,3 +1156,10 @@ Thirty-two cases of up to sixteen consecutive native ticks now include melee
 attacks. Actor state and accumulated damage match, with active cases producing
 10 to 70 damage. Player damage is intercepted at the native service boundary.
 Ranged multi-tick comparison and concrete scene/world integration remain pending.
+
+### Repeated released ranged ticks
+
+Thirty-two cases of up to sixteen consecutive native ticks match actor state
+and every emitted ranged event. The fixture contains 64 events. Allocation and
+event insertion are intercepted, with native event construction preserved.
+Concrete collision-world adapter and scene registration/dispatch remain pending.
