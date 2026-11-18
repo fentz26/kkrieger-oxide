@@ -271,4 +271,34 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     );
     assert!(world.runtime.error.is_none());
     assert_eq!(world.runtime.candidates.dynamic_cells[0].mode, 1);
+    let mut data = [0; 26];
+    data[6] = 1f32.to_bits();
+    data[7] = 10f32.to_bits();
+    data[8] = 10f32.to_bits();
+    data[10] = 20;
+    data[13] = 1f32.to_bits();
+    data[15] = 1f32.to_bits();
+    let mut actor = kkrieger_oxide::game::beta_monster::actor::Actor::spawn(
+        &data,
+        kkrieger_oxide::mesh::identity(),
+        0,
+        1,
+        |position| world.find_cell(position),
+    )
+    .unwrap();
+    actor.body.particles[0].vectors[0] = [0., 0., 0., 1.];
+    actor.tick(
+        [-1., 0., 0., 1.],
+        &kkrieger_oxide::game::beta_monster::ai::Settings {
+            gravity: 0.01,
+            height: 3.,
+            height_gain: 0.2,
+        },
+        &mut world,
+    );
+    assert!(actor.active);
+    assert!(actor.body.particles[0].vectors[0][0] < 0.);
+    assert!(actor.body.particles[0].vectors[0][1] > 0.2);
+    assert_eq!(world.runtime.candidates.dynamic_cells[0].mode, 1);
+    assert!(world.runtime.error.is_none());
 }
