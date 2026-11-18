@@ -522,6 +522,10 @@
     "skinning.bin": {
       "bytes": 335876,
       "sha256": "daa7f07dbf2ac89ef043c6a7259bfc96b48b328a1e26c4d58cb6d0ff65c94c5d"
+    },
+    "skeleton.bin": {
+      "bytes": 483844,
+      "sha256": "857cfddaec040294752beb84cd49a680259ebbd04c896ecd5d6532bc423a34e5"
     }
   }
 }

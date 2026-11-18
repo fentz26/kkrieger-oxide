@@ -494,3 +494,11 @@ covering 2,048 vertices with zero to four influences, unnormalized signed weight
 affine matrices and zero normal/tangent inputs. All output fields compare bit
 for bit against Rust. Regenerate with `python3 tools/verify_skinning.py`. This
 checks the deformation routine, not animation evaluation or GPU integration.
+
+`skeleton.bin` records 128 four-node original `GenMinMeshAnim::EvalAnimation`
+skeletons at five times, including static, keyed and spline-callback matrices.
+Original `InitEulerPI2`, `InitSRT` and `MulA` helpers are extracted too; the
+portable oracle evaluates `sFSinCos` through double sine/cosine before float
+stores. All temporary and output matrix fields compare bit for bit. Regenerate
+with `python3 tools/verify_skeleton.py`. Complete x87 and GPU parity remain
+separate checks.

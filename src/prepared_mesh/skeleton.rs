@@ -1,5 +1,5 @@
 //! Published GenMinMeshAnim::EvalAnimation local tracks and skeleton hierarchy.
-use crate::mesh::{Matrix, srt_matrix};
+use crate::mesh::Matrix;
 pub enum Local<'a> {
     Static(Matrix),
     Keys {
@@ -108,4 +108,21 @@ fn affine(a: Matrix, b: Matrix) -> Matrix {
     }
     result[3][3] = 1.0;
     result
+}
+
+fn srt_matrix(srt: &[f32; 9]) -> Matrix {
+    let mut matrix = if srt[3..6].iter().all(|v| v.abs() < 1e-6) {
+        crate::mesh::identity()
+    } else {
+        crate::mesh::euler_matrix_fsincos(
+            [srt[3], srt[4], srt[5]].map(|angle| angle * std::f32::consts::TAU),
+        )
+    };
+    for (column, scale) in matrix[..3].iter_mut().zip(srt) {
+        for value in &mut column[..3] {
+            *value *= scale;
+        }
+    }
+    matrix[3] = [srt[6], srt[7], srt[8], 1.0];
+    matrix
 }

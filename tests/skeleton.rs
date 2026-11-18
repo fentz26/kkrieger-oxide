@@ -151,3 +151,102 @@ fn forward_parent_reads_retained_temporary_matrix_and_invalid_tracks_do_not_writ
     assert_eq!(temp, [retained]);
     assert_eq!(output, [retained]);
 }
+
+#[test]
+fn original_cpp_skeleton_keys_and_hierarchy_match_repeated_evaluations() {
+    struct Reader<'a>(&'a [u8]);
+    impl Reader<'_> {
+        fn word(&mut self) -> u32 {
+            let v = u32::from_le_bytes(self.0[..4].try_into().unwrap());
+            self.0 = &self.0[4..];
+            v
+        }
+        fn float(&mut self) -> f32 {
+            f32::from_bits(self.word())
+        }
+        fn matrix(&mut self) -> [[f32; 4]; 4] {
+            std::array::from_fn(|_| std::array::from_fn(|_| self.float()))
+        }
+    }
+    let mut r = Reader(include_bytes!("fixtures/skeleton.bin"));
+    assert_eq!(r.word(), 128);
+    for case in 0..128 {
+        let records: Vec<_> = (0..4)
+            .map(|_| {
+                let parent = r.word();
+                let base = r.matrix();
+                let mode = r.word();
+                let local = r.matrix();
+                let factor = r.float();
+                let offset = r.float();
+                let srt = std::array::from_fn(|_| r.float());
+                let tracks = std::array::from_fn::<_, 3, _>(|_| {
+                    let present = r.word() != 0;
+                    let keys = std::array::from_fn::<_, 3, _>(|_| {
+                        std::array::from_fn::<_, 3, _>(|_| r.float())
+                    });
+                    (present, keys)
+                });
+                (parent, base, mode, local, factor, offset, srt, tracks)
+            })
+            .collect();
+        let nodes: Vec<_> = records
+            .iter()
+            .map(
+                |(parent, base, mode, local, factor, offset, srt, tracks)| Node {
+                    parent: (*parent != u32::MAX).then_some(*parent as usize),
+                    base_pose: *base,
+                    local: match mode {
+                        0 => Local::Static(*local),
+                        1 => Local::Keys {
+                            srt: *srt,
+                            count: 3,
+                            tracks: std::array::from_fn(|i| {
+                                tracks[i].0.then_some(tracks[i].1.as_slice())
+                            }),
+                        },
+                        _ => Local::Spline {
+                            factor: *factor,
+                            offset: *offset,
+                        },
+                    },
+                },
+            )
+            .collect();
+        let mut temp = [identity(); 4];
+        let mut output = temp;
+        for step in 0..5 {
+            let time = r.float();
+            evaluate(
+                &nodes,
+                time,
+                &mut temp,
+                &mut output,
+                |_, adjusted, original| {
+                    let mut m = identity();
+                    m[3] = [adjusted, original, adjusted - original, 1.0];
+                    Ok(m)
+                },
+            )
+            .unwrap();
+            for index in 0..4 {
+                for (kind, actual) in [temp[index], output[index]].iter().enumerate() {
+                    let expected = r.matrix();
+                    for (field, (a, b)) in actual
+                        .iter()
+                        .flatten()
+                        .zip(expected.iter().flatten())
+                        .enumerate()
+                    {
+                        assert_eq!(
+                            a.to_bits(),
+                            b.to_bits(),
+                            "case {case} step {step} node {index} kind {kind} field {field}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    assert!(r.0.is_empty());
+}
