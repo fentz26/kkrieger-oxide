@@ -11,6 +11,24 @@ pub struct StaticWorld {
     pub zone_lists: Vec<Vec<usize>>,
 }
 impl StaticWorld {
+    pub fn from_document(
+        document: &crate::kx::Document<'_>,
+        root: usize,
+    ) -> Result<Self, crate::collision::world::BuildError> {
+        if document.layout != crate::kx::Layout::Beta2004 {
+            return Err(crate::collision::world::BuildError::World(
+                "released collision world requires beta document",
+            ));
+        }
+        let scene = crate::collision::world::World::from_document(document, root)?;
+        Ok(Self::new(
+            scene
+                .entries
+                .iter()
+                .map(|entry| (entry.cell.vertices, entry.cell.mode)),
+        ))
+    }
+
     pub fn new(cells: impl IntoIterator<Item = ([[f32; 4]; 8], u32)>) -> Self {
         let mut geometry = Vec::new();
         let hulls: Vec<_> = cells

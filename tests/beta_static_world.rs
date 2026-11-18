@@ -59,3 +59,18 @@ fn owned_world_maps_interleaved_source_cells_to_additive_registry() {
     .unwrap();
     assert!(hit.is_some());
 }
+
+#[test]
+#[ignore = "requires independently extracted beta and full geometry generation"]
+fn released_level_builds_owned_collision_registry() {
+    let bytes = std::fs::read(".reference/verified-beta.kx").unwrap();
+    let document =
+        kkrieger_oxide::kx::Document::parse_layout(&bytes, kkrieger_oxide::kx::Layout::Beta2004)
+            .unwrap();
+    let world = StaticWorld::from_document(&document, 4357).unwrap();
+    assert!(!world.adds.is_empty());
+    for neighbors in &world.neighbors {
+        assert!(neighbors.iter().all(|&id| id < world.adds.len()));
+    }
+    assert_eq!(world.additive_views().len(), world.adds.len());
+}

@@ -1260,3 +1260,11 @@ indices, while subtractive and zone lists retain source-cell indices. Borrowed
 views feed the existing cast runtime. An interleaved-cell integration check covers
 index mapping, neighbor lists and a real subtractive cast. Scene-world extraction
 and frame-loop ownership remain pending.
+
+### Released static world from scene documents
+
+StaticWorld::from_document builds scene geometry through the existing world
+builder, then reconstructs released hulls and connectivity from source vertices.
+It requires the beta document layout. The independently extracted beta level at
+root 4357 built successfully and passed registry bounds checks in 26.25 seconds.
+Scene actor registration and the complete beta frame loop remain pending.
