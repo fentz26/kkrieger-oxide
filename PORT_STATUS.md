@@ -900,3 +900,15 @@ exact position-y and history-zero bits. Integration tests also verify registry
 errors before body mutation. The caller still selects particle identity for
 each step. Constraint/pass scheduling, dynamic geometry updates, effects dispatch
 and the complete beta actor/game loop remain unfinished.
+
+A checked single-body pass now schedules all ten constraints, five particle
+steps, an explicit dynamic-geometry callback and the final force phase. It
+restores the caller's particle identity on success/error and validates registry,
+constraint and group links before relaxation. A 32-case oracle runs original
+collider Init and complete Physic passes, without callee stubs or registered
+dynamic cells. After one through four passes, all five 128-byte particle records
+match with relocated links, including randomized forces and exact history bits.
+Error tests verify that failed dynamic processing prevents force consumption.
+This API is deliberately single-body: multiple bodies require global phase
+ordering, and actual dynamic processing must be supplied. The full actor/game
+scheduler and dynamic geometry remain unfinished.

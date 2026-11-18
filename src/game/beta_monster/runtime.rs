@@ -250,3 +250,68 @@ impl super::physics::World for CollisionRuntime<'_, '_> {
         }
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// One registered body's pass. Multiple bodies require a global phase
+    /// scheduler; repeatedly calling this method changes the original ordering.
+    /// The dynamic phase must process registered geometry before forces apply.
+    pub fn step_body<F>(
+        &mut self,
+        body: &mut super::body::Body,
+        ids: [usize; 5],
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(&mut Self, &mut super::body::Body) -> Result<(), &'static str>,
+    {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        for (particle, id) in body.particles.iter().zip(ids) {
+            if self.hits.first_particle(id)?.kind != particle.flags[3] {
+                return Err("particle kind differs from registry");
+            }
+        }
+        if self
+            .skip_cell
+            .is_some_and(|id| id >= self.candidates.dynamic_cells.len())
+        {
+            return Err("skip cell out of range");
+        }
+        if body
+            .particles
+            .iter()
+            .enumerate()
+            .any(|(i, p)| i > 0 && matches!(p.flags[3], 1 | 3))
+        {
+            return Err("five-particle group truncated");
+        }
+        // Validate every constraint before any relaxation writes.
+        if body
+            .constraints
+            .iter()
+            .any(|c| c.particles.iter().any(|&i| i >= 5))
+        {
+            return Err("constraint particle index out of range");
+        }
+        let previous = self.particle_id;
+        let result = (|| {
+            for i in 0..body.constraints.len() {
+                body.solve_constraint(i)?;
+            }
+            for (index, id) in ids.into_iter().enumerate() {
+                self.particle_id = id;
+                self.step_particle(body, index, settings)?;
+            }
+            dynamic(self, body)?;
+            if let Some(error) = self.error.or(self.hits.error) {
+                return Err(error);
+            }
+            body.apply_forces();
+            Ok(())
+        })();
+        self.particle_id = previous;
+        result
+    }
+}

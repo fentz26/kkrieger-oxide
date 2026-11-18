@@ -602,6 +602,10 @@
     "beta-hit-effect.bin": {
       "bytes": 153604,
       "sha256": "0515d0b34237569e8e698f054bc551829d6480cb200687922572625d4ff401c7"
+    },
+    "beta-body-pass.bin": {
+      "bytes": 23684,
+      "sha256": "8d1cb98c370f6eb66cf7c5d94fe0ccee4bc25d54ffce2790e643fdf0de69e731"
     }
   }
 }
