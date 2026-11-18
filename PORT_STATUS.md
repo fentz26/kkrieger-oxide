@@ -73,6 +73,15 @@ checks repeated beta selection with unchanged references. The released one-word
 viewport handler is structurally different from the published viewport and still
 requires full call/state tracing before runtime support can be claimed.
 
+The released viewport wrapper now has 24 bounded Unicorn traces in
+`tools/verify_beta_viewport.py`, with pinned executable and routine hashes.
+They cover cache hits/misses, all four size values and signed output counts.
+Misses execute input zero before target allocation, prepare a viewport, clear
+its final word, invoke the paint callee and assign LastOutput. Hits only find
+and assign the cached output. Callees are controlled stubs: camera state and
+actual rendering remain unverified, so this evidence alone does not enable
+beta viewport support.
+
 ## Reference state
 
 - Official source pinned to `farbrausch/fr_public@8c8f82c2ae01133370e649bbc05916e7aceecadd`.
