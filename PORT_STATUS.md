@@ -62,6 +62,17 @@ locally extracted beta collision worlds and prepared geometry, plus authored
 menu/gameplay paint dependencies and gameplay texture/font resources. They
 verify preparation and bounds/index invariants, not complete animated rendering.
 
+## Released IPP dispatch follow-up
+
+The pinned released handler table identifies `0xea` at `0x814a0e` and `0xf0`
+at `0x814683`. `tools/inspect_beta_ipp.py` verifies the executable hash, table
+records and complete seven-instruction Select wrapper. Beta Select calls
+`KOp::ExecInputs` without an authored count or output-reference adjustment;
+Rust now distinguishes this from the later published Select handler. A regression
+checks repeated beta selection with unchanged references. The released one-word
+viewport handler is structurally different from the published viewport and still
+requires full call/state tracing before runtime support can be claimed.
+
 ## Reference state
 
 - Official source pinned to `farbrausch/fr_public@8c8f82c2ae01133370e649bbc05916e7aceecadd`.

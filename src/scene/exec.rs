@@ -1394,6 +1394,11 @@ impl Execution {
                 Ok(())
             }
             0xea => {
+                // Released beta 0x814a0e is a parameterless ExecInputs wrapper.
+                // The later source adds a count and adjusts LastOutput refs.
+                if doc.layout == crate::kx::Layout::Beta2004 {
+                    return self.exec_inputs(doc, root, parent);
+                }
                 let count = *p
                     .first()
                     .ok_or_else(|| fail("truncated IPP select parameters"))?

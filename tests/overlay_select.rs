@@ -103,3 +103,48 @@ fn scene_select_runs_inputs_and_adjusts_their_output_each_frame() {
         assert!(e.overlay_draws.is_empty());
     }
 }
+
+#[test]
+fn released_beta_select_has_no_parameter_or_reference_adjustment() {
+    use kkrieger_oxide::{
+        kx::{Class, Document, Layout},
+        scene::exec::Execution,
+    };
+    let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    doc.layout = Layout::Beta2004;
+    doc.events.clear();
+    doc.classes = vec![
+        Class {
+            id: 0xea,
+            convention: 0x81000000,
+            packing: &[],
+        },
+        Class {
+            id: 0xe6,
+            convention: 0,
+            packing: &[],
+        },
+    ];
+    doc.operators.truncate(2);
+    for op in &mut doc.operators {
+        op.animation = &[1];
+        op.inputs.clear();
+        op.links.clear();
+        op.parameters.clear();
+    }
+    doc.operators[0].class = 0;
+    doc.operators[0].inputs = vec![1];
+    doc.operators[1].class = 1;
+    doc.operators[1].parameters = vec![0; 5];
+    let mut e = Execution::new(&doc);
+    let mut pool = pool();
+    let source = pool.allocate(Some(1), 1, 2);
+    pool.last_output = Some(SCREEN);
+    e.overlay = Some(pool);
+    for _ in 0..2 {
+        e.frame(&doc, 0).unwrap();
+        let pool = e.overlay.as_ref().unwrap();
+        assert_eq!(pool.last_output, Some(source));
+        assert_eq!(pool.targets[source].references, 2);
+    }
+}
