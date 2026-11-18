@@ -1312,3 +1312,11 @@ ABI registry, and frame resets clear both registration lists. Existing monster
 scene tests and the new beta replay check pass. Spawn cell lookup currently
 maps the scene world's additive identities. Released dynamic-view registration,
 physics/AI frame scheduling and feedback of scene-modified matrices remain pending.
+
+### Released scene matrix handoff
+
+Living monster execution captures the actor matrix into its moving collision
+cell before executing the living input. The resulting scene event matrix is
+copied back into the released payload for the following AI tick. The beta replay
+check verifies the collision matrix handoff, and all monster-scene tests pass.
+Dynamic-view registration and complete frame scheduling remain pending.

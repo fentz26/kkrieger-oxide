@@ -2205,7 +2205,16 @@ impl Execution {
                 .inputs
                 .first()
                 .ok_or_else(|| fail("monster has no living input"))?;
+            let collision_matrix = actor.borrow().initial.matrix;
+            actor.borrow_mut().hit_cell.current = collision_matrix;
             self.execute_event(doc, input, instance.live, identity())?;
+            let matrix = self.events.events[&instance.live].borrow().matrix;
+            for (word, value) in actor.borrow_mut().initial.event_words[27..43]
+                .iter_mut()
+                .zip(matrix.into_iter().flatten())
+            {
+                *word = value.to_bits();
+            }
         }
         Ok(())
     }

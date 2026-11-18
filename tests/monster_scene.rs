@@ -348,8 +348,10 @@ fn released_monster_scene_uses_beta_storage_and_replays_instance() {
     let actor = execution.game.released_monsters.get(1).unwrap();
     assert_eq!(actor.borrow().initial.attack_operator, 3);
     actor.borrow_mut().initial.life = 7;
+    actor.borrow_mut().initial.matrix[3][0] = 3.;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.game.released_monsters.active_ids(), [1]);
+    assert_eq!(actor.borrow().hit_cell.current[3][0], 3.);
     assert_eq!(
         execution
             .game
