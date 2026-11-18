@@ -513,4 +513,31 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
         )
         .unwrap();
     assert_eq!(registry.get(inactive).unwrap().borrow().body, inactive_body);
+    registry.get(token).unwrap().borrow_mut().active = false;
+    registry.get(token).unwrap().borrow_mut().body.particles[0].force[0] = 0.02;
+    world
+        .runtime
+        .step_collider_roster(
+            &registry,
+            &[token],
+            &registered,
+            physics::Settings {
+                gravity: 0.,
+                gravity_player: 0.,
+                damping_player_air: 0.,
+                damping_player_ground: 0.,
+                fly_mode: 0,
+                on_ground: false,
+            },
+            |_, registry| {
+                registry.get(inactive).unwrap().borrow_mut().active = true;
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        registry.get(token).unwrap().borrow().body.particles[0].force,
+        [0.; 4]
+    );
+    assert_eq!(registry.get(inactive).unwrap().borrow().body, inactive_body);
 }

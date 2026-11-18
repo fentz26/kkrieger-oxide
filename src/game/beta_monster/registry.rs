@@ -52,12 +52,22 @@ impl Registry {
     }
     /// Visit persistent storage in registration order, releasing each borrow
     /// before the next entry so repeated registrations remain valid.
-    pub fn visit_active<F>(&self, mut visit: F) -> Result<(), &'static str>
+    pub fn visit_active<F>(&self, visit: F) -> Result<(), &'static str>
     where
         F: FnMut(u32, &mut Actor) -> Result<(), &'static str>,
     {
-        for &token in &self.active {
-            let mut actor = self.actors[&token]
+        self.visit_tokens(&self.active, visit)
+    }
+    pub fn visit_tokens<F>(&self, tokens: &[u32], mut visit: F) -> Result<(), &'static str>
+    where
+        F: FnMut(u32, &mut Actor) -> Result<(), &'static str>,
+    {
+        for &token in tokens {
+            let handle = self
+                .actors
+                .get(&token)
+                .ok_or("released actor identity missing")?;
+            let mut actor = handle
                 .try_borrow_mut()
                 .map_err(|_| "released actor already borrowed")?;
             visit(token, &mut actor)?;

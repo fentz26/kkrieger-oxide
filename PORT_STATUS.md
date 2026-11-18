@@ -1371,3 +1371,12 @@ moving-cell geometry back to persistent actors. Publication resolves and borrows
 all target identities before changing any geometry. Checks cover mask-size
 validation, retained masks and geometry writeback preserving actor life. Full
 frame-stage composition and game-loop integration remain pending.
+
+### Captured collider roster through physics phases
+
+Physics can now consume an explicit scene-captured collider token list. All
+constraint, particle and force phases use that same list even if activation
+changes later. The convenience registered-body path captures active tokens once
+and delegates. Checks verify a selected body advances despite later inactive
+state and a newly activated body outside the roster remains untouched. Full
+frame-stage composition remains pending.

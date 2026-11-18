@@ -603,13 +603,30 @@ impl CollisionRuntime<'_, '_> {
     where
         F: FnOnce(&mut Self, &super::registry::Registry) -> Result<(), &'static str>,
     {
+        let mut tokens = Vec::new();
+        registry.visit_active(|token, actor| {
+            if actor.active {
+                tokens.push(token);
+            }
+            Ok(())
+        })?;
+        self.step_collider_roster(registry, &tokens, registrations, settings, dynamic)
+    }
+    pub fn step_collider_roster<F>(
+        &mut self,
+        registry: &super::registry::Registry,
+        colliders: &[u32],
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(&mut Self, &super::registry::Registry) -> Result<(), &'static str>,
+    {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
         }
-        registry.visit_active(|token, actor| {
-            if !actor.active {
-                return Ok(());
-            }
+        registry.visit_tokens(colliders, |token, actor| {
             let registration = registrations
                 .get(&token)
                 .ok_or("released body registration missing")?;
@@ -618,19 +635,13 @@ impl CollisionRuntime<'_, '_> {
         })?;
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
-            registry.visit_active(|_, actor| {
-                if !actor.active {
-                    return Ok(());
-                }
+            registry.visit_tokens(colliders, |_, actor| {
                 for i in 0..actor.body.constraints.len() {
                     actor.body.solve_constraint(i)?;
                 }
                 Ok(())
             })?;
-            registry.visit_active(|token, actor| {
-                if !actor.active {
-                    return Ok(());
-                }
+            registry.visit_tokens(colliders, |token, actor| {
                 let registration = &registrations[&token];
                 self.skip_cell = registration.skip_cell;
                 for (index, id) in registration.particles.into_iter().enumerate() {
@@ -643,10 +654,7 @@ impl CollisionRuntime<'_, '_> {
             if let Some(error) = self.error.or(self.hits.error) {
                 return Err(error);
             }
-            registry.visit_active(|_, actor| {
-                if !actor.active {
-                    return Ok(());
-                }
+            registry.visit_tokens(colliders, |_, actor| {
                 actor.body.apply_forces();
                 Ok(())
             })
