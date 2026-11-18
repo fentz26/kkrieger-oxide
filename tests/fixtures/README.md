@@ -488,3 +488,9 @@ bits for supplied distances, including the 35/45-unit boundaries. This excludes
 distance calculation and proof of global floating-point state throughout the
 complete released renderer. Regenerate with
 `.reference/venv/bin/python tools/verify_beta_light_importance.py`.
+
+`skinning.bin` records 256 calls to the pinned original `EngMesh::EvalBones`,
+covering 2,048 vertices with zero to four influences, unnormalized signed weights,
+affine matrices and zero normal/tangent inputs. All output fields compare bit
+for bit against Rust. Regenerate with `python3 tools/verify_skinning.py`. This
+checks the deformation routine, not animation evaluation or GPU integration.

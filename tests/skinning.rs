@@ -98,3 +98,73 @@ fn nonuniform_bone_scale_renormalizes_frame_without_renormalizing_weights() {
     assert_eq!(output[0].position, [-2.0, 1.0, 3.0]);
     assert_eq!(output[0].tangent, [0.0, 1.0, 0.0]);
 }
+
+#[test]
+fn original_cpp_bone_deformation_matches_all_vertex_fields() {
+    struct Reader<'a>(&'a [u8]);
+    impl Reader<'_> {
+        fn word(&mut self) -> u32 {
+            let v = u32::from_le_bytes(self.0[..4].try_into().unwrap());
+            self.0 = &self.0[4..];
+            v
+        }
+        fn float(&mut self) -> f32 {
+            f32::from_bits(self.word())
+        }
+        fn vertex(&mut self) -> Vertex {
+            Vertex {
+                position: std::array::from_fn(|_| self.float()),
+                normal: std::array::from_fn(|_| self.float()),
+                tangent: std::array::from_fn(|_| self.float()),
+                color: self.word(),
+                uv: std::array::from_fn(|_| self.float()),
+            }
+        }
+    }
+    let mut r = Reader(include_bytes!("fixtures/skinning.bin"));
+    assert_eq!(r.word(), 256);
+    for case in 0..256 {
+        let matrices = std::array::from_fn::<_, 4, _>(|_| {
+            std::array::from_fn(|_| std::array::from_fn(|_| r.float()))
+        });
+        let mut influences = [Influence::default(); 8];
+        let source = std::array::from_fn::<_, 8, _>(|i| {
+            let vertex = r.vertex();
+            influences[i] = Influence {
+                count: r.word() as u8,
+                weights: std::array::from_fn(|_| r.float()),
+                matrices: std::array::from_fn(|_| r.word() as u16),
+            };
+            vertex
+        });
+        let mut output = source.clone();
+        deform(&source, &influences, &matrices, &mut output).unwrap();
+        for (index, actual) in output.iter().enumerate() {
+            let expected = r.vertex();
+            assert_eq!(actual.color, expected.color);
+            for (field, (a, b)) in actual
+                .position
+                .iter()
+                .chain(&actual.normal)
+                .chain(&actual.tangent)
+                .chain(&actual.uv)
+                .zip(
+                    expected
+                        .position
+                        .iter()
+                        .chain(&expected.normal)
+                        .chain(&expected.tangent)
+                        .chain(&expected.uv),
+                )
+                .enumerate()
+            {
+                assert_eq!(
+                    a.to_bits(),
+                    b.to_bits(),
+                    "case {case} vertex {index} field {field}"
+                );
+            }
+        }
+    }
+    assert!(r.0.is_empty());
+}
