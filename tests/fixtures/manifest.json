@@ -526,6 +526,10 @@
     "skeleton.bin": {
       "bytes": 483844,
       "sha256": "857cfddaec040294752beb84cd49a680259ebbd04c896ecd5d6532bc423a34e5"
+    },
+    "beta-monster-copy.bin": {
+      "bytes": 47108,
+      "sha256": "dce2e2ffabdc7aa794db1a4f96cd2b020afd08a346b26d070753fd59fd426dbe"
     }
   }
 }

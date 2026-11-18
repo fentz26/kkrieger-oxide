@@ -648,3 +648,13 @@ parity can be assessed. The diagnostic used Rust 1.100 release mode and the
 independently extracted beta; its harness is retained under `.reference`.
 Do not pad these records with guessed defaults: the released monster initializer
 and execution handlers need independent mapping before sharing the actor path.
+
+The released monster field-copy prefix now has a separate Rust `InitialCopy`
+decoder, checked against 256 executions of the actual x86 instruction slice.
+The fixture covers signed zero, subnormal and extreme finite speeds as well as
+random records. `KOp::Exec` loads x87 control word 0x143f (24-bit precision,
+round toward negative infinity); the speed multiplier follows that rounding,
+rather than Rust's default nearest rounding. The decoder preserves the two
+three-word vectors and fourteen-word parameter block without assigning guessed
+semantics to the vectors. It is a verified prerequisite, not an integrated beta
+actor: collision setup, event storage and released behavior still need mapping.
