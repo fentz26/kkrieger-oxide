@@ -214,3 +214,61 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
     assert_eq!(runtime.particle_id, 99);
     assert_eq!(runtime.skip_cell, None);
 }
+
+#[test]
+fn ai_world_casts_floor_and_visibility_against_additive_hull() {
+    use kkrieger_oxide::game::beta_monster::{ai::World, runtime::AiWorld};
+    let planes = [
+        [1., 0., 0., 2.],
+        [-1., 0., 0., 2.],
+        [0., 1., 0., 2.],
+        [0., -1., 0., 2.],
+        [0., 0., 1., 2.],
+        [0., 0., -1., 2.],
+    ];
+    let adds = [AdditiveCell {
+        planes: &planes,
+        neighbors: &[],
+        only_for_shot: false,
+    }];
+    let lists: [&[usize]; 1] = [&[]];
+    let mut hits = HitRegistry::default();
+    let mut dynamic = [DynamicCell {
+        planes: &planes,
+        mode: 1,
+        only_for_shot: false,
+        monster: true,
+        player: false,
+        part_box: None,
+        collided: 0,
+    }];
+    let mut runtime = CollisionRuntime {
+        adds: &adds,
+        candidates: CandidateWorld {
+            static_cells: &[],
+            lists: &lists,
+            dynamic_cells: &mut dynamic,
+        },
+        zones: &mut [],
+        zone_lists: &lists,
+        hits: &mut hits,
+        particle_id: 0,
+        skip_cell: Some(0),
+        monster_mode: false,
+        interrupted: false,
+        error: None,
+    };
+    let mut world = AiWorld {
+        runtime: &mut runtime,
+        player_cell: Some(0),
+    };
+    assert_eq!(world.find_cell([0., 0., 0., 1.]), Some(0));
+    assert!(!world.occluded([0., 0., 0., 1.], [1., 0., 0., 1.]));
+    assert!(world.occluded([0., 0., 0., 1.], [3., 0., 0., 1.]));
+    assert_eq!(
+        world.ground_distance([0., 0., 0., 1.], Some(0), 3.),
+        Some(-1.)
+    );
+    assert!(world.runtime.error.is_none());
+    assert_eq!(world.runtime.candidates.dynamic_cells[0].mode, 1);
+}

@@ -1163,3 +1163,12 @@ Thirty-two cases of up to sixteen consecutive native ticks match actor state
 and every emitted ranged event. The fixture contains 64 events. Allocation and
 event insertion are intercepted, with native event construction preserved.
 Concrete collision-world adapter and scene registration/dispatch remain pending.
+
+### AI collision-world adapter
+
+AI world queries now use the shared additive/subtractive/dynamic collision
+registry. Visibility starts from the player cell, while downward casts use the
+actor particle cell and temporarily exclude its owned hit cell. Runtime errors
+are retained in the collision adapter. Hull integration checks cover clear and
+blocked visibility, floor distance and owned-cell mode restoration. Actor scene
+registration, attack dispatch and complete runtime integration remain pending.

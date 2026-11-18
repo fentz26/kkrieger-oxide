@@ -412,3 +412,99 @@ impl CollisionRuntime<'_, '_> {
         result
     }
 }
+
+/// AI queries share the collision registry and its error state.
+pub struct AiWorld<'r, 'a, 'g> {
+    pub runtime: &'r mut CollisionRuntime<'a, 'g>,
+    pub player_cell: Option<usize>,
+}
+impl AiWorld<'_, '_, '_> {
+    fn ray(&mut self, mut cell: usize, ray: Ray) -> Option<crate::collision::Intersection> {
+        if self.runtime.error.is_some() {
+            return None;
+        }
+        let mut query = CandidateQuery {
+            ray,
+            particle: None,
+            first: None,
+            monster_mode: self.runtime.monster_mode,
+        };
+        match cast_world(
+            self.runtime.adds,
+            &mut cell,
+            &mut self.runtime.candidates,
+            &mut query,
+            &mut self.runtime.interrupted,
+            self.runtime.hits,
+        ) {
+            Ok(hit) => hit,
+            Err(error) => {
+                self.runtime.fail(error);
+                None
+            }
+        }
+    }
+}
+impl super::ai::World for AiWorld<'_, '_, '_> {
+    fn find_cell(&mut self, position: [f32; 4]) -> Option<usize> {
+        super::hull::find_cell(
+            self.runtime
+                .adds
+                .iter()
+                .enumerate()
+                .map(|(id, cell)| (id, cell.planes)),
+            position,
+        )
+    }
+    fn occluded(&mut self, start: [f32; 4], end: [f32; 4]) -> bool {
+        let Some(cell) = self.player_cell else {
+            self.runtime.fail("AI visibility has no player cell");
+            return true;
+        };
+        let direction = std::array::from_fn(|axis| {
+            super::down(super::add(f64::from(end[axis]), -f64::from(start[axis])))
+        });
+        self.ray(
+            cell,
+            Ray {
+                direction,
+                start,
+                end,
+            },
+        )
+        .is_some()
+    }
+    fn ground_distance(
+        &mut self,
+        position: [f32; 4],
+        cell: Option<usize>,
+        lowering: f32,
+    ) -> Option<f32> {
+        let Some(cell) = cell else {
+            self.runtime.fail("AI ground cast has no world cell");
+            return None;
+        };
+        let skip = self.runtime.skip_cell;
+        if let Some(id) = skip {
+            let Some(view) = self.runtime.candidates.dynamic_cells.get_mut(id) else {
+                self.runtime.fail("AI skip cell out of range");
+                return None;
+            };
+            view.mode |= 0x10;
+        }
+        let mut end = position;
+        end[1] = super::down(super::add(f64::from(end[1]), -f64::from(lowering)));
+        let result = self.ray(
+            cell,
+            Ray {
+                direction: [0., -1., 0.],
+                start: position,
+                end,
+            },
+        );
+        if let Some(id) = skip {
+            self.runtime.candidates.dynamic_cells[id].mode &= !0x10;
+        }
+        result.map(|hit| hit.distance)
+    }
+}
