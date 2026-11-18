@@ -630,6 +630,10 @@
     "beta-dynamic-fade.bin": {
       "bytes": 25092,
       "sha256": "6ed06e4f652a97993524029d28006d7f8389684f5dc9be7d85f0b11ff93e1640"
+    },
+    "beta-triangle-plane.bin": {
+      "bytes": 17412,
+      "sha256": "5b6e3ba6464c274245bc40da409b79dc9915d8a03c58aa1856f2cdbef75b285f"
     }
   }
 }

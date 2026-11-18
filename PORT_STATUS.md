@@ -992,3 +992,12 @@ restored temporary positions and restored caller identity/skip context. Existing
 native reconciliation comparisons still cover the shared geometry/control path.
 Accepted geometry publication remains an explicit caller step; the owned-world
 phase driver, part-box updates and complete beta gameplay remain unfinished.
+
+Released collision triangle-plane construction now preserves its degeneracy
+threshold and x87 normalization/store order. A 256-case actual MakePlane oracle
+compares success and all plane words, including coincident vertices, tiny faces
+and random triangles; failed native calls leave output untouched. This returns
+the pre-cell positive dot distance, explicitly separate from containment-plane
+sign and overlap adjustments. The full released cell constructor and its warped
+face/degenerate fallback rules remain to be connected before authored hit-box
+geometry can use this path in gameplay.

@@ -88,3 +88,30 @@ pub fn find_cell<'a>(
         .into_iter()
         .find_map(|(id, planes)| (outside_mask(planes, point, 0.) == 0).then_some(id))
 }
+
+/// Released MakePlane result before cell overlap adjustments. The fourth word
+/// is dot(normal,b), not the negated distance consumed by containment tests.
+pub fn triangle_plane(a: [f32; 4], b: [f32; 4], c: [f32; 4]) -> Option<[f32; 4]> {
+    let d: [f32; 3] = std::array::from_fn(|i| down(add(f64::from(a[i]), -f64::from(b[i]))));
+    let e: [f32; 3] = std::array::from_fn(|i| down(add(f64::from(b[i]), -f64::from(c[i]))));
+    let n: [f32; 3] = std::array::from_fn(|i| {
+        let j = (i + 1) % 3;
+        let k = (i + 2) % 3;
+        down(add(
+            mul(f64::from(d[j]), f64::from(e[k])),
+            -mul(f64::from(d[k]), f64::from(e[j])),
+        ))
+    });
+    let n4 = [n[0], n[1], n[2], 0.];
+    let squared = dot(n4, n4);
+    if squared < 1e-10 {
+        return None;
+    }
+    let root = squared.sqrt();
+    let root = rounded_arithmetic(root, (-root).mul_add(root, squared));
+    // The reciprocal remains on the x87 stack; it is not first stored to f32.
+    let inverse = divide(1., root);
+    let n = n.map(|v| down(mul(f64::from(v), inverse)));
+    let n = [n[0], n[1], n[2], 0.];
+    Some([n[0], n[1], n[2], down(dot(n, b))])
+}
