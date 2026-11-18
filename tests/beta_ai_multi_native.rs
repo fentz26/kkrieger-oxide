@@ -38,7 +38,7 @@ fn consecutive_ticks_match_released_execution() {
             std::array::from_fn(|_| std::array::from_fn(|_| f32::from_bits(words.next().unwrap())));
         let mut world = NativeWorld {
             present,
-            blocked: case % 2 != 0,
+            blocked: (case / 2) % 2 != 0,
         };
         let mut actor = Actor::spawn(&data, matrix, 0, token, |p| world.find_cell(p)).unwrap();
         for _ in 0..case % 16 + 1 {

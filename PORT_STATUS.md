@@ -1141,3 +1141,11 @@ Thirty-two cases of one to sixteen consecutive native ticks match particle
 positions/history, cell links, all event words, cooldowns and activation.
 Attack damage is disabled in these runs. Concrete collision-world integration,
 attack dispatch over longer runs and scene registration remain pending.
+
+### Whole-tick fixture coverage correction
+
+The first whole-tick fixtures coupled clear visibility to missing world cells,
+so no actors activated. Visibility now varies independently from cell presence.
+Both fixtures were regenerated and the Rust comparisons pass with eight active
+cases each, covering actual movement and cooldown advancement. This supersedes
+the earlier implication that the first fixture versions exercised active ticks.

@@ -693,11 +693,11 @@
     },
     "beta-ai-tick.bin": {
       "bytes": 32260,
-      "sha256": "c9a631fbded383eab98d318596873e95984db31a43c23a89ccb2bc117ba935f0"
+      "sha256": "05619a7a2e35f026f99009fb4e5452be18e29b2f0f610a9b27b83792d3e65fe5"
     },
     "beta-ai-multi-tick.bin": {
       "bytes": 32260,
-      "sha256": "37d6a263d3698574604eacbe1f27054ad34ba81dbc2b2e2fe788bc35c2886df5"
+      "sha256": "9c180479ebcd0d7bfbbbf0505e6ffde2630cec1dc48a9bc53ff0c0c173d43cea"
     }
   }
 }

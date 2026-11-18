@@ -13,7 +13,7 @@ u.mem_map(0x5000000,4096)
 def intercept(u,address,size,user):
  if address not in (0x81c852,0x81b45a):return
  esp=u.reg_read(UC_X86_REG_ESP)
- value=case%2 if address==0x81c852 else 0
+ value=(case//2)%2 if address==0x81c852 else 0
  u.reg_write(UC_X86_REG_EAX,value);u.reg_write(UC_X86_REG_EIP,struct.unpack('<I',u.mem_read(esp,4))[0]);u.reg_write(UC_X86_REG_ESP,esp+4+(16 if address==0x81c852 else 32))
 u.hook_add(UC_HOOK_CODE,intercept)
 rng=random.Random(0x200432);out=bytearray(pack(32))
