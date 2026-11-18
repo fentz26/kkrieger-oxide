@@ -403,6 +403,7 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
         );
     }
     let event_before = stored[0].initial.event_words;
+    let mut moving_cell = stored[0].hit_cell.clone();
     let registrations = [BodyRegistration {
         particles: [0, 1, 2, 3, 4],
         skip_cell: Some(0),
@@ -420,8 +421,9 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
                 fly_mode: 0,
                 on_ground: false,
             },
-            |_, actors| {
+            |runtime, actors| {
                 assert_eq!(actors[0].initial.event_words, event_before);
+                runtime.reconcile_cell(0, &mut moving_cell, actors, &registrations)?;
                 actors[0].body.particles[0].force[0] = 0.01;
                 Ok(())
             },

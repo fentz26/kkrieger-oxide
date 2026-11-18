@@ -1236,3 +1236,11 @@ so actor bodies remain in their persistent storage across constraint, particle,
 dynamic and force phases. Existing body callers retain their interface behavior.
 Native single/multi-body checks and an actor-storage integration check pass.
 Scene registry and frame-loop integration remain pending.
+
+### Dynamic reconciliation over actor storage
+
+Moving-cell reconciliation now accepts the same body containers as the global
+physics phase. The actor-storage integration runs reconciliation inside the
+dynamic callback, while existing native reconciliation checks continue to pass.
+This preserves persistent actor storage through the physics and dynamic phases.
+Scene registration and complete frame-loop integration remain pending.

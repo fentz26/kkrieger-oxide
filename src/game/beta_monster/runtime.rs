@@ -361,11 +361,11 @@ impl CollisionRuntime<'_, '_> {
 impl CollisionRuntime<'_, '_> {
     /// Reconcile one moving cell against registered bodies using real mode-1
     /// collision probes. Publish its accepted collision view after this returns.
-    pub fn reconcile_cell(
+    pub fn reconcile_cell<B: AsRef<super::body::Body> + AsMut<super::body::Body>>(
         &mut self,
         index: usize,
         cell: &mut super::dynamic::MovingCell,
-        bodies: &mut [super::body::Body],
+        bodies: &mut [B],
         registrations: &[BodyRegistration],
     ) -> Result<(), &'static str> {
         if let Some(error) = self.error.or(self.hits.error) {
@@ -378,6 +378,7 @@ impl CollisionRuntime<'_, '_> {
             return Err("body registration count differs");
         }
         for (body, registration) in bodies.iter().zip(registrations) {
+            let body = body.as_ref();
             if registration
                 .skip_cell
                 .is_some_and(|i| i >= self.candidates.dynamic_cells.len())
@@ -395,7 +396,8 @@ impl CollisionRuntime<'_, '_> {
             .iter_mut()
             .zip(registrations)
             .flat_map(|(body, registration)| {
-                body.particles
+                body.as_mut()
+                    .particles
                     .iter_mut()
                     .zip(registration.particles)
                     .map(move |(particle, id)| {
