@@ -14,7 +14,7 @@ demo=image[0x8151a1-base:0x8151b3-base]
 demo_instructions=list(cs.disasm(demo,0x8151a1))
 assert [(i.mnemonic,i.op_str) for i in demo_instructions]==[('push','ebp'),('mov','ebp, esp'),('push','dword ptr [ebp + 0xc]'),('mov','ecx, dword ptr [ebp + 8]'),('call','0x818e4a'),('pop','ebp'),('ret','8')]
 assert image.count(struct.pack('<III',0xe0,0x815166,0x8151a1))==1
-report={'executable_sha256':hashlib.sha256(exe).hexdigest(),'handler_table':hex(base+image.index(records)),'select_entry':'0x814a0e','select_sha256':hashlib.sha256(select).hexdigest(),'scope':'Beta Select delegates only to KOp::ExecInputs, without an authored count or reference adjustment. Viewport signature is structurally different and remains unimplemented.'}
+report={'executable_sha256':hashlib.sha256(exe).hexdigest(),'handler_table':hex(base+image.index(records)),'select_entry':'0x814a0e','select_sha256':hashlib.sha256(select).hexdigest(),'scope':'Beta Select delegates only to KOp::ExecInputs, without an authored count or reference adjustment. Viewport has a separate released ABI, verified by tools/verify_beta_viewport.py.'}
 report['scene_wrapper_entry']='0x8151a1'
 report['scene_wrapper_sha256']=hashlib.sha256(demo).hexdigest()
 (ref/'beta-ipp-evidence.json').write_text(json.dumps(report,indent=2)+'\n')

@@ -636,3 +636,15 @@ It confirms clear flags 3 and the wrapper's transparent-black color override.
 This supersedes earlier statements that the wrapper itself is unimplemented.
 The paint callee's camera/game behavior and complete beta frame equivalence
 remain unverified; the main executable still uses the development export.
+
+## Released root initialization audit
+
+Executing the released root (4815) with a postprocessing pool now reaches monster
+1183. Preparing its game operators fails with `truncated monster parameters`:
+the released class `0x11` packs 26 words (`fffffffffbiiififfbffffffff`), while
+`monster_actor::Actor::initialize` consumes the later 29-word development ABI.
+This is a concrete remaining blocker for the beta root, before camera or paint
+parity can be assessed. The diagnostic used Rust 1.100 release mode and the
+independently extracted beta; its harness is retained under `.reference`.
+Do not pad these records with guessed defaults: the released monster initializer
+and execution handlers need independent mapping before sharing the actor path.
