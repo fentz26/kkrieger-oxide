@@ -1040,3 +1040,12 @@ activation executes the original world lookup and five particle-cell updates.
 Strict comparisons preserve equality and NaN behavior, and deactivation retains
 cell links. Damage and visibility share the released activation operation.
 This gate is not yet connected to a complete beta AI tick or scene registry.
+
+### Released monster attack cooldown arithmetic
+
+Actor storage now retains the two attack progress values. Active advancement
+matches 256 executions of 0x81d458..0x81d4a4, including negative and zero periods,
+very small/large periods, and progress below zero and above one. Division and
+addition preserve x87 precision and the comparison before the final f32 spill.
+Inactive actors retain progress. Attack selection, damage/event emission and
+full beta AI/scene integration remain pending.

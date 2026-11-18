@@ -650,6 +650,10 @@
     "beta-visibility.bin": {
       "bytes": 6916,
       "sha256": "174cdb4b46dbc6482720a8a7c061cc05c7635f0d0b430b85f29681df5cf3f04a"
+    },
+    "beta-cooldowns.bin": {
+      "bytes": 6148,
+      "sha256": "f51d618c3f7fbb634a437817e6324be3098602f7953720dab660d5ab747e8dfc"
     }
   }
 }

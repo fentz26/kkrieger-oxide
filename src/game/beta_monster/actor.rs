@@ -12,6 +12,8 @@ pub struct Actor {
     pub body: Body,
     pub hit_cell: MovingCell,
     pub active: bool,
+    /// Melee and ranged attack progress, respectively.
+    pub cooldowns: [f32; 2],
 }
 impl Actor {
     pub fn spawn<F>(
@@ -59,11 +61,28 @@ impl Actor {
             body,
             hit_cell,
             active: false,
+            cooldowns: [0.; 2],
         })
     }
 }
 
 impl Actor {
+    /// Advance the active branch's attack progress. The caller applies the
+    /// AI's life check before entering the per-tick branches.
+    pub fn advance_cooldowns(&mut self) {
+        if !self.active {
+            return;
+        }
+        for (timer, parameter) in self.cooldowns.iter_mut().zip([7, 9]) {
+            let period = f64::from(f32::from_bits(self.initial.copied.parameters[parameter]));
+            let numerator = f64::from(f32::from_bits(0x3c23d70a));
+            let q = numerator / period;
+            let increment = super::rounded_arithmetic(q, (-q).mul_add(period, numerator) / period);
+            let next = super::add(increment, f64::from(*timer));
+            *timer = if next >= 1. { 1. } else { super::down(next) };
+        }
+    }
+
     /// Released AI notice-radius gate. Visibility is queried only across a
     /// strict radius boundary; failed activation leaves particle cells intact.
     pub fn update_visibility<V, F>(&mut self, distance: f32, mut blocked: V, mut find_cell: F)
