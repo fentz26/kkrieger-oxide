@@ -1,6 +1,7 @@
 //! Released 2004 monster initialization ABI. This is separate from the later
 //! development actor: no walk-style, weapon-kind or spawn-switch words exist.
 
+pub mod actor;
 pub mod body;
 pub mod collision;
 pub mod dynamic;

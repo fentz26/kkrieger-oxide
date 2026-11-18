@@ -638,6 +638,10 @@
     "beta-cell-build.bin": {
       "bytes": 80820,
       "sha256": "05dc2b74860fc858cf9e2cb5f6e4a64cbe28e06fbd09e44eadf4764c5e3e3b16"
+    },
+    "beta-actor-spawn.bin": {
+      "bytes": 37252,
+      "sha256": "ad3db4358b5cc76c3fcfd83034c242fe3a1318d5c4620d47bda8219778cce06f"
     }
   }
 }

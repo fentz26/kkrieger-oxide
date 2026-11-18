@@ -1010,3 +1010,14 @@ planes), rather than the later development constants. HitBox::collision_hull
 connects the verified monster vertices with released mode 1. This supersedes
 the full-constructor-pending note; world/actor registration and runtime dynamic
 ownership remain unfinished.
+
+Released Actor::spawn now composes InitialState, world-cell lookup, the five-point
+body and the monster hit hull in fixed owned storage. A 32-case actual spawn-prefix
+oracle executes body/cell construction and PrepareDynamic without stubs, checking
+all particle words, local/original hit planes, center, matrices and mode flags.
+It covers authored-style and rotated parameters, varied parent translations and
+present/absent containing cells. The original hit cell shares body ownership;
+PrepareDynamic leaves planes local and marks them unconfirmed until dynamic
+acceptance. Missing cells do not invent a life=0 adjustment. Truncated records
+fail before world lookup. Scene-instance identity, actor AI/state progression,
+world registration and the released game root remain unfinished.
