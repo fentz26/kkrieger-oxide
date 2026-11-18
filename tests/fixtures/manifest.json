@@ -590,6 +590,10 @@
     "beta-find-cell.bin": {
       "bytes": 12292,
       "sha256": "10670a30d2e6ec0d06ab66c06723249cd53f358ef9b53f27727ccd978beeb231"
+    },
+    "beta-zones.bin": {
+      "bytes": 38916,
+      "sha256": "521fd0160b398f9bd72e836d7f58ea64f27d163fec5b677a29c414dcc22a2c12"
     }
   }
 }

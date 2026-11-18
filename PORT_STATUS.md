@@ -832,3 +832,12 @@ OutsideMask routines with zero through six shuffled, overlapping box cells.
 The selected identity matches, including boundaries, empty registries and NaN
 coordinates. The iterator API preserves caller-owned identities without pointer
 storage or allocation. World ownership and runtime integration remain pending.
+
+Released zone-transition masks now have a portable implementation using beta
+hull tests. Its 256-case oracle executes the actual zone traversal and hull
+callees, comparing all pre-existing enter/leave/collided masks after movement.
+Cases cover both cell lists, shared zones, same-cell suppression of the second
+list, shot-select suppression, wrapped particle kinds, NaN points and each
+inside/outside transition. The implementation retains registry order without
+allocating. Zone logic consumption, registry ownership and the full collision
+adapter remain unfinished; this establishes the mask-update phase only.
