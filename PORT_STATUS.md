@@ -777,3 +777,14 @@ as finite cancellation. It now produces x87's negative indefinite NaN, also
 verified by an added actual force-phase case. All beta component checks pass
 again. These kernels establish plane queries; additive traversal, subtractive
 world resolution and the registry-backed game integration remain unfinished.
+
+Released additive-cell traversal is now implemented with a fixed sixteen-entry
+visited array and portable cell indices. Its oracle executes the full released
+wrapper and actual hull routines, controlling only terminal CollideRaySub.
+Across 128 box-graph cases, final cell, selected contact and exact visited list
+match, including the duplicate initial entry, self-links, disconnected cells,
+player filtering of OnlyForShot neighbors, cutoff at sixteen entries and ties
+between boundary/subtractive hits. The terminal callback runs exactly once;
+invalid Rust indices fail before invoking it. False-hit out-buffer contents are
+not exposed by the Option contact API. Subtractive/dynamic candidate resolution,
+world/registry integration and the complete beta game remain unfinished.

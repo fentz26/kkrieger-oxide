@@ -570,6 +570,10 @@
     "beta-hull.bin": {
       "bytes": 145412,
       "sha256": "5215a7ecb32bfaa7f184ee939ce9f897bb8e15747af7223cdc410ff5e3451686"
+    },
+    "beta-world-cast.bin": {
+      "bytes": 48900,
+      "sha256": "1df368aaa999ae5f6d294adcfdba3ab0d1dfd62930d80939e6005bca8be7d0a4"
     }
   }
 }

@@ -5,6 +5,7 @@ pub mod body;
 pub mod collision;
 pub mod hull;
 pub mod physics;
+pub mod world_cast;
 
 /// Fields copied by the released handler at 0x81d82f..0x81d85e.
 /// The first vector feeds InitEuler in radians; the second is added to the
