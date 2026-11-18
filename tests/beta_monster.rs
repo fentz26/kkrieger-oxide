@@ -86,7 +86,7 @@ fn released_spawn_prefix_matches_original_event_and_spline_routines() {
             .chain(state.copied.parameters)
             .chain(state.event_words)
             .chain(state.death_event_words)
-            .chain([state.spline_token, state.life as u32])
+            .chain([state.attack_operator, state.life as u32])
             .chain(state.cell_query_position.map(f32::to_bits))
             .chain([state.collider_type]);
         for (field, value) in actual.enumerate() {

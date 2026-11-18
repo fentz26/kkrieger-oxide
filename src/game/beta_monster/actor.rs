@@ -26,14 +26,14 @@ impl Actor {
     pub fn spawn<F>(
         words: &[u32],
         parent: Matrix,
-        spline_token: u32,
+        attack_operator: u32,
         actor_token: u32,
         mut find_cell: F,
     ) -> Result<Self, &'static str>
     where
         F: FnMut([f32; 4]) -> Option<usize>,
     {
-        let initial = InitialState::decode(words, parent, spline_token, actor_token)?;
+        let initial = InitialState::decode(words, parent, attack_operator, actor_token)?;
         let hull = HitBox::decode(words)?.collision_hull();
         if hull.count > 6 {
             return Err("dynamic plane capacity exceeded");
@@ -219,7 +219,7 @@ impl Actor {
             self.cooldowns[0] = 0.;
             Some(Attack::Melee(hits))
         } else {
-            if self.initial.copied.parameters[8] as i32 <= 0 || self.initial.spline_token == 0 {
+            if self.initial.copied.parameters[8] as i32 <= 0 || self.initial.attack_operator == 0 {
                 return None;
             }
             self.cooldowns[1] = 0.;
@@ -231,7 +231,7 @@ impl Actor {
                 return None;
             }
             let mut event = [0; 45];
-            event[0] = self.initial.spline_token;
+            event[0] = self.initial.attack_operator;
             event[17..25].copy_from_slice(&self.initial.event_words[17..25]);
             event[43] = self.initial.event_words[43];
             Some(Attack::Ranged(event))

@@ -185,7 +185,7 @@ pub struct InitialState {
     pub matrix: crate::mesh::Matrix,
     pub event_words: [u32; 45],
     pub death_event_words: [u32; 45],
-    pub spline_token: u32,
+    pub attack_operator: u32,
     pub life: i32,
     pub cell_query_position: [f32; 4],
     pub collider_type: u32,
@@ -195,7 +195,7 @@ impl InitialState {
     pub fn decode(
         words: &[u32],
         parent: crate::mesh::Matrix,
-        spline_token: u32,
+        attack_operator: u32,
         actor_token: u32,
     ) -> Result<Self, &'static str> {
         let copied = InitialCopy::decode(words)?;
@@ -228,7 +228,7 @@ impl InitialState {
             matrix: parent,
             event_words,
             death_event_words: [0; 45],
-            spline_token,
+            attack_operator,
             life,
             cell_query_position: [
                 parent[3][0],

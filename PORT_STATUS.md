@@ -1172,3 +1172,10 @@ actor particle cell and temporarily exclude its owned hit cell. Runtime errors
 are retained in the collision adapter. Hull integration checks cover clear and
 blocked visibility, floor distance and owned-cell mode restoration. Actor scene
 registration, attack dispatch and complete runtime integration remain pending.
+
+### Released attack operator identity
+
+The initializer field at actor+0x1e0 is now named attack_operator. The released
+call at 0x81d863 reads input operator zero through 0x80e11f, and ranged event
+creation copies that operator to the new event. The earlier spline_token name
+was misleading. Initialization and repeated ranged-event comparisons pass.
