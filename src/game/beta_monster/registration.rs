@@ -118,3 +118,64 @@ impl ActorFrame {
             .collect()
     }
 }
+
+impl ActorFrame {
+    /// Rebuild borrowed cast views after each accepted geometry update.
+    pub fn reconcile_all(
+        &mut self,
+        runtime: &mut super::runtime::CollisionRuntime<'_, '_>,
+        registry: &Registry,
+    ) -> Result<(), &'static str> {
+        if runtime.candidates.dynamic_cells.len() != self.cells.len() {
+            return Err("released dynamic registry count differs");
+        }
+        self.collided = runtime
+            .candidates
+            .dynamic_cells
+            .iter()
+            .map(|cell| cell.collided)
+            .collect();
+        for index in 0..self.cells.len() {
+            let mut proposed = self.cells[index].1.clone();
+            let masks = {
+                let mut views = self.dynamic_views()?;
+                let mut zones = runtime.zones.to_vec();
+                let mut probe = super::runtime::CollisionRuntime {
+                    adds: runtime.adds,
+                    candidates: super::subtractive::CandidateWorld {
+                        static_cells: runtime.candidates.static_cells,
+                        lists: runtime.candidates.lists,
+                        dynamic_cells: &mut views,
+                    },
+                    zones: &mut zones,
+                    zone_lists: runtime.zone_lists,
+                    hits: runtime.hits,
+                    particle_id: runtime.particle_id,
+                    skip_cell: runtime.skip_cell,
+                    monster_mode: runtime.monster_mode,
+                    interrupted: runtime.interrupted,
+                    error: runtime.error,
+                };
+                let result =
+                    probe.reconcile_registered(index, &mut proposed, registry, &self.bodies);
+                runtime.interrupted = probe.interrupted;
+                runtime.error = probe.error;
+                for (target, source) in runtime.zones.iter_mut().zip(probe.zones.iter()) {
+                    target.enter = source.enter;
+                    target.leave = source.leave;
+                    target.collided = source.collided;
+                }
+                result?;
+                probe
+                    .candidates
+                    .dynamic_cells
+                    .iter()
+                    .map(|cell| cell.collided)
+                    .collect()
+            };
+            self.collided = masks;
+            self.cells[index].1 = proposed;
+        }
+        self.publish_geometry(registry)
+    }
+}

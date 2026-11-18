@@ -475,6 +475,19 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     );
     assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][0] > 0.);
 
+    let mut captured = kkrieger_oxide::game::beta_monster::registration::ActorFrame::capture(
+        &registry,
+        &[token],
+        0,
+    )
+    .unwrap();
+    captured.reconcile_all(world.runtime, &registry).unwrap();
+    assert_eq!(
+        registry.get(token).unwrap().borrow().hit_cell.mode & 0x20,
+        0
+    );
+    assert_eq!(captured.cells[0].1.mode & 0x20, 0);
+
     assert_eq!(world.runtime.skip_cell, None);
     let sounds = world
         .runtime

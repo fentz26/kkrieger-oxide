@@ -1380,3 +1380,18 @@ changes later. The convenience registered-body path captures active tokens once
 and delegates. Checks verify a selected body advances despite later inactive
 state and a newly activated body outside the roster remains untouched. Full
 frame-stage composition remains pending.
+
+### Released frame ordering evidence
+
+The beta main update calls global physics at 0x81e508 (target 0x81c728), then
+weapon/player work at 0x81e522, then loops registered monster AI at 0x81e571
+(target 0x81d33e). Frame composition must therefore retain the scene-captured
+collider roster through physics and run monster AI afterward.
+
+### Sequential accepted-geometry reconciliation
+
+ActorFrame can reconcile captured cells in order, rebuilding borrowed collision
+views after each accepted update. Collision masks, zone interactions and runtime
+errors pass through the probe runtimes, and accepted geometry is published to
+persistent actors. Integration checks verify acceptance and persistent writeback.
+The complete physics/AI frame wrapper and game-loop invocation remain pending.
