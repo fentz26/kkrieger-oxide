@@ -362,3 +362,5 @@ pub fn generate_many_with_materials(
 }
 
 pub mod skinning;
+
+pub mod skeleton;
