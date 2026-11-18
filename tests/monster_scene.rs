@@ -364,3 +364,36 @@ fn released_monster_scene_uses_beta_storage_and_replays_instance() {
         7
     );
 }
+
+#[test]
+#[ignore = "requires independently extracted beta and full scene generation"]
+fn released_original_root_executes_with_beta_actor_registry() {
+    std::thread::Builder::new()
+        .stack_size(32 * 1024 * 1024)
+        .spawn(run_released_original_root)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+fn run_released_original_root() {
+    let bytes = std::fs::read(".reference/verified-beta.kx").unwrap();
+    let doc = Document::parse_layout(&bytes, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
+    let world = World::from_document(&doc, 4357).unwrap();
+    let mut execution = Execution::new(&doc);
+    execution.actors = Some(ActorContext {
+        world: Rc::new(RefCell::new(world)),
+        player_position: [0., 0., 0., 1.],
+        player_hit: None,
+        time_reset: false,
+    });
+    execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new(
+        kkrieger_oxide::scene::overlay::Viewport {
+            screen: 0,
+            render_target: -1,
+            window: [0, 0, 800, 600],
+        },
+        std::array::from_fn(|i| 100 + i as i32),
+    ));
+    execution.frame(&doc, 4815).unwrap();
+    assert!(!execution.game.released_monsters.active_ids().is_empty());
+}

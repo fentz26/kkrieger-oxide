@@ -1320,3 +1320,12 @@ cell before executing the living input. The resulting scene event matrix is
 copied back into the released payload for the following AI tick. The beta replay
 check verifies the collision matrix handoff, and all monster-scene tests pass.
 Dynamic-view registration and complete frame scheduling remain pending.
+
+### Full released scene-root execution
+
+The independently extracted beta root 4815 now executes successfully through
+scene generation and postprocessing setup and registers released actors. The
+check builds the level world at root 4357 and runs the full root on a 32 MiB
+test thread stack. The default test-thread stack overflowed during traversal.
+The reproducible check passed in 11.48 seconds. GPU parity, runtime physics/AI
+frame wiring and complete game playthrough remain pending.
