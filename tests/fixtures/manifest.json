@@ -530,6 +530,10 @@
     "beta-monster-copy.bin": {
       "bytes": 47108,
       "sha256": "dce2e2ffabdc7aa794db1a4f96cd2b020afd08a346b26d070753fd59fd426dbe"
+    },
+    "beta-monster-geometry.bin": {
+      "bytes": 78852,
+      "sha256": "26a485e0edd69b8285379971529ea61139e87c106d876d35eace1f66a526f820"
     }
   }
 }

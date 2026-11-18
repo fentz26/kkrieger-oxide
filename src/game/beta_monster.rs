@@ -2,7 +2,8 @@
 //! development actor: no walk-style, weapon-kind or spawn-switch words exist.
 
 /// Fields copied by the released handler at 0x81d82f..0x81d85e.
-/// Vector meanings beyond their observed storage offsets remain unassigned.
+/// The first vector feeds InitEuler in radians; the second is added to the
+/// parent translation by the released initializer.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InitialCopy {
     pub vectors: [[f32; 3]; 2],
@@ -33,6 +34,127 @@ impl InitialCopy {
         Ok(Self {
             vectors,
             parameters,
+        })
+    }
+}
+
+/// Local geometry passed to the released collision-cell initializer.
+#[derive(Clone, Debug, PartialEq)]
+pub struct HitBox {
+    pub matrix: crate::mesh::Matrix,
+    pub scale: [f32; 3],
+}
+fn down(value: f64) -> f32 {
+    let nearest = value as f32;
+    if f64::from(nearest) > value {
+        nearest.next_down()
+    } else {
+        nearest
+    }
+}
+// x87 arithmetic keeps the wide exponent even with 24-bit precision.
+fn precision24(value: f64) -> f64 {
+    if value == 0. || !value.is_finite() {
+        return value;
+    }
+    const MASK: u64 = (1 << 29) - 1;
+    let bits = value.to_bits();
+    let mut truncated = bits & !MASK;
+    if value.is_sign_negative() && bits & MASK != 0 {
+        truncated += 1 << 29;
+    }
+    f64::from_bits(truncated)
+}
+fn rounded_arithmetic(value: f64, error: f64) -> f64 {
+    let rounded = precision24(value);
+    if error < 0. && rounded == value && value != 0. && value.is_finite() {
+        let bits = value.to_bits();
+        if value > 0. {
+            f64::from_bits((bits - 1) & !((1 << 29) - 1))
+        } else {
+            f64::from_bits(bits + (1 << 29))
+        }
+    } else {
+        rounded
+    }
+}
+fn mul(a: f64, b: f64) -> f64 {
+    let product = a * b;
+    rounded_arithmetic(product, a.mul_add(b, -product))
+}
+fn add(a: f64, b: f64) -> f64 {
+    // Exact cancellation is negative zero under round-toward-negative.
+    if a == -b && (a.is_sign_negative() || b.is_sign_negative()) {
+        -0.
+    } else {
+        let sum = a + b;
+        let z = sum - a;
+        let error = (a - (sum - z)) + (b - z);
+        rounded_arithmetic(sum, error)
+    }
+}
+impl HitBox {
+    pub fn decode(words: &[u32]) -> Result<Self, &'static str> {
+        let p = words
+            .get(..26)
+            .ok_or("truncated released monster parameters")?;
+        let f = |i| f32::from_bits(p[i]);
+        let (sx, cx) = f64::from(f(0)).sin_cos();
+        let (sy, cy) = f64::from(f(1)).sin_cos();
+        let (sz, cz) = f64::from(f(2)).sin_cos();
+        // InitEuler spills cy and cz to f32 but retains cz on the x87 stack.
+        let cy = f64::from(down(cy));
+        let stored_cz = f64::from(down(cz));
+        let cz_sy = mul(cz, sy);
+        let sz_sy = mul(sz, sy);
+        let mut matrix = [
+            [down(mul(cy, cz)), down(mul(sz, cy)), down(-sy), 0.],
+            [
+                down(add(mul(cz_sy, sx), -mul(sz, cx))),
+                down(add(mul(sz_sy, sx), mul(stored_cz, cx))),
+                down(mul(cy, sx)),
+                0.,
+            ],
+            [
+                down(add(mul(cz_sy, cx), mul(sz, sx))),
+                down(add(mul(f64::from(down(sz_sy)), cx), -mul(stored_cz, sx))),
+                down(mul(cy, cx)),
+                0.,
+            ],
+            [0., 0., 0., 1.],
+        ];
+        for axis in 0..3 {
+            let a = f64::from(down(mul(f64::from(f(23)), f64::from(matrix[0][axis]))));
+            let b = mul(f64::from(f(24)), f64::from(matrix[1][axis]));
+            let c = mul(f64::from(f(25)), f64::from(matrix[2][axis]));
+            let ab = f64::from(down(add(b, a)));
+            matrix[3][axis] = down(add(c, ab));
+        }
+        Ok(Self {
+            matrix,
+            scale: [f(20), f(21), f(22)],
+        })
+    }
+}
+
+impl HitBox {
+    /// Vertices supplied by the released initializer to its plane builder.
+    pub fn vertices(&self) -> [[f32; 4]; 8] {
+        std::array::from_fn(|index| {
+            let corner: [f32; 3] = std::array::from_fn(|axis| {
+                down(-mul(
+                    ((index >> axis) & 1) as f64 - 0.5,
+                    f64::from(self.scale[axis]),
+                ))
+            });
+            std::array::from_fn(|axis| {
+                let a = down(mul(f64::from(corner[0]), f64::from(self.matrix[0][axis])));
+                let b = mul(f64::from(corner[1]), f64::from(self.matrix[1][axis]));
+                let ab = down(add(b, f64::from(a)));
+                let c = mul(f64::from(corner[2]), f64::from(self.matrix[2][axis]));
+                let abc = down(add(c, f64::from(ab)));
+                down(add(f64::from(abc), f64::from(self.matrix[3][axis])))
+            })
         })
     }
 }

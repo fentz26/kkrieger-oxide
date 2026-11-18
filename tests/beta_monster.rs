@@ -31,3 +31,33 @@ fn released_record_requires_all_twenty_six_words() {
     assert!(InitialCopy::decode(&[0; 26]).is_ok());
     assert!(InitialCopy::decode(&[0; 29]).is_ok());
 }
+#[test]
+fn released_hit_box_matches_actual_math_callees() {
+    use kkrieger_oxide::game::beta_monster::HitBox;
+    let bytes = include_bytes!("fixtures/beta-monster-geometry.bin");
+    let mut words = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b));
+    assert_eq!(words.next(), Some(256));
+    for case in 0..256 {
+        let input: [u32; 26] = std::array::from_fn(|_| words.next().unwrap());
+        let decoded = HitBox::decode(&input).unwrap();
+        for (field, value) in decoded
+            .matrix
+            .into_iter()
+            .flatten()
+            .chain(decoded.scale)
+            .chain(decoded.vertices().into_iter().flatten())
+            .enumerate()
+        {
+            assert_eq!(
+                value.to_bits(),
+                words.next().unwrap(),
+                "case {case} field {field}"
+            );
+        }
+    }
+    assert!(words.next().is_none());
+}

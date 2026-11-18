@@ -658,3 +658,13 @@ rather than Rust's default nearest rounding. The decoder preserves the two
 three-word vectors and fourteen-word parameter block without assigning guessed
 semantics to the vectors. It is a verified prerequisite, not an integrated beta
 actor: collision setup, event storage and released behavior still need mapping.
+
+Released monster hit-box local transforms and all eight collision vertices now
+have a distinct Rust implementation. A second instruction oracle executes the
+actual released InitEuler, vector transforms and cube construction, stopping at
+the plane-builder call without replacing any math callees. Its 256 cases compare
+all 16 matrix words, three extents and 32 vertex words exactly, including signed
+zero and subnormal Euler inputs. The implementation preserves x87's 24-bit
+arithmetic with wide exponents, directed rounding, exact cancellation signs and
+the observed intermediate f32 stores. This establishes local collision geometry;
+released actor ownership, world placement and AI remain separate unfinished work.
