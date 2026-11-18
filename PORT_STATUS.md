@@ -623,3 +623,16 @@ Static game events now honor ClearInstanceMem through the same registration
 path as document events. Scope-reset and preparation-order tests pass. Root
 switching/startup, remaining operators, renderer/audio consumption and replacement
 of the prototype main loop remain pending.
+
+## Beta viewport execution progress
+
+The released one-word `0xf0` wrapper now has a distinct Rust execution path:
+cache lookup, child execution, target allocation, viewport preparation, a clear
+pass, and LastOutput assignment. Tests check full texture extent, the fixed
+1024x768 screen letterbox and cache reuse with real output-reference counts.
+The reference verifier also runs the actual released PrepareViewport and both
+initializers in six bounded cases, in addition to its 24 stubbed wrapper traces.
+It confirms clear flags 3 and the wrapper's transparent-black color override.
+This supersedes earlier statements that the wrapper itself is unimplemented.
+The paint callee's camera/game behavior and complete beta frame equivalence
+remain unverified; the main executable still uses the development export.

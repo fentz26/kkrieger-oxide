@@ -1160,6 +1160,56 @@ impl Execution {
                 Ok(())
             }
             0xf0 => {
+                if doc.layout == crate::kx::Layout::Beta2004 {
+                    let overlay = self
+                        .overlay
+                        .as_mut()
+                        .ok_or_else(|| fail("postprocessing target pool missing"))?;
+                    if let Some(cached) = overlay.find(Some(root)) {
+                        overlay.last_output = Some(cached);
+                        return Ok(());
+                    }
+                    let size = *p
+                        .first()
+                        .ok_or_else(|| fail("missing beta viewport size"))?
+                        as usize;
+                    let count = *p
+                        .get(1)
+                        .ok_or_else(|| fail("missing beta viewport output count"))?
+                        as i32;
+                    let scene = *op
+                        .inputs
+                        .first()
+                        .ok_or_else(|| fail("beta viewport scene input missing"))?;
+                    self.jobs.clear();
+                    self.visit(doc, scene, parent)?;
+                    let overlay = self.overlay.as_mut().unwrap();
+                    let output = overlay.allocate(Some(root), size, count);
+                    let viewport = overlay.beta_viewport(output).map_err(fail)?;
+                    self.process_camera_sectors(
+                        doc,
+                        self.observer_sector,
+                        [
+                            viewport.window[2] - viewport.window[0],
+                            viewport.window[3] - viewport.window[1],
+                        ],
+                    )?;
+                    let index = self.render_passes.len();
+                    self.render_passes.push(super::viewport::RenderPass {
+                        viewport,
+                        camera: self.current_camera.clone(),
+                        clear_flags: 3,
+                        clear_color: 0,
+                        paint_mode: 0,
+                        jobs: self.jobs.clone(),
+                        grab_stereo_target: false,
+                        blend_stereo_target: false,
+                        allocate_stereo_target: false,
+                    });
+                    self.emit_render(doc, RenderCommand::Scene(index))?;
+                    self.overlay.as_mut().unwrap().last_output = Some(output);
+                    return Ok(());
+                }
                 let Some(&scene) = op.inputs.first() else {
                     return Ok(());
                 };

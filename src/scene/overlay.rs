@@ -92,6 +92,27 @@ impl Pool {
         }
         Ok(())
     }
+    /// Released PrepareViewport keeps full texture extent; its screen fallback
+    /// is the original fixed 1024x768 letterbox, not the later master viewport.
+    pub fn beta_viewport(&self, index: usize) -> Result<Viewport, &'static str> {
+        let target = self
+            .targets
+            .get(index)
+            .ok_or("overlay target out of range")?;
+        if target.size >= SIZES {
+            return Ok(Viewport {
+                screen: 0,
+                render_target: -1,
+                window: [0, 128, 1024, 640],
+            });
+        }
+        let [width, height] = DIMENSIONS[target.size];
+        Ok(Viewport {
+            screen: -1,
+            render_target: target.texture.ok_or("overlay target has no texture")?,
+            window: [0, 0, width, height],
+        })
+    }
     pub fn viewport(&self, index: usize) -> Result<Viewport, &'static str> {
         let target = self
             .targets

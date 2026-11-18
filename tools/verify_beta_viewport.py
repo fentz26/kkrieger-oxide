@@ -53,3 +53,19 @@ for cached in [False,True]:
 report={'entry':hex(start),'code_sha256':hashlib.sha256(image[start-base:end-base]).hexdigest(),'cases':results,'scope':'Exact released viewport wrapper call order and LastOutput store; callees, camera effects, GPU output and complete handler ABI remain separate.'}
 (ref/'beta-viewport-evidence.json').write_text(json.dumps(report,indent=2)+'\n')
 print(f'{len(results)} released viewport wrapper traces passed; code SHA256 {report["code_sha256"]}')
+
+# Execute PrepareViewport and both viewport initializers without stubbing them.
+# Device screen dimensions are supplied as data; screen fallback overwrites them.
+v=Uc(UC_ARCH_X86,UC_MODE_32);v.mem_map(base,(len(image)+4095)&~4095);v.mem_write(base,image)
+v.mem_map(0x3000000,0x10000);v.mem_map(0x4000000,0x10000);v.mem_map(0x5000000,0x1000)
+v.mem_write(0x83f868,word(0x3008000));v.mem_write(0x3008070,word(1280)+word(1024))
+for size in range(6):
+ v.mem_write(target,word(0x3009000)+word(0)+word(size)+word(1));v.mem_write(0x3009020,word(37))
+ pointer=0x300a000;stack=0x400f000
+ v.mem_write(pointer,b'\xcc'*32);v.mem_write(stack,word(0x5000000)+word(target)+word(pointer))
+ v.reg_write(UC_X86_REG_ESP,stack);v.emu_start(0x814358,0x5000000,count=1000)
+ actual=list(struct.unpack('<8I',v.mem_read(pointer,32)))
+ expected=[0xffffffff,37,0,0,0,0,3,0xff000000] if size<4 else [0,0xffffffff,0,128,1024,640,3,0x0ff00000]
+ assert actual==expected,(size,actual)
+ assert v.reg_read(UC_X86_REG_ESP)==stack+12
+print('6 actual PrepareViewport/initializer traces passed')
