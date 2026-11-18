@@ -924,3 +924,13 @@ Tests also check all-body prevalidation, phase visibility and failed dynamic
 processing without force consumption. The old single-body-only limitation is
 superseded. Actual dynamic geometry processing and actor/game-loop registration
 remain unfinished, so these checks do not establish full game equivalence.
+
+Released dynamic-cell ApplyMatrix now has a fixed-storage plane update. It
+transforms a point on each stored original plane, rotates/normalizes its normal,
+recomputes its distance, copies matrix translation into Center, retains the
+current matrix and clears Blocked. Its 128-case no-stub instruction oracle runs
+all actual math callees for zero through six planes, affine matrices, reflection,
+nonuniform scaling and very small/large scales. Every output plane, center and
+matrix word matches. More than six original planes is rejected. Dynamic-cell
+motion reconciliation against particles, registry geometry ownership and actual
+dynamic-phase integration remain unfinished.

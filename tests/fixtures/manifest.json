@@ -610,6 +610,10 @@
     "beta-multi-body.bin": {
       "bytes": 35716,
       "sha256": "23ad7db70faea338c8b6550fd75198d0194f71e89b22b02540f08f7a51d32291"
+    },
+    "beta-dynamic-planes.bin": {
+      "bytes": 37300,
+      "sha256": "7ff349cd7ce3cca90e3878431fd8fdba0538384459def0ea0017ed4ed645e0ad"
     }
   }
 }
