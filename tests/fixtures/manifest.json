@@ -698,6 +698,10 @@
     "beta-ai-multi-tick.bin": {
       "bytes": 32260,
       "sha256": "9c180479ebcd0d7bfbbbf0505e6ffde2630cec1dc48a9bc53ff0c0c173d43cea"
+    },
+    "beta-ai-melee.bin": {
+      "bytes": 32388,
+      "sha256": "03026ac961c8014835559ebc8a746cc0a5b8417d693d920104578f66428409c7"
     }
   }
 }

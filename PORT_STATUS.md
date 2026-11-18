@@ -1149,3 +1149,10 @@ so no actors activated. Visibility now varies independently from cell presence.
 Both fixtures were regenerated and the Rust comparisons pass with eight active
 cases each, covering actual movement and cooldown advancement. This supersedes
 the earlier implication that the first fixture versions exercised active ticks.
+
+### Repeated released melee ticks
+
+Thirty-two cases of up to sixteen consecutive native ticks now include melee
+attacks. Actor state and accumulated damage match, with active cases producing
+10 to 70 damage. Player damage is intercepted at the native service boundary.
+Ranged multi-tick comparison and concrete scene/world integration remain pending.
