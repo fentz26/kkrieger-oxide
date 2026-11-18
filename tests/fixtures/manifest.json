@@ -562,6 +562,10 @@
     "beta-finish.bin": {
       "bytes": 102404,
       "sha256": "9a372035dda63e922ba4b561d12e3677c873ae9373f537d9e213c7a411d34b35"
+    },
+    "beta-response.bin": {
+      "bytes": 274436,
+      "sha256": "1975d4846c32b72825edd64f1d7a27050f23e281e0d198d648b292fd8165979f"
     }
   }
 }

@@ -1,5 +1,5 @@
-//! Released travel normalization and first/second-contact projection.
-//! World casts, final-contact fallback and driver integration remain separate.
+//! Released particle collision response. World casts and registry callbacks
+//! are supplied through explicit boundaries, with portable response arithmetic.
 use super::{add, down, mul, rounded_arithmetic};
 const MIN_TRAVEL_SQUARED: f64 = 1e-16;
 const SEPARATION: f32 = f32::from_bits(0x38d1b717);
@@ -67,9 +67,14 @@ impl Travel {
         })
     }
     pub fn first_contact(&self, plane: [f32; 4], distance: f32) -> FirstSlide {
-        let normal: [f32; 3] = plane[..3].try_into().unwrap();
         let impact = scale_add(self.target, self.direction, distance);
-        let origin = scale_add(impact, normal, SEPARATION);
+        FirstSlide {
+            impact,
+            travel: self.after_impact(impact, plane),
+        }
+    }
+    fn after_impact(&self, impact: [f32; 4], plane: [f32; 4]) -> Self {
+        let origin = scale_add(impact, [plane[0], plane[1], plane[2]], SEPARATION);
         let target = project(self.target, plane);
         let delta = difference(target, origin);
         let direction = if dot(delta, delta) > MIN_TRAVEL_SQUARED {
@@ -77,14 +82,11 @@ impl Travel {
         } else {
             self.direction
         };
-        FirstSlide {
-            impact,
-            travel: Self {
-                origin,
-                target,
-                direction,
-                inverse_length: self.inverse_length,
-            },
+        Self {
+            origin,
+            target,
+            direction,
+            inverse_length: self.inverse_length,
         }
     }
 }
@@ -229,4 +231,131 @@ where
         }
     }
     completion
+}
+
+/// The writable local arguments supplied to the released world cast. Original
+/// travel length is retained privately by the response driver.
+#[derive(Clone, Debug)]
+pub struct Cast {
+    pub origin: [f32; 4],
+    pub target: [f32; 4],
+    pub direction: [f32; 3],
+    pub cell: Option<usize>,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct Contact {
+    pub plane: [f32; 4],
+    pub distance: f32,
+}
+/// Registry/world operations used by the response. Link and event identities
+/// belong to the registry, rather than native pointers in the portable particle.
+pub trait ResponseWorld {
+    /// Set/clear the current skip-cell link, or do nothing if no link exists.
+    fn skip_cell(&mut self, particle: &super::body::Particle, skipped: bool);
+    fn clear_interrupt(&mut self);
+    fn interrupted(&self) -> bool;
+    /// `first` selects the duplicate current-particle argument used by cast one.
+    fn cast(
+        &mut self,
+        particle: &mut super::body::Particle,
+        cast: &mut Cast,
+        first: bool,
+    ) -> Option<Contact>;
+    /// Dispatch the optional shot event; no operation when none is registered.
+    fn shot(
+        &mut self,
+        particle: &mut super::body::Particle,
+        impact: &mut [f32; 4],
+        plane: &mut [f32; 4],
+    );
+    fn zones(
+        &mut self,
+        particle: &mut super::body::Particle,
+        target: &mut [f32; 4],
+        old_cell: Option<usize>,
+        new_cell: Option<usize>,
+    );
+}
+impl Cast {
+    fn travel(&self, inverse_length: f32) -> Travel {
+        Travel {
+            origin: self.origin,
+            target: self.target,
+            direction: self.direction,
+            inverse_length,
+        }
+    }
+    fn set_travel(&mut self, travel: Travel) {
+        self.origin = travel.origin;
+        self.target = travel.target;
+        self.direction = travel.direction;
+    }
+}
+/// Released three-cast collision response, with world/registry boundaries explicit.
+pub fn respond<W: ResponseWorld>(
+    particle: &mut super::body::Particle,
+    mode: bool,
+    world: &mut W,
+) -> Completion {
+    let origin = particle.vectors[1];
+    let target = particle.vectors[0];
+    let mut cast = Cast {
+        origin,
+        target,
+        direction: [0.; 3],
+        cell: particle.cell,
+    };
+    world.skip_cell(particle, true);
+    let completion = if let Some(initial) = Travel::new(origin, target) {
+        let inverse = initial.inverse_length;
+        cast.set_travel(initial);
+        world.clear_interrupt();
+        if let Some(mut first) = world.cast(particle, &mut cast, true) {
+            if world.interrupted() {
+                Completion::Blocked
+            } else {
+                let mut impact = scale_add(cast.target, cast.direction, first.distance);
+                world.shot(particle, &mut impact, &mut first.plane);
+                cast.set_travel(cast.travel(inverse).after_impact(impact, first.plane));
+                if let Some(second) = world.cast(particle, &mut cast, false) {
+                    if world.interrupted() {
+                        Completion::Blocked
+                    } else {
+                        let slide = cast.travel(inverse).second_contact(
+                            first.plane,
+                            second.plane,
+                            second.distance,
+                            particle.vectors[1],
+                        );
+                        if let Some(reset) = slide.reset_position {
+                            particle.vectors[0] = reset;
+                            particle.vectors[2] = reset;
+                        }
+                        cast.set_travel(slide.travel);
+                        if world.cast(particle, &mut cast, false).is_some() {
+                            Completion::Blocked
+                        } else {
+                            Completion::Contact
+                        }
+                    }
+                } else {
+                    Completion::Contact
+                }
+            }
+        } else {
+            Completion::Clear
+        }
+    } else {
+        Completion::Blocked
+    };
+    let result = finish_particle(
+        particle,
+        cast.target,
+        cast.cell,
+        mode,
+        completion,
+        |p, target, old, new| world.zones(p, target, old, new),
+    );
+    world.skip_cell(particle, false);
+    result
 }

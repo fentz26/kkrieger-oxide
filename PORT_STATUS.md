@@ -751,3 +751,17 @@ without committing the candidate cell. Mode skips the final Pos store on commit
 and the Pos/OldPos stores on rollback. The oracle's SkipCell is null: owned-cell
 cleanup, cast orchestration, actual zone behavior and driver integration remain
 unfinished. This ports the final state transition, not the complete response.
+
+The released three-cast collision response driver now connects normalization,
+first/second-contact math, third-cast fallback and finalization. Registry/world
+interfaces own skip-cell links, optional shot dispatch, interrupt state, casts
+and zones. A complete-routine oracle controls only casts and event/zone callbacks;
+all response instructions and math callees execute unchanged. Its 256 cases
+compare every particle word, return byte, skip flags, interrupt state and the
+full boundary-call trace, including intermediate Pos/OldPos at each cast. They
+cover zero through three casts, both modes, interruptions, shot mutations,
+opposing resets, absent links/events and callbacks before cleanup. Original
+status counts are 64 clear, 64 contact and 128 blocked. Shared first-contact
+calculation avoids duplicating the projection in the driver. This supersedes
+older driver-pending notes, but actual world cast/zone implementations, registry
+integration, dynamic-cell processing and the complete beta game remain pending.
