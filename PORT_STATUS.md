@@ -729,3 +729,14 @@ reuses the initial inverse length rather than normalizing its direction anew.
 A short-travel result selects the original driver's fallback; it does not grant
 permission to commit the target. Second/third-contact response, world casts,
 zone/shot callbacks and driver integration remain unfinished.
+
+Released second-contact math is now ported across all three branches: opposing
+planes request a Pos/OldPos reset, aligned planes project again, and the crease
+branch constructs the offset intersection line using the original ordered
+cross products and determinant arithmetic. The third-cast direction preserves
+the released extra inverse-length multiplication. Its 256 instruction-oracle
+cases exercise all branches, exact threshold boundaries, and zero remaining
+travel; origin, target, direction and reset effects match bit for bit. Shared
+plane projection avoids recomputing discarded first-contact direction work.
+Final-contact fallback, world casts, callbacks and full driver integration
+remain unfinished; this establishes the second-contact arithmetic only.

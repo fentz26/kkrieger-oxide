@@ -554,6 +554,10 @@
     "beta-slide.bin": {
       "bytes": 33796,
       "sha256": "4858f84e2c3e38d39bf71e5b5fd1fc86d280229443d9efabc8f1224c1cf5405a"
+    },
+    "beta-second-slide.bin": {
+      "bytes": 41988,
+      "sha256": "674342094ccbafb54c18521f0166b96721e3adffb4966e6c456d07e7095b340c"
     }
   }
 }
