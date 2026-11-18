@@ -390,5 +390,45 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     );
     assert_eq!(actors[0].0.initial.event_words, before);
     assert_eq!(inventory.amounts[0], 70);
+    use kkrieger_oxide::game::beta_monster::{physics, runtime::BodyRegistration};
+    let mut stored = [actor];
+    for (id, particle) in stored[0].body.particles.iter_mut().enumerate() {
+        particle.cell = Some(0);
+        world.runtime.hits.shots.insert(
+            id,
+            Shot {
+                kind: particle.flags[3],
+                event: None,
+            },
+        );
+    }
+    let event_before = stored[0].initial.event_words;
+    let registrations = [BodyRegistration {
+        particles: [0, 1, 2, 3, 4],
+        skip_cell: Some(0),
+    }];
+    world
+        .runtime
+        .step_bodies(
+            &mut stored,
+            &registrations,
+            physics::Settings {
+                gravity: 0.,
+                gravity_player: 0.,
+                damping_player_air: 0.,
+                damping_player_ground: 0.,
+                fly_mode: 0,
+                on_ground: false,
+            },
+            |_, actors| {
+                assert_eq!(actors[0].initial.event_words, event_before);
+                actors[0].body.particles[0].force[0] = 0.01;
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert_eq!(stored[0].initial.event_words, event_before);
+    assert_eq!(stored[0].body.particles[0].force, [0.; 4]);
+
     assert_eq!(world.runtime.skip_cell, None);
 }

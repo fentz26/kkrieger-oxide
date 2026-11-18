@@ -146,3 +146,14 @@ impl Body {
         }
     }
 }
+
+impl AsRef<Body> for Body {
+    fn as_ref(&self) -> &Body {
+        self
+    }
+}
+impl AsMut<Body> for Body {
+    fn as_mut(&mut self) -> &mut Body {
+        self
+    }
+}

@@ -320,3 +320,14 @@ impl Actor {
         Ok(())
     }
 }
+
+impl AsRef<super::body::Body> for Actor {
+    fn as_ref(&self) -> &super::body::Body {
+        &self.body
+    }
+}
+impl AsMut<super::body::Body> for Actor {
+    fn as_mut(&mut self) -> &mut super::body::Body {
+        &mut self.body
+    }
+}

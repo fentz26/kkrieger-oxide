@@ -1228,3 +1228,11 @@ advances, and the caller's skip-cell context is restored on return. Integration
 checks cover combined melee damage, returned sounds, context restoration and
 invalid registrations without partial advancement. Scene-owned registry and
 frame-loop integration remain pending.
+
+### Physics over actor-owned body storage
+
+The global body phase accepts mutable body containers, including released actors,
+so actor bodies remain in their persistent storage across constraint, particle,
+dynamic and force phases. Existing body callers retain their interface behavior.
+Native single/multi-body checks and an actor-storage integration check pass.
+Scene registry and frame-loop integration remain pending.

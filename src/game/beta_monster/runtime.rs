@@ -281,15 +281,16 @@ impl CollisionRuntime<'_, '_> {
     }
     /// Global released phase order for registered bodies. Dynamic geometry is
     /// processed once after all particles, before any pending forces are applied.
-    pub fn step_bodies<F>(
+    pub fn step_bodies<B, F>(
         &mut self,
-        bodies: &mut [super::body::Body],
+        bodies: &mut [B],
         registrations: &[BodyRegistration],
         settings: super::physics::Settings,
         dynamic: F,
     ) -> Result<(), &'static str>
     where
-        F: FnOnce(&mut Self, &mut [super::body::Body]) -> Result<(), &'static str>,
+        B: AsRef<super::body::Body> + AsMut<super::body::Body>,
+        F: FnOnce(&mut Self, &mut [B]) -> Result<(), &'static str>,
     {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
@@ -298,6 +299,7 @@ impl CollisionRuntime<'_, '_> {
             return Err("body registration count differs");
         }
         for (body, registration) in bodies.iter().zip(registrations) {
+            let body = body.as_ref();
             for (particle, id) in body.particles.iter().zip(registration.particles) {
                 if self.hits.first_particle(id)?.kind != particle.flags[3] {
                     return Err("particle kind differs from registry");
@@ -328,11 +330,13 @@ impl CollisionRuntime<'_, '_> {
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
             for body in bodies.iter_mut() {
+                let body = body.as_mut();
                 for i in 0..body.constraints.len() {
                     body.solve_constraint(i)?;
                 }
             }
             for (body, registration) in bodies.iter_mut().zip(registrations) {
+                let body = body.as_mut();
                 self.skip_cell = registration.skip_cell;
                 for (index, id) in registration.particles.into_iter().enumerate() {
                     self.particle_id = id;
@@ -344,7 +348,7 @@ impl CollisionRuntime<'_, '_> {
                 return Err(error);
             }
             for body in bodies {
-                body.apply_forces();
+                body.as_mut().apply_forces();
             }
             Ok(())
         })();
