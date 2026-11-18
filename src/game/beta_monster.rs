@@ -2,6 +2,7 @@
 //! development actor: no walk-style, weapon-kind or spawn-switch words exist.
 
 pub mod body;
+pub mod collision;
 pub mod physics;
 
 /// Fields copied by the released handler at 0x81d82f..0x81d85e.

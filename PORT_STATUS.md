@@ -718,3 +718,14 @@ body untouched and make no world calls. Both operations use fixed storage.
 The world-response boundary is deliberately explicit: released collision
 resolution, dynamic-cell processing, full tick scheduling and actor integration
 remain unfinished; these tests do not establish complete beta physics parity.
+
+Released collision travel normalization and first-plane projection now have
+separate Rust primitives. An instruction oracle executes their actual math
+slices and compares 256 cases exactly: initial direction/inverse length, impact
+point before separation, pushed origin, projected target and next direction.
+Cases cover the short-travel cutoff and retained-direction branch. The released
+threshold is squared travel 1e-16, and separation is f32 0.0001. The next cast
+reuses the initial inverse length rather than normalizing its direction anew.
+A short-travel result selects the original driver's fallback; it does not grant
+permission to commit the target. Second/third-contact response, world casts,
+zone/shot callbacks and driver integration remain unfinished.

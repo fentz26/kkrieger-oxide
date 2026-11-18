@@ -550,6 +550,10 @@
     "beta-particle.bin": {
       "bytes": 544772,
       "sha256": "4906863040935d3599635ade19b4c8686f487961274880f1703e413f61843f62"
+    },
+    "beta-slide.bin": {
+      "bytes": 33796,
+      "sha256": "4858f84e2c3e38d39bf71e5b5fd1fc86d280229443d9efabc8f1224c1cf5405a"
     }
   }
 }
