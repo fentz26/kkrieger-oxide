@@ -578,6 +578,10 @@
     "beta-subtractive.bin": {
       "bytes": 108548,
       "sha256": "aab51750c2846d485be29e15d504a508817fe4b7f9450e5172a6084caf2d2f21"
+    },
+    "beta-static-scan.bin": {
+      "bytes": 192516,
+      "sha256": "6bd956c55a385135a006d9b6e30979f9ec6f1492cacfaa58bac6bf8397b99c52"
     }
   }
 }

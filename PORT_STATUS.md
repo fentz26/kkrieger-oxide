@@ -799,3 +799,14 @@ hulls, corner misses, NaNs, boundary zero distance and equal-distance rejection.
 The observed split is 452 misses, 40 contacts and 20 inside aborts. World-level
 static/dynamic scanning, actor side effects and registry integration remain
 unfinished; this kernel does not yet provide complete world collision.
+
+Released static candidate scanning now connects visited additive lists to the
+single-cell clip kernel. It preserves list order/duplicates, exact mode gating,
+player-versus-other OnlyForShot filtering, entry distance reset and interruption
+checks only after an accepted candidate. A 256-case oracle executes the complete
+released CollideRaySub with actual clipping/hull callees and zero dynamic cells.
+Selected plane/distance, return flag and interrupt state match across null and
+player/monster/weapon contexts, reordered lists, misses, inside aborts and prior
+interrupt states. The native result split is 65 misses and 191 hits. Invalid list
+or cell indices return errors. Dynamic-cell scanning, actor/particle side effects
+and integration into the released game runtime remain unfinished.
