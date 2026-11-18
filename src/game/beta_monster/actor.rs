@@ -74,6 +74,17 @@ impl Actor {
 }
 
 impl Actor {
+    /// Write the attack phases consumed by the released event operators.
+    pub fn update_attack_modulation(&mut self) {
+        for (index, timer) in self.cooldowns.into_iter().enumerate() {
+            let mut phase = super::add(f64::from(timer), -0.5);
+            if phase < 0. {
+                phase = super::add(phase, 1.);
+            }
+            self.initial.event_words[13 + index] = super::down(phase).to_bits();
+        }
+    }
+
     /// Apply the released vertical correction using the downward cast clearance.
     pub fn correct_height(
         vertical: f32,

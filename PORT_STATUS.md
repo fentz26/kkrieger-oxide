@@ -1080,3 +1080,10 @@ Vertical steering correction matches 256 native executions at
 The gravity/height comparison and directed arithmetic order are preserved.
 The complete beta AI tick still needs to supply the actual downward cast result
 and dispatch the resulting movement through the scene registry.
+
+### Released attack event modulation
+
+The two attack phase values written to event words 13 and 14 match 128
+native executions at 0x81d762..0x81d7b8, including half-cycle boundaries.
+This writes persistent event storage. Complete beta AI tick execution and
+scene dispatch integration remain pending.

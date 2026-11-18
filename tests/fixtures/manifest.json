@@ -670,6 +670,10 @@
     "beta-height.bin": {
       "bytes": 6148,
       "sha256": "f73be0d193e439e0ee3f8ed5b3b9bd2e7bdd3ca23a18f5c10c6f30ae1954c82f"
+    },
+    "beta-attack-modulation.bin": {
+      "bytes": 2052,
+      "sha256": "dd826f33156f2e5cff7e917d3b577ea95b4dd2f1851d2f8e582aec1630cfa1e1"
     }
   }
 }
