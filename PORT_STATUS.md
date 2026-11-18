@@ -880,3 +880,13 @@ record a first error without modifying that event; callers must inspect the
 error because the existing callback trait has no Result return. The pending
 queue still needs connection to the scene scheduler, and the released actor
 registry/game loop remain unfinished.
+
+CollisionRuntime now adapts the verified response driver to combined world casts,
+HitRegistry effects, zone masks and owned dynamic-cell skip flags. It borrows
+geometry and registries rather than cloning them. Integration checks cover clear
+movement/history, zone entry, owned-cell exclusion/restoration, wall-contact effect
+queueing and stopped-shot zone suppression. Registry-kind and skip-index errors
+fail before particle mutation; later geometry/callback errors are reported after
+cleanup and may retain prior effects. The adapter does not advance physics or
+consume pending effects. Real beta world/actor ownership, scheduler insertion,
+dynamic geometry updates and game-loop integration remain unfinished.
