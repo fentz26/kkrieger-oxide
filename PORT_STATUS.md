@@ -1107,3 +1107,10 @@ Horizontal direction and distance match 128 native executions at
 0x81d36c..0x81d39c, including distances below the normalization threshold.
 The vector points from player to monster, with the released short-vector
 fallback. Full beta AI tick and scene integration remain pending.
+
+### Released steering displacement
+
+Displacement construction matches 256 native executions at
+0x81d5dd..0x81d644. The scale is applied before adding and subtracting the
+main particle position with intermediate f32 spills. Full beta AI tick
+and scene integration remain pending.

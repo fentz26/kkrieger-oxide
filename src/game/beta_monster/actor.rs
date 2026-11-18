@@ -74,6 +74,22 @@ impl Actor {
 }
 
 impl Actor {
+    /// Build the displacement with the released add-then-subtract spills.
+    pub fn steering_displacement(&self, distance: f32, direction: [f32; 4]) -> [f32; 4] {
+        use super::{add, down, mul};
+        let scale = f64::from(self.steering_scale(distance));
+        let position = self.body.particles[0].vectors[0];
+        let mut delta = position;
+        for axis in 0..3 {
+            let target = down(add(
+                mul(scale, f64::from(direction[axis])),
+                f64::from(position[axis]),
+            ));
+            delta[axis] = down(add(f64::from(target), -f64::from(position[axis])));
+        }
+        delta
+    }
+
     /// Horizontal vector from the player to the main particle and its length.
     pub fn player_direction(&self, player: [f32; 4]) -> ([f32; 4], f32) {
         use super::{add, down, mul, rounded_arithmetic};

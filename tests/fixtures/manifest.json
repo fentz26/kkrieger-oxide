@@ -686,6 +686,10 @@
     "beta-direction.bin": {
       "bytes": 6660,
       "sha256": "3b2ac84ae8c57f43fd64ae79fe5925f83ca51de9d05bb28d4112e13ff0adf995"
+    },
+    "beta-displacement.bin": {
+      "bytes": 9220,
+      "sha256": "afc98538bc5502b3f97eeff6b9e45ca5b5c7411cbb65edfc76adfd06ebf94517"
     }
   }
 }
