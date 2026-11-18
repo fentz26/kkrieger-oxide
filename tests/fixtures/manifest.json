@@ -549,7 +549,7 @@
     },
     "beta-particle.bin": {
       "bytes": 544772,
-      "sha256": "4906863040935d3599635ade19b4c8686f487961274880f1703e413f61843f62"
+      "sha256": "aecaca0eee89142eee489a578aa1c53a9aa1b4d9ad847778a413dff878bc97a6"
     },
     "beta-slide.bin": {
       "bytes": 33796,
@@ -566,6 +566,10 @@
     "beta-response.bin": {
       "bytes": 274436,
       "sha256": "1975d4846c32b72825edd64f1d7a27050f23e281e0d198d648b292fd8165979f"
+    },
+    "beta-hull.bin": {
+      "bytes": 145412,
+      "sha256": "5215a7ecb32bfaa7f184ee939ce9f897bb8e15747af7223cdc410ff5e3451686"
     }
   }
 }

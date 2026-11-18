@@ -58,6 +58,7 @@ for case in range(256):
     edges=[0,0x80000000,1,0x80000001,0x007fffff,0x807fffff,0x00800000,0x80800000]
     if case<len(edges):
         for p in range(5):u.mem_write(body+p*128+0x30,pack(*([edges[case]]*4)))
+    if case==17:u.mem_write(particle+0x30,struct.pack('<f',-float('inf')))
     u.mem_write(particle+0x14,pack(case%2))
     old_collision=bytes(u.mem_read(particle+0x50,16))
     gravity,player_gravity,air,ground=[rng.uniform(0.,0.2),rng.uniform(0.,0.2),rng.uniform(0.,1.2),rng.uniform(0.,1.2)]
@@ -67,6 +68,7 @@ for case in range(256):
     outside=int(case%4==0);found=0 if case%7==0 else 0x87654321;collided=case%2
     response=struct.pack('<4f',*[rng.uniform(-20.,20.) for _ in range(4)])
     if case<len(edges):response=struct.pack('<4f',0.,-0.,1.,-1.)
+    if case==17:response=struct.pack('<f',float('inf'))+response[4:]
     response_y=struct.pack('<f',rng.uniform(-10.,10.))
     inputs=bytes(u.mem_read(body,640))
     trace=[];collision_input=bytes(128);running=True

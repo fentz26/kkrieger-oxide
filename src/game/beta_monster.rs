@@ -3,6 +3,7 @@
 
 pub mod body;
 pub mod collision;
+pub mod hull;
 pub mod physics;
 
 /// Fields copied by the released handler at 0x81d82f..0x81d85e.
@@ -87,9 +88,14 @@ fn mul(a: f64, b: f64) -> f64 {
     rounded_arithmetic(product, a.mul_add(b, -product))
 }
 fn add(a: f64, b: f64) -> f64 {
-    // Exact cancellation is negative zero under round-toward-negative.
+    // Finite cancellation is negative zero under round-toward-negative.
+    // Opposite infinities instead produce x87's negative indefinite NaN.
     if a == -b && (a.is_sign_negative() || b.is_sign_negative()) {
-        -0.
+        if a.is_finite() {
+            -0.
+        } else {
+            f64::from_bits(0xfff8_0000_0000_0000)
+        }
     } else {
         let sum = a + b;
         let z = sum - a;

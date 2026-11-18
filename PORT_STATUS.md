@@ -765,3 +765,15 @@ status counts are 64 clear, 64 contact and 128 blocked. Shared first-contact
 calculation avoids duplicating the projection in the driver. This supersedes
 older driver-pending notes, but actual world cast/zone implementations, registry
 integration, dynamic-cell processing and the complete beta game remain pending.
+
+Released hull OutsideMask, IntersectOut and IntersectIn now have separate Rust
+plane kernels. Their 512-case instruction oracle runs the actual routines and
+math callees, covering empty hulls, radius sign, ties, boundary/parallel rays,
+entry thresholds and non-finite inputs. OutsideMask uses z,x,y accumulation and
+adds radius; intersection dots use z,y,x. Exit computes `(-1 / dot) * distance`,
+while entry divides before negating, preserving directed rounding and stores.
+The non-finite cases exposed a shared add bug: opposite infinities were treated
+as finite cancellation. It now produces x87's negative indefinite NaN, also
+verified by an added actual force-phase case. All beta component checks pass
+again. These kernels establish plane queries; additive traversal, subtractive
+world resolution and the registry-backed game integration remain unfinished.
