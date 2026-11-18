@@ -1001,3 +1001,12 @@ the pre-cell positive dot distance, explicitly separate from containment-plane
 sign and overlap adjustments. The full released cell constructor and its warped
 face/degenerate fallback rules remain to be connected before authored hit-box
 geometry can use this path in gameplay.
+
+The complete released vertex-cell constructor now builds fixed-capacity Hull
+geometry. A 256-case no-stub Init oracle compares plane count/words, bounds,
+center, mode and shot-only flag for boxes, warped faces and degenerate inputs.
+It preserves released fallback/split order and 0.005 overlap (doubled for sub
+planes), rather than the later development constants. HitBox::collision_hull
+connects the verified monster vertices with released mode 1. This supersedes
+the full-constructor-pending note; world/actor registration and runtime dynamic
+ownership remain unfinished.

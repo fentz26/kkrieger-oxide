@@ -634,6 +634,10 @@
     "beta-triangle-plane.bin": {
       "bytes": 17412,
       "sha256": "5b6e3ba6464c274245bc40da409b79dc9915d8a03c58aa1856f2cdbef75b285f"
+    },
+    "beta-cell-build.bin": {
+      "bytes": 80820,
+      "sha256": "05dc2b74860fc858cf9e2cb5f6e4a64cbe28e06fbd09e44eadf4764c5e3e3b16"
     }
   }
 }

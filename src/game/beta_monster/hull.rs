@@ -115,3 +115,94 @@ pub fn triangle_plane(a: [f32; 4], b: [f32; 4], c: [f32; 4]) -> Option<[f32; 4]>
     let n = [n[0], n[1], n[2], 0.];
     Some([n[0], n[1], n[2], down(dot(n, b))])
 }
+
+/// Fixed-capacity released collision cell geometry, before dynamic transforms.
+#[derive(Clone, Debug)]
+pub struct Hull {
+    pub planes: [[f32; 4]; 12],
+    pub count: usize,
+    pub bounds: [[f32; 4]; 2],
+    pub center: [f32; 4],
+    pub mode: u32,
+    pub only_for_shot: bool,
+}
+impl Hull {
+    pub fn from_vertices(vertices: [[f32; 4]; 8], mode: u32) -> Self {
+        const ORDER: [[usize; 4]; 6] = [
+            [0, 2, 3, 1],
+            [2, 6, 7, 3],
+            [3, 7, 5, 1],
+            [4, 0, 1, 5],
+            [2, 0, 4, 6],
+            [7, 6, 4, 5],
+        ];
+        let mut planes = [[0.; 4]; 12];
+        let mut count = 0;
+        let mut push = |plane: [f32; 4]| {
+            planes[count] = plane;
+            count += 1;
+        };
+        for indices in ORDER {
+            let [a, b, c, d] = indices.map(|i| vertices[i]);
+            if let Some(mut plane) = triangle_plane(a, b, c) {
+                let distance = add(dot(plane, d), -f64::from(plane[3]));
+                if distance < -f64::from(0.005f32) {
+                    if let Some(next) = triangle_plane(b, c, d) {
+                        plane = next;
+                    }
+                    push(plane);
+                    if let Some(next) = triangle_plane(d, a, b) {
+                        plane = next;
+                    }
+                } else if distance > f64::from(0.005f32) {
+                    push(plane);
+                    if let Some(next) = triangle_plane(c, d, a) {
+                        plane = next;
+                    }
+                }
+                push(plane);
+            } else if let Some(plane) = triangle_plane(c, d, a) {
+                // Released fallback selects this triangle; the intervening bcd
+                // and final dab calls do not contribute an output plane.
+                push(plane);
+            }
+        }
+        for plane in &mut planes[..count] {
+            plane[3] = down(add(f64::from(0.005f32), -f64::from(plane[3])));
+            if mode & 3 == 1 {
+                plane[3] = down(add(f64::from(plane[3]), f64::from(0.005f32)));
+            }
+        }
+        let mut bounds = [vertices[0]; 2];
+        let mut center = vertices[0];
+        for point in &vertices[1..] {
+            for axis in 0..3 {
+                center[axis] = down(add(f64::from(center[axis]), f64::from(point[axis])));
+                bounds[0][axis] = if bounds[0][axis] < point[axis] {
+                    bounds[0][axis]
+                } else {
+                    point[axis]
+                };
+                bounds[1][axis] = if bounds[1][axis] > point[axis] {
+                    bounds[1][axis]
+                } else {
+                    point[axis]
+                };
+            }
+        }
+        for axis in 0..3 {
+            bounds[0][axis] = down(add(f64::from(bounds[0][axis]), -f64::from(0.005f32)));
+            bounds[1][axis] = down(add(f64::from(bounds[1][axis]), f64::from(0.005f32)));
+            center[axis] = down(mul(f64::from(center[axis]), 0.125));
+        }
+        center[3] = 1.;
+        Self {
+            planes,
+            count,
+            bounds,
+            center,
+            mode: mode & 0xb,
+            only_for_shot: mode & 4 != 0,
+        }
+    }
+}

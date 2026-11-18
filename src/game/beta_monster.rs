@@ -238,3 +238,10 @@ impl InitialState {
         })
     }
 }
+
+impl HitBox {
+    /// The released monster initializer passes mode 1 to its hit-cell Init.
+    pub fn collision_hull(&self) -> hull::Hull {
+        hull::Hull::from_vertices(self.vertices(), 1)
+    }
+}
