@@ -1393,6 +1393,10 @@ impl Execution {
                 }
                 Ok(())
             }
+            0xe0 if doc.layout == crate::kx::Layout::Beta2004 => {
+                // Released 0x8151a1 wraps KOp::ExecInputs; no extra parameters.
+                self.exec_inputs(doc, root, parent)
+            }
             0xea => {
                 // Released beta 0x814a0e is a parameterless ExecInputs wrapper.
                 // The later source adds a count and adjusts LastOutput refs.
