@@ -543,3 +543,37 @@ impl CollisionRuntime<'_, '_> {
         }
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// Tick actors in registration order, selecting each owned dynamic cell.
+    pub fn tick_actors(
+        &mut self,
+        actors: &mut [(super::actor::Actor, Option<usize>)],
+        player: [f32; 4],
+        player_cell: Option<usize>,
+        settings: &super::ai::Settings,
+        inventory: &mut crate::game::Inventory,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
+        if actors
+            .iter()
+            .any(|(_, cell)| cell.is_some_and(|id| id >= self.candidates.dynamic_cells.len()))
+        {
+            return Err("AI owned cell out of range");
+        }
+        let previous = self.skip_cell;
+        let mut sounds = Vec::new();
+        let result = (|| {
+            for (actor, cell) in actors {
+                self.skip_cell = *cell;
+                if let Some(sound) =
+                    self.tick_actor(actor, player, player_cell, settings, inventory)?
+                {
+                    sounds.push(sound);
+                }
+            }
+            Ok(sounds)
+        })();
+        self.skip_cell = previous;
+        result
+    }
+}

@@ -1219,3 +1219,12 @@ Operator/actor identities and emitted rotation/translation survive publication.
 The released initializer reads its attack operator from link zero (0x80e11f),
 while its living scene executes input zero (0x80e106). Concrete scene-owned
 registration and token maps remain pending.
+
+### Ordered multi-actor AI dispatch
+
+CollisionRuntime ticks actors in registration order with each owned dynamic cell
+selected for ground exclusion. Owned-cell bounds are checked before any actor
+advances, and the caller's skip-cell context is restored on return. Integration
+checks cover combined melee damage, returned sounds, context restoration and
+invalid registrations without partial advancement. Scene-owned registry and
+frame-loop integration remain pending.

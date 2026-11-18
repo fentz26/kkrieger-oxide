@@ -357,4 +357,38 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     assert_eq!(event.monster, Some(0));
     assert_eq!(event.rotate.map(f32::to_bits), emitted[17..21]);
     assert_eq!(event.translate.map(f32::to_bits), emitted[21..25]);
+    actor.cooldowns = [1.; 2];
+    let mut actors = [(actor.clone(), Some(0)), (actor.clone(), Some(0))];
+    world.runtime.skip_cell = None;
+    let sounds = world
+        .runtime
+        .tick_actors(
+            &mut actors,
+            [-1., 0., 0., 1.],
+            Some(0),
+            &settings,
+            &mut inventory,
+        )
+        .unwrap();
+    assert_eq!(sounds.len(), 2);
+    assert_eq!(inventory.amounts[0], 70);
+    assert_eq!(world.runtime.skip_cell, None);
+    actors[1].1 = Some(99);
+    let before = actors[0].0.initial.event_words;
+    assert_eq!(
+        world
+            .runtime
+            .tick_actors(
+                &mut actors,
+                [-1., 0., 0., 1.],
+                Some(0),
+                &settings,
+                &mut inventory
+            )
+            .unwrap_err(),
+        "AI owned cell out of range"
+    );
+    assert_eq!(actors[0].0.initial.event_words, before);
+    assert_eq!(inventory.amounts[0], 70);
+    assert_eq!(world.runtime.skip_cell, None);
 }
