@@ -642,6 +642,10 @@
     "beta-actor-spawn.bin": {
       "bytes": 37252,
       "sha256": "ad3db4358b5cc76c3fcfd83034c242fe3a1318d5c4620d47bda8219778cce06f"
+    },
+    "beta-actor-damage.bin": {
+      "bytes": 72196,
+      "sha256": "e3fe1af9896a40a2152b7c79be5fc2cf97977eee950a6af5b9ecb433cdac7670"
     }
   }
 }

@@ -1021,3 +1021,13 @@ PrepareDynamic leaves planes local and marks them unconfirmed until dynamic
 acceptance. Missing cells do not invent a life=0 adjustment. Truncated records
 fail before world lookup. Scene-instance identity, actor AI/state progression,
 world registration and the released game root remain unfinished.
+
+Released actor damage now invokes dormant activation/cell reacquisition before
+armor arithmetic, preserves wrapping signed damage behavior and increments the
+kill switch as a wrapping byte. A 128-case actual Hit oracle runs activation and
+hull lookup without stubs, comparing life, active state, all five body-cell links
+and all switches. Cases include dead actors, absent world cells, negative armor/
+damage, signed extremes and kill-switch wrap. Invalid positive switch indices
+are rejected before mutation. Spawn initializes active=false as in the released
+zeroed actor. AI progression, damage dispatch from the scene/world registry and
+complete beta root execution remain unfinished.

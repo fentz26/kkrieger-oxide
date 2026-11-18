@@ -11,6 +11,7 @@ pub struct Actor {
     pub initial: InitialState,
     pub body: Body,
     pub hit_cell: MovingCell,
+    pub active: bool,
 }
 impl Actor {
     pub fn spawn<F>(
@@ -57,6 +58,51 @@ impl Actor {
             initial,
             body,
             hit_cell,
+            active: false,
         })
+    }
+}
+
+impl Actor {
+    /// Released monster Hit: activate/reacquire first, then armor damage and
+    /// wrapping kill-switch update. Missing world cells do not suppress damage.
+    pub fn hit<F>(
+        &mut self,
+        hits: i32,
+        switches: &mut [u8; 256],
+        mut find_cell: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        if self.initial.life <= 0 {
+            return Ok(());
+        }
+        let kill = self.initial.copied.parameters[11] as i32;
+        if kill > 255 {
+            return Err("monster kill switch out of range");
+        }
+        if !self.active
+            && let Some(cell) = find_cell(self.body.particles[0].vectors[0])
+        {
+            self.active = true;
+            for particle in &mut self.body.particles {
+                particle.cell = Some(cell);
+            }
+        }
+        let armor = self.initial.copied.parameters[5] as i32;
+        let delta = if hits > armor {
+            armor.wrapping_sub(armor / 4).wrapping_sub(hits)
+        } else {
+            hits / -4
+        };
+        self.initial.life = self.initial.life.wrapping_add(delta);
+        if self.initial.life <= 0 {
+            self.initial.life = 0;
+            if kill > 0 {
+                switches[kill as usize] = switches[kill as usize].wrapping_add(1);
+            }
+        }
+        Ok(())
     }
 }
