@@ -964,3 +964,12 @@ errors restore Pos and mark the cell blocked. Part-box updates are explicitly
 caller-owned and not covered here. Publishing geometry into collision registries,
 linking the dynamic phase to scheduled bodies, and game-loop integration remain
 unfinished; the missing-intersection path retains the earlier safe limitation.
+
+Released dynamic-frame interpolation now blends the first two basis axes,
+reconstructs/normalizes the other axes in the original cross-product order, and
+blends translation without clamping the factor. A 128-case actual Fade oracle
+checks every output word for endpoint, fractional and extrapolated factors.
+MovingCell::reconcile_frame connects this transform to reconciliation; an
+integration check verifies accepted confirmed pose and mode updates. Publishing
+accepted geometry, part-box processing and wiring the phase into the full game
+remain unfinished.

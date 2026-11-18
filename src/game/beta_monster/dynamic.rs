@@ -227,3 +227,64 @@ impl MovingCell {
         Ok(())
     }
 }
+
+fn normalize(v: [f32; 3]) -> [f32; 3] {
+    let factor = inverse_scale(v);
+    v.map(|value| down(mul(f64::from(value), f64::from(factor))))
+}
+fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
+    std::array::from_fn(|i| {
+        let j = (i + 1) % 3;
+        let k = (i + 2) % 3;
+        down(add(
+            mul(f64::from(a[j]), f64::from(b[k])),
+            -mul(f64::from(a[k]), f64::from(b[j])),
+        ))
+    })
+}
+/// Original dynamic-frame Fade: blend i/j, rebuild k and i with cross products,
+/// normalize all three axes, then blend translation. Factor is not clamped.
+pub fn interpolate(first: Matrix, second: Matrix, factor: f32) -> Matrix {
+    let blend = |row: usize| -> [f32; 3] {
+        std::array::from_fn(|axis| {
+            down(add(
+                mul(
+                    add(f64::from(second[row][axis]), -f64::from(first[row][axis])),
+                    f64::from(factor),
+                ),
+                f64::from(first[row][axis]),
+            ))
+        })
+    };
+    let i = blend(0);
+    let j = blend(1);
+    let k = normalize(cross(i, j));
+    let i = normalize(cross(j, k));
+    let j = normalize(j);
+    let l = blend(3);
+    [
+        [i[0], i[1], i[2], 0.],
+        [j[0], j[1], j[2], 0.],
+        [k[0], k[1], k[2], 0.],
+        [l[0], l[1], l[2], 1.],
+    ]
+}
+impl MovingCell {
+    /// Complete interpolation/reconciliation sequence for a dynamic frame.
+    /// Publishing accepted planes and part-box handling remain caller-owned.
+    pub fn reconcile_frame<'p, I, F>(
+        &mut self,
+        first: Matrix,
+        second: Matrix,
+        factor: f32,
+        particles: I,
+        probe: F,
+    ) -> Result<(), &'static str>
+    where
+        I: IntoIterator<Item = (&'p mut super::body::Particle, bool)>,
+        F: FnMut(&mut super::body::Particle) -> Result<super::collision::Completion, &'static str>,
+    {
+        self.current = interpolate(first, second, factor);
+        self.reconcile(particles, probe)
+    }
+}

@@ -626,6 +626,10 @@
     "beta-dynamic-reconcile.bin": {
       "bytes": 67076,
       "sha256": "627ecca3fd5625bea7f74db9a99f4dec815ba072e2f24f60235b28cd60a58dbd"
+    },
+    "beta-dynamic-fade.bin": {
+      "bytes": 25092,
+      "sha256": "6ed06e4f652a97993524029d28006d7f8389684f5dc9be7d85f0b11ff93e1640"
     }
   }
 }
