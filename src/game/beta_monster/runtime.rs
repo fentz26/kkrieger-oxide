@@ -508,3 +508,38 @@ impl super::ai::World for AiWorld<'_, '_, '_> {
         result.map(|hit| hit.distance)
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// Run an actor against this collision registry and dispatch its attack.
+    pub fn tick_actor(
+        &mut self,
+        actor: &mut super::actor::Actor,
+        player: [f32; 4],
+        player_cell: Option<usize>,
+        settings: &super::ai::Settings,
+        inventory: &mut crate::game::Inventory,
+    ) -> Result<Option<crate::game::player::Sound>, &'static str> {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        let attack = actor.tick(
+            player,
+            settings,
+            &mut AiWorld {
+                runtime: self,
+                player_cell,
+            },
+        );
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        match attack {
+            Some(super::actor::Attack::Melee(hits)) => Ok(inventory.hit(hits)),
+            Some(super::actor::Attack::Ranged(event)) => {
+                self.hits.pending.push(event);
+                Ok(None)
+            }
+            None => Ok(None),
+        }
+    }
+}

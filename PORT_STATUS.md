@@ -1179,3 +1179,11 @@ The initializer field at actor+0x1e0 is now named attack_operator. The released
 call at 0x81d863 reads input operator zero through 0x80e11f, and ranged event
 creation copies that operator to the new event. The earlier spline_token name
 was misleading. Initialization and repeated ranged-event comparisons pass.
+
+### AI attack dispatch through collision runtime
+
+CollisionRuntime::tick_actor now runs AI against its collision registry and
+applies melee hits through player Inventory::hit, returning the hurt sound.
+Ranged events enter the shared pending-event queue. Integration checks cover
+actual floor queries, player health changes, hurt sound and ranged queue output.
+Scene actor registration and pending-event scheduler integration remain pending.

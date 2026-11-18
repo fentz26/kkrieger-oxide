@@ -301,4 +301,41 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     assert!(actor.body.particles[0].vectors[0][1] > 0.2);
     assert_eq!(world.runtime.candidates.dynamic_cells[0].mode, 1);
     assert!(world.runtime.error.is_none());
+    let settings = kkrieger_oxide::game::beta_monster::ai::Settings {
+        gravity: 0.01,
+        height: 3.,
+        height_gain: 0.2,
+    };
+    let mut inventory = kkrieger_oxide::game::Inventory::default();
+    inventory.amounts[0] = 100;
+    actor.initial.copied.parameters[6] = 10;
+    actor.cooldowns = [1.; 2];
+    let sound = world
+        .runtime
+        .tick_actor(
+            &mut actor,
+            [-1., 0., 0., 1.],
+            Some(0),
+            &settings,
+            &mut inventory,
+        )
+        .unwrap();
+    assert_eq!(inventory.amounts[0], 90);
+    assert!(sound.is_some());
+    actor.initial.copied.parameters[8] = 5;
+    actor.initial.attack_operator = 123;
+    actor.cooldowns = [1.; 2];
+    world
+        .runtime
+        .tick_actor(
+            &mut actor,
+            [-1.9, 0., 0., 1.],
+            Some(0),
+            &settings,
+            &mut inventory,
+        )
+        .unwrap();
+    assert_eq!(inventory.amounts[0], 90);
+    assert_eq!(world.runtime.hits.pending.len(), 1);
+    assert_eq!(world.runtime.hits.pending[0][0], 123);
 }
