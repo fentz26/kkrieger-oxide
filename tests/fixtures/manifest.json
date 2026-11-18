@@ -682,6 +682,10 @@
     "beta-facing.bin": {
       "bytes": 8196,
       "sha256": "78cda18cb14d81663de5b7f154136c68bd3c120f8366799187a8994ec29b0ba3"
+    },
+    "beta-direction.bin": {
+      "bytes": 6660,
+      "sha256": "3b2ac84ae8c57f43fd64ae79fe5925f83ca51de9d05bb28d4112e13ff0adf995"
     }
   }
 }

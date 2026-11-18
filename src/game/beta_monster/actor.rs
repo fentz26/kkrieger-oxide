@@ -74,6 +74,34 @@ impl Actor {
 }
 
 impl Actor {
+    /// Horizontal vector from the player to the main particle and its length.
+    pub fn player_direction(&self, player: [f32; 4]) -> ([f32; 4], f32) {
+        use super::{add, down, mul, rounded_arithmetic};
+        let position = self.body.particles[0].vectors[0];
+        let mut direction = [0.; 4];
+        for axis in [0, 2] {
+            direction[axis] = down(add(f64::from(position[axis]), -f64::from(player[axis])));
+        }
+        let x = f64::from(direction[0]);
+        let z = f64::from(direction[2]);
+        let squared = add(add(mul(z, z), 0.), mul(x, x));
+        let root = squared.sqrt();
+        let length = rounded_arithmetic(root, (-root).mul_add(root, squared));
+        if length > 1e-6 {
+            let quotient = 1. / length;
+            let inverse = down(rounded_arithmetic(
+                quotient,
+                (-quotient).mul_add(length, 1.) / length,
+            ));
+            for value in &mut direction[..3] {
+                *value = down(mul(f64::from(*value), f64::from(inverse)));
+            }
+        } else {
+            direction[..3].copy_from_slice(&[1., 0., 0.]);
+        }
+        (direction, down(length))
+    }
+
     /// Copy the current physics position and horizontal facing into the event.
     pub fn update_event_pose(&mut self, direction: [f32; 4]) {
         self.initial.event_words[21..25]

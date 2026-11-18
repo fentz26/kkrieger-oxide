@@ -1100,3 +1100,10 @@ Event position and rotation words match 128 native executions at
 0x81d720..0x81d762. Position follows the main physics particle, and facing
 uses the released FPATAN operand order and stored turns conversion constant.
 Full beta AI tick and scene integration remain pending.
+
+### Released horizontal player direction
+
+Horizontal direction and distance match 128 native executions at
+0x81d36c..0x81d39c, including distances below the normalization threshold.
+The vector points from player to monster, with the released short-vector
+fallback. Full beta AI tick and scene integration remain pending.
