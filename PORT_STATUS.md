@@ -1114,3 +1114,14 @@ Displacement construction matches 256 native executions at
 0x81d5dd..0x81d644. The scale is applied before adding and subtracting the
 main particle position with intermediate f32 spills. Full beta AI tick
 and scene integration remain pending.
+
+### Composed released actor tick
+
+The beta actor tick now restores its event matrix, calculates player direction,
+updates visibility and activation, advances and selects attacks, applies steering
+and terrain correction, translates its body and publishes event pose/modulation.
+World lookup, visibility and ground queries are supplied through an explicit
+world interface. Integration checks cover activation/query order, movement,
+persistent event updates and dead-actor early return. All nine focused native
+fixture test targets pass. Whole-tick native comparison, concrete collision-world
+adapter and scene registration/dispatch remain pending.

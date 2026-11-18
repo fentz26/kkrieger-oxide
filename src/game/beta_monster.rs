@@ -2,6 +2,7 @@
 //! development actor: no walk-style, weapon-kind or spawn-switch words exist.
 
 pub mod actor;
+pub mod ai;
 pub mod body;
 pub mod collision;
 pub mod dynamic;
