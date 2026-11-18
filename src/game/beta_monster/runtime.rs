@@ -258,6 +258,39 @@ pub struct BodyRegistration {
     pub skip_cell: Option<usize>,
 }
 impl CollisionRuntime<'_, '_> {
+    fn validate_body(
+        &self,
+        body: &super::body::Body,
+        registration: &BodyRegistration,
+    ) -> Result<(), &'static str> {
+        for (particle, id) in body.particles.iter().zip(registration.particles) {
+            if self.hits.first_particle(id)?.kind != particle.flags[3] {
+                return Err("particle kind differs from registry");
+            }
+        }
+        if registration
+            .skip_cell
+            .is_some_and(|id| id >= self.candidates.dynamic_cells.len())
+        {
+            return Err("skip cell out of range");
+        }
+        if body
+            .particles
+            .iter()
+            .enumerate()
+            .any(|(i, p)| i > 0 && matches!(p.flags[3], 1 | 3))
+        {
+            return Err("five-particle group truncated");
+        }
+        if body
+            .constraints
+            .iter()
+            .any(|c| c.particles.iter().any(|&i| i >= 5))
+        {
+            return Err("constraint particle index out of range");
+        }
+        Ok(())
+    }
     pub fn step_body<F>(
         &mut self,
         body: &mut super::body::Body,
@@ -300,32 +333,7 @@ impl CollisionRuntime<'_, '_> {
         }
         for (body, registration) in bodies.iter().zip(registrations) {
             let body = body.as_ref();
-            for (particle, id) in body.particles.iter().zip(registration.particles) {
-                if self.hits.first_particle(id)?.kind != particle.flags[3] {
-                    return Err("particle kind differs from registry");
-                }
-            }
-            if registration
-                .skip_cell
-                .is_some_and(|id| id >= self.candidates.dynamic_cells.len())
-            {
-                return Err("skip cell out of range");
-            }
-            if body
-                .particles
-                .iter()
-                .enumerate()
-                .any(|(i, p)| i > 0 && matches!(p.flags[3], 1 | 3))
-            {
-                return Err("five-particle group truncated");
-            }
-            if body
-                .constraints
-                .iter()
-                .any(|c| c.particles.iter().any(|&i| i >= 5))
-            {
-                return Err("constraint particle index out of range");
-            }
+            self.validate_body(body, registration)?;
         }
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
@@ -580,6 +588,59 @@ impl CollisionRuntime<'_, '_> {
             Ok(sounds)
         })();
         self.skip_cell = previous;
+        result
+    }
+}
+
+impl CollisionRuntime<'_, '_> {
+    pub fn step_registered<F>(
+        &mut self,
+        registry: &super::registry::Registry,
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(&mut Self, &super::registry::Registry) -> Result<(), &'static str>,
+    {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        registry.visit_active(|token, actor| {
+            let registration = registrations
+                .get(&token)
+                .ok_or("released body registration missing")?;
+            self.validate_body(&actor.body, registration)?;
+            Ok(())
+        })?;
+        let previous = (self.particle_id, self.skip_cell);
+        let result = (|| {
+            registry.visit_active(|_, actor| {
+                for i in 0..actor.body.constraints.len() {
+                    actor.body.solve_constraint(i)?;
+                }
+                Ok(())
+            })?;
+            registry.visit_active(|token, actor| {
+                let registration = &registrations[&token];
+                self.skip_cell = registration.skip_cell;
+                for (index, id) in registration.particles.into_iter().enumerate() {
+                    self.particle_id = id;
+                    self.step_particle(&mut actor.body, index, settings)?;
+                }
+                Ok(())
+            })?;
+            dynamic(self, registry)?;
+            if let Some(error) = self.error.or(self.hits.error) {
+                return Err(error);
+            }
+            registry.visit_active(|_, actor| {
+                actor.body.apply_forces();
+                Ok(())
+            })
+        })();
+        self.particle_id = previous.0;
+        self.skip_cell = previous.1;
         result
     }
 }

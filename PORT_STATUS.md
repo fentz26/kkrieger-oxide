@@ -1284,3 +1284,12 @@ repeated registration order over shared persistent storage. Borrow conflicts
 return an error. Checks verify ordered mutations, repeated identities, conflict
 reporting and subsequent access after the borrow is released. Runtime phase and
 scene-instance integration remain pending.
+
+### Physics phases over registered shared actors
+
+CollisionRuntime::step_registered runs global constraints, particles, one dynamic
+callback and forces through persistent registry handles. Repeated registrations
+remain ordered without simultaneously borrowing the same actor. Both body paths
+share registration validation and restore caller particle/skip-cell context.
+Integration and native body-pass checks pass. Scene registration and full frame
+wiring remain pending.

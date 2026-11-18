@@ -431,6 +431,47 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
         .unwrap();
     assert_eq!(stored[0].initial.event_words, event_before);
     assert_eq!(stored[0].body.particles[0].force, [0.; 4]);
+    let mut registry = kkrieger_oxide::game::beta_monster::registry::Registry::default();
+    let token = registry
+        .spawn(&data, kkrieger_oxide::mesh::identity(), 0, |position| {
+            world.find_cell(position)
+        })
+        .unwrap();
+    registry.register(token).unwrap();
+    let mut registered = std::collections::BTreeMap::new();
+    registered.insert(
+        token,
+        BodyRegistration {
+            particles: [0, 1, 2, 3, 4],
+            skip_cell: Some(0),
+        },
+    );
+    world
+        .runtime
+        .step_registered(
+            &registry,
+            &registered,
+            physics::Settings {
+                gravity: 0.,
+                gravity_player: 0.,
+                damping_player_air: 0.,
+                damping_player_ground: 0.,
+                fly_mode: 0,
+                on_ground: false,
+            },
+            |_, registry| {
+                registry.visit_active(|_, actor| {
+                    actor.body.particles[0].force[0] = 0.01;
+                    Ok(())
+                })
+            },
+        )
+        .unwrap();
+    assert_eq!(
+        registry.get(token).unwrap().borrow().body.particles[0].force,
+        [0.; 4]
+    );
+    assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][0] > 0.);
 
     assert_eq!(world.runtime.skip_cell, None);
 }
