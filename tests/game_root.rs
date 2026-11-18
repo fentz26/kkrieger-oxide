@@ -54,14 +54,13 @@ impl Renderer for AuthoredRenderer {
         let [x0, y0, x1, y1] = pass.viewport.window;
         let lighting = light::Context::from_camera(&pass.camera, [x1 - x0, y1 - y0], true).unwrap();
         let mut visible_lights = 0;
-        let mut paint_lights = Vec::new();
+        let mut candidates = Vec::new();
         for job in &pass.jobs {
             if !matches!(job, Job::Light { .. }) {
                 continue;
             }
             if let Some(light) = lighting.prepare(job).unwrap() {
                 visible_lights += 1;
-                paint_lights.push(light.paint_light());
                 assert!(light.importance.is_finite() && light.amplify.is_finite());
                 assert!(light.rect.into_iter().all(f32::is_finite));
                 for frustum in [&light.shadow, &light.zfail] {
@@ -71,8 +70,11 @@ impl Renderer for AuthoredRenderer {
                             .all(|p| p.equation.into_iter().all(f32::is_finite))
                     );
                 }
+                candidates.push(light);
             }
         }
+        let selected = light::beta_select(candidates);
+        let paint_lights: Vec<_> = selected.iter().map(light::Prepared::paint_light).collect();
         stats.prepared_lights += visible_lights;
         stats.max_lights = stats.max_lights.max(visible_lights);
         let environment = pass
@@ -81,14 +83,14 @@ impl Renderer for AuthoredRenderer {
             .unwrap();
         let frustum =
             Frustum::from_view_projection(environment.view_projection, [-1., -1., 1., 1.]);
-        // Exercise every visible candidate here; light selection profiles
-        // are verified separately against their source/beta implementations.
+        // Match the application's released four-light selection. All visible
+        // candidates above still receive geometry/finite-value checks.
         let view = paint::View {
             usage_mask: kkrieger_oxide::gpu_scene::usage_mask(pass.paint_mode, u32::MAX)
                 .unwrap_or(0),
             frustum: frustum.planes[..5].try_into().unwrap(),
             lights: &paint_lights,
-            light_capacity: 16,
+            light_capacity: 4,
         };
         let frame = paint::build_static_frame(
             d,
@@ -173,6 +175,11 @@ impl Renderer for AuthoredRenderer {
 #[test]
 #[ignore = "generates the full authored collision world"]
 fn authored_gameplay_root_executes_movement_and_firing_ticks() {
+    let ticks = std::env::var("KKRIEGER_GAME_CHECK_TICKS")
+        .ok()
+        .map(|value| value.parse::<i32>().unwrap())
+        .unwrap_or(30);
+    assert!(ticks >= 30);
     let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     let root = d.roots[2].unwrap();
     let assets = paint::prepare_scene_assets(&d, root, true).unwrap();
@@ -234,10 +241,13 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     sim.key(&mut e, 119, [0, 0]).unwrap();
     sim.key(&mut e, kkrieger_oxide::game::input::MOUSE_LEFT, [0, 0])
         .unwrap();
-    for step in 1..=30 {
+    let mut clock = kkrieger_oxide::game::frame::Clock::new(0);
+    for step in 1..=ticks {
         let now = step * 10;
+        let frame = clock.advance(now, d.bpm);
         assert!(sim.tick(&mut e, &d, 1, now, [0, 0]).unwrap().ran);
-        sim.prepare_scene(&mut e, now * 64, now, 1., false).unwrap();
+        sim.prepare_scene(&mut e, frame.beat, now, 1., false)
+            .unwrap();
         sim.execute_scene(&mut e, &d, root).unwrap();
         assert_eq!(e.game.monsters.len(), 132);
         assert_eq!(e.render_passes.len(), 2);
@@ -247,7 +257,7 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     }
     let stats = stats.borrow();
     eprintln!("authored synchronous render: {stats:?}");
-    assert_eq!(stats.scene_passes, 62);
+    assert_eq!(stats.scene_passes, 2 * (ticks as usize + 1));
     assert_eq!(stats.overlay_commands, 0);
     assert!(stats.particle_packets > 0);
     assert!(stats.particle_quads > 0);
@@ -256,7 +266,7 @@ fn authored_gameplay_root_executes_movement_and_firing_ticks() {
     assert!(stats.prepared_lights > 0);
     assert!(stats.mesh_paints > 0);
     assert!(stats.effect_jobs > 0);
-    assert_eq!(sim.tick_count, 30);
+    assert_eq!(sim.tick_count, ticks);
     assert!(sim.motion.collider.position[2] > position[2]);
 
     assert!(
