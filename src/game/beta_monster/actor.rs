@@ -74,6 +74,28 @@ impl Actor {
 }
 
 impl Actor {
+    /// Apply the released vertical correction using the downward cast clearance.
+    pub fn correct_height(
+        vertical: f32,
+        clearance: f32,
+        gravity: f32,
+        height: f32,
+        gain: f32,
+    ) -> f32 {
+        use super::{add, down, mul};
+        let gravity = f64::from(gravity);
+        let height = f64::from(height);
+        if add(gravity, height) > f64::from(clearance) {
+            let error = add(add(height, -gravity), -f64::from(clearance));
+            down(add(
+                add(mul(error, f64::from(gain)), gravity),
+                f64::from(vertical),
+            ))
+        } else {
+            vertical
+        }
+    }
+
     /// Signed scale applied to the horizontal monster-to-player vector.
     pub fn steering_scale(&self, distance: f32) -> f32 {
         let parameter = |i| f64::from(f32::from_bits(self.initial.copied.parameters[i]));

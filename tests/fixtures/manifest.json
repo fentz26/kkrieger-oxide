@@ -666,6 +666,10 @@
     "beta-body-translate.bin": {
       "bytes": 165892,
       "sha256": "3709a5617163eb0a32d1992935bf35a797091a3befcbeecb04141e19fad40dc1"
+    },
+    "beta-height.bin": {
+      "bytes": 6148,
+      "sha256": "f73be0d193e439e0ee3f8ed5b3b9bd2e7bdd3ca23a18f5c10c6f30ae1954c82f"
     }
   }
 }

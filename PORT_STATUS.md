@@ -1072,3 +1072,11 @@ Body translation matches 128 native collider executions at 0x819d55.
 Current positions change with directed addition while history, force, weight,
 damping, flags and cell links are preserved. Full beta AI movement integration
 and terrain-height correction remain pending.
+
+### Released terrain-height correction
+
+Vertical steering correction matches 256 native executions at
+0x81d6d4..0x81d70b after the downward cast, including both correction branches.
+The gravity/height comparison and directed arithmetic order are preserved.
+The complete beta AI tick still needs to supply the actual downward cast result
+and dispatch the resulting movement through the scene registry.
