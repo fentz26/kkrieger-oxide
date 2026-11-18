@@ -163,3 +163,67 @@ pub fn project_particle(point: [f32; 4], delta: Matrix, planes: &[[f32; 4]]) -> 
     proposal[3] = 1.;
     Some(proposal)
 }
+
+/// Owned pose state used by the dynamic phase. Part-box motion, when present,
+/// must run before reconciliation; this type does not own a part-box registry.
+#[derive(Clone, Debug)]
+pub struct MovingCell {
+    pub original: [[f32; 4]; 6],
+    pub count: usize,
+    pub confirmed: Matrix,
+    pub current: Matrix,
+    pub mode: u32,
+    pub monster: bool,
+    pub pose: Pose,
+}
+impl MovingCell {
+    /// Probe each eligible contained particle. The bool identifies the particle's
+    /// own cell, which is skipped. Probe runs in response mode 1; Pos is restored
+    /// even when it reports failure, while other callback effects remain.
+    pub fn reconcile<'p, I, F>(&mut self, particles: I, mut probe: F) -> Result<(), &'static str>
+    where
+        I: IntoIterator<Item = (&'p mut super::body::Particle, bool)>,
+        F: FnMut(&mut super::body::Particle) -> Result<super::collision::Completion, &'static str>,
+    {
+        let original = self
+            .original
+            .get(..self.count)
+            .ok_or("dynamic plane capacity exceeded")?;
+        let proposed = Pose::apply(original, self.current)?;
+        let delta = motion_delta(self.confirmed, self.current);
+        let mut blocked = false;
+        for (particle, owned) in particles {
+            if owned || (self.monster && !(8..16).contains(&particle.flags[3])) {
+                continue;
+            }
+            let position = particle.vectors[0];
+            if super::hull::outside_mask(&proposed.planes[..self.count], position, 0.) != 0 {
+                continue;
+            }
+            let Some(target) = project_particle(position, delta, &proposed.planes[..self.count])
+            else {
+                blocked = true;
+                continue;
+            };
+            particle.vectors[0] = target;
+            let result = probe(particle);
+            particle.vectors[0] = position;
+            match result {
+                Ok(super::collision::Completion::Clear) => {}
+                Ok(_) => blocked = true,
+                Err(error) => {
+                    self.pose.blocked = true;
+                    return Err(error);
+                }
+            }
+        }
+        if blocked {
+            self.pose.blocked = true;
+        } else {
+            self.mode &= !0x20;
+            self.confirmed = self.current;
+            self.pose = proposed;
+        }
+        Ok(())
+    }
+}

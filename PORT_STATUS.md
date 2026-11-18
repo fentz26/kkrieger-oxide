@@ -952,3 +952,15 @@ outputs; Rust supplies no proposal for a missing intersection. Callers must stil
 apply containment/ownership filters, probe collision in mode 1, restore particle
 Pos and decide cell acceptance. This is a verified projection prerequisite, not
 complete dynamic reconciliation or game-loop integration.
+
+MovingCell now connects pose/delta/projection to particle reconciliation. It
+preserves owned-cell and monster/weapon filters, probes in response mode 1,
+restores Pos while retaining other probe effects, and commits confirmed geometry
+only when every eligible particle clears. A 128-case complete PhysicDCell oracle
+uses original math/hull code and controls only the collision probe; all proposals,
+particle copies, blocked/mode flags and confirmed/current geometry match. The
+verifier uses a fresh emulator to avoid pre-hook cached code from setup. Probe
+errors restore Pos and mark the cell blocked. Part-box updates are explicitly
+caller-owned and not covered here. Publishing geometry into collision registries,
+linking the dynamic phase to scheduled bodies, and game-loop integration remain
+unfinished; the missing-intersection path retains the earlier safe limitation.
