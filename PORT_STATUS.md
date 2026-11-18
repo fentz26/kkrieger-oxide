@@ -1134,3 +1134,10 @@ The oracle executes native spawn, world lookup, AI and translation, intercepting
 visibility and ground casts. Cases include blocked visibility and absent cells.
 These first ticks do not reach attack emission. Multi-tick attack comparison,
 concrete collision-world adapter and scene registration remain pending.
+
+### Consecutive released actor ticks
+
+Thirty-two cases of one to sixteen consecutive native ticks match particle
+positions/history, cell links, all event words, cooldowns and activation.
+Attack damage is disabled in these runs. Concrete collision-world integration,
+attack dispatch over longer runs and scene registration remain pending.

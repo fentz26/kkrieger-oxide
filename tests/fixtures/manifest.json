@@ -694,6 +694,10 @@
     "beta-ai-tick.bin": {
       "bytes": 32260,
       "sha256": "c9a631fbded383eab98d318596873e95984db31a43c23a89ccb2bc117ba935f0"
+    },
+    "beta-ai-multi-tick.bin": {
+      "bytes": 32260,
+      "sha256": "37d6a263d3698574604eacbe1f27054ad34ba81dbc2b2e2fe788bc35c2886df5"
     }
   }
 }
