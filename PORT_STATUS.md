@@ -1087,3 +1087,9 @@ The two attack phase values written to event words 13 and 14 match 128
 native executions at 0x81d762..0x81d7b8, including half-cycle boundaries.
 This writes persistent event storage. Complete beta AI tick execution and
 scene dispatch integration remain pending.
+
+### Released life event modulation
+
+Life ratio and event selection mask 0x23 match 128 native executions at
+0x81d7b8..0x81d7d1. Cases include signed extremes, zero maximum life, infinity
+and x87 indefinite NaN. Full beta AI tick and scene integration remain pending.

@@ -74,6 +74,23 @@ impl Actor {
 }
 
 impl Actor {
+    /// Publish life modulation and the released event selection mask.
+    pub fn update_health_modulation(&mut self) {
+        let numerator = f64::from(self.initial.life);
+        let denominator = f64::from(self.initial.copied.parameters[4] as i32);
+        let quotient = numerator / denominator;
+        let ratio = if numerator == 0. && denominator == 0. {
+            f64::from_bits(0xfff8_0000_0000_0000)
+        } else {
+            super::rounded_arithmetic(
+                quotient,
+                (-quotient).mul_add(denominator, numerator) / denominator,
+            )
+        };
+        self.initial.event_words[15] = super::down(ratio).to_bits();
+        self.initial.event_words[44] = 0x23;
+    }
+
     /// Write the attack phases consumed by the released event operators.
     pub fn update_attack_modulation(&mut self) {
         for (index, timer) in self.cooldowns.into_iter().enumerate() {
