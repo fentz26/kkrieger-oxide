@@ -693,3 +693,14 @@ The dynamic collision cell, constraint solver, world interaction and actor
 integration remain unfinished. The spawn API now correctly calls the trailing
 stack word `collider_type`: FindCell's RET 0x10 leaves it for Collider::Init,
 so it is not a FindCell mode argument.
+
+The released single-constraint PhysicCons operation is now implemented. It uses
+`rest² / (rest² + current²) - 0.5`, preserving the original approximation,
+rounding and sequential endpoint writes. Its instruction oracle executes the
+actual routine and math callees for 512 cases, including coincident endpoints,
+zero rest length, aliased particle links and positions carried across updates.
+Both endpoints match bit for bit, including x87's negative indefinite NaN for
+0/0; invalid Rust indices fail before modifying state. The source header also
+identifies the four particle vectors as Pos, OldCollPos, OldPos and NewPos.
+This ports one relaxation operation; scheduling its iterations, particle
+integration, world response and the beta actor path remain unfinished.

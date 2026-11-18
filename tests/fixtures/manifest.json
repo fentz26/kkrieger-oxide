@@ -542,6 +542,10 @@
     "beta-collider.bin": {
       "bytes": 222212,
       "sha256": "b5f8a7cbaf1bf76acdfa326e69eb8e46dd5c01541dc7699bac677519ea7fb6ea"
+    },
+    "beta-constraint.bin": {
+      "bytes": 36868,
+      "sha256": "12825995625e4e0a6ff5d49bf27a4573f0f4e2d204c5465165149bb22f3135eb"
     }
   }
 }
