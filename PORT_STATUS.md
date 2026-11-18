@@ -869,3 +869,14 @@ normals, reflection, null events/operators and cooldown equality. The constructo
 avoids a heap allocation; the caller still owns event identity and scheduler
 insertion. This supersedes the event-construction-pending note, while real slot
 lookup, registry ownership and runtime effect insertion remain unfinished.
+
+Dynamic scan effects now have a registry-backed implementation. HitRegistry
+owns released shot words, environment/monster operator slots, kind flags and
+pending effect events; its DynamicEffects callback invokes the verified hit
+constructor and synchronizes selection back into the ongoing scan. Integration
+tests cover stopped shots, reflection followed by monster contact, slot choice
+and effect ordering. Missing identities, mismatched kinds and stale selections
+record a first error without modifying that event; callers must inspect the
+error because the existing callback trait has no Result return. The pending
+queue still needs connection to the scene scheduler, and the released actor
+registry/game loop remain unfinished.

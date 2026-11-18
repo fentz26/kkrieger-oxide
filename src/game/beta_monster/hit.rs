@@ -53,3 +53,99 @@ pub fn apply_hit(event: Option<&mut [u32; 45]>, hit: Hit) -> Option<[u32; 45]> {
     finish_hit(Some(event), hit.reflect, hit.monster, hit.time);
     effect
 }
+
+#[derive(Clone, Debug)]
+pub struct Shot {
+    pub kind: u32,
+    pub event: Option<[u32; 45]>,
+}
+/// Registry-owned shot events and pending effects. Operator slots are indexed
+/// by environment/monster target, then weapon kind 8..15.
+pub struct HitRegistry {
+    pub shots: std::collections::BTreeMap<usize, Shot>,
+    pub operators: [[u32; 8]; 2],
+    pub flags: [u32; 256],
+    pub time: i32,
+    pub pending: Vec<[u32; 45]>,
+    /// DynamicEffects cannot return errors; callers must inspect this field.
+    pub error: Option<&'static str>,
+}
+impl Default for HitRegistry {
+    fn default() -> Self {
+        Self {
+            shots: Default::default(),
+            operators: [[0; 8]; 2],
+            flags: [0; 256],
+            time: 0,
+            pending: Vec::new(),
+            error: None,
+        }
+    }
+}
+impl HitRegistry {
+    pub fn first_particle(
+        &self,
+        id: usize,
+    ) -> Result<super::subtractive::FirstParticle, &'static str> {
+        let shot = self.shots.get(&id).ok_or("shot identity missing")?;
+        Ok(super::subtractive::FirstParticle {
+            id,
+            kind: shot.kind,
+            shot_select: shot.event.as_ref().map(|event| event[12] as i32),
+        })
+    }
+    fn hit(
+        &mut self,
+        contact: super::subtractive::ParticleContact,
+        select: &mut Option<i32>,
+    ) -> Result<(), &'static str> {
+        let shot = self
+            .shots
+            .get_mut(&contact.particle)
+            .ok_or("shot identity missing")?;
+        if shot.kind != contact.kind {
+            return Err("shot kind differs from registry");
+        }
+        if shot.event.as_ref().map(|event| event[12] as i32) != *select {
+            return Err("shot selection differs from registry");
+        }
+        let flags = *self
+            .flags
+            .get(shot.kind as usize)
+            .ok_or("shot kind out of range")?;
+        let operator = shot
+            .kind
+            .checked_sub(8)
+            .and_then(|kind| self.operators[usize::from(contact.monster)].get(kind as usize))
+            .copied()
+            .unwrap_or(0);
+        let effect = apply_hit(
+            shot.event.as_mut(),
+            Hit {
+                kind: shot.kind as i32,
+                reflect: flags & 2 != 0,
+                monster: contact.monster,
+                time: self.time,
+                operator,
+                position: contact.position,
+                normal: contact.plane,
+            },
+        );
+        *select = shot.event.as_ref().map(|event| event[12] as i32);
+        if let Some(effect) = effect {
+            self.pending.push(effect);
+        }
+        Ok(())
+    }
+}
+impl super::subtractive::DynamicEffects for HitRegistry {
+    fn particle_hit(
+        &mut self,
+        contact: super::subtractive::ParticleContact,
+        select: &mut Option<i32>,
+    ) {
+        if let Err(error) = self.hit(contact, select) {
+            self.error.get_or_insert(error);
+        }
+    }
+}
