@@ -690,6 +690,10 @@
     "beta-displacement.bin": {
       "bytes": 9220,
       "sha256": "afc98538bc5502b3f97eeff6b9e45ca5b5c7411cbb65edfc76adfd06ebf94517"
+    },
+    "beta-ai-tick.bin": {
+      "bytes": 32260,
+      "sha256": "c9a631fbded383eab98d318596873e95984db31a43c23a89ccb2bc117ba935f0"
     }
   }
 }

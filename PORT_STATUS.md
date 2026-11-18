@@ -1125,3 +1125,12 @@ world interface. Integration checks cover activation/query order, movement,
 persistent event updates and dead-actor early return. All nine focused native
 fixture test targets pass. Whole-tick native comparison, concrete collision-world
 adapter and scene registration/dispatch remain pending.
+
+### Whole released actor tick comparison
+
+Thirty-two complete native actor ticks at 0x81d33e now match Rust particle
+positions/history, cell links, all 45 event words, cooldowns and activation.
+The oracle executes native spawn, world lookup, AI and translation, intercepting
+visibility and ground casts. Cases include blocked visibility and absent cells.
+These first ticks do not reach attack emission. Multi-tick attack comparison,
+concrete collision-world adapter and scene registration remain pending.
