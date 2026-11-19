@@ -28,6 +28,7 @@ def hook(u, address, size, user):
         u.reg_write(UC_X86_REG_ESP, esp+32)
 u.hook_add(UC_HOOK_CODE, hook)
 output = bytearray(pack(64))
+metrics = bytearray(pack(64))
 for case in range(64):
     flags = case*17
     values = [(case+1)*.03125, (case+2)*.0625, -.125, .25]
@@ -42,11 +43,34 @@ for case in range(64):
     output.extend(pack(flags)); output.extend(captured)
     # Native glyph method reads 16-byte UV rectangles and sends literal zero z.
     u.mem_write(info, pack(env, words[0], words[1], words[2], words[3], 0x3020000, 0x3021000, 0, 4096, 0))
-    u.mem_write(env+(0x14f+65)*16, struct.pack('<4f', .125, .25, .5, .75))
+    uv = [(.125, .25, .5, .75), (0., .25, 1., .25), (-.25, .75, .125, .5), (.5, .25, .125, .75)][case%4]
+    u.mem_write(env+(0x14f+65)*16, struct.pack('<4f', *uv))
     u.mem_write(stack, pack(0x303f000, 0, 0, 65))
     u.reg_write(UC_X86_REG_ESP, stack); u.reg_write(UC_X86_REG_ECX, info)
     vertices.clear(); u.emu_start(0x80d53f, 0x303f000, count=10000)
-    assert len(vertices) == 4 and all(v[2] == 0 for v in vertices)
+    assert len(vertices) == (4 if uv[3] > uv[1] else 0) and all(v[2] == 0 for v in vertices)
+    first = list(vertices)
+    # Capture the actual native Width return through an x87 store.
+    u.mem_write(stack, pack(0x303f100, 65))
+    u.mem_write(0x303f100, b'\xd9\x1d'+pack(0x3022000))
+    u.reg_write(UC_X86_REG_ESP, stack); u.reg_write(UC_X86_REG_ECX, info)
+    u.emu_start(0x80d641, 0x303f106, count=1000)
+    width_bytes = bytes(u.mem_read(0x3022000, 4))
+    width = struct.unpack('<f', width_bytes)[0]
+    advance = struct.unpack('<I', struct.pack('<f', width+values[2]))[0]
+    u.mem_write(stack, pack(0x303f000, advance, 0, 65))
+    u.reg_write(UC_X86_REG_ESP, stack); u.reg_write(UC_X86_REG_ECX, info)
+    vertices.clear(); u.emu_start(0x80d53f, 0x303f000, count=10000)
+    metrics.extend(struct.pack('<8f', *values, *uv))
+    metrics.extend(width_bytes)
+    metrics.extend(pack(len(first)+len(vertices)))
+    for vertex in first+vertices:
+        metrics.extend(struct.pack('<5f', *vertex))
+    metrics.extend(bytes((8-len(first)-len(vertices))*20))
 p = root / 'tests/fixtures/beta-print-layout.bin'
 p.write_bytes(output)
 print(len(output), hashlib.sha256(output).hexdigest())
+
+p = root / 'tests/fixtures/beta-print-metrics.bin'
+p.write_bytes(metrics)
+print(len(metrics), hashlib.sha256(metrics).hexdigest())

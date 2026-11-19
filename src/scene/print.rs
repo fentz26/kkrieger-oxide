@@ -48,7 +48,7 @@ pub fn draw_for_layout(
         .ok_or("Print font atlas has not been prepared")?
         .letters;
     let text = text.ok_or("missing Print string")?;
-    let geometry = layout.generate(text, values, letters)?;
+    let geometry = layout.generate_for_layout(text, values, letters, document_layout)?;
     Ok(Some(Draw {
         page,
         environment: layout.environment(context.camera, matrix),
@@ -249,36 +249,67 @@ impl Layout {
         values: &Values<'_>,
         letters: &[Letter; 256],
     ) -> Result<Geometry, &'static str> {
+        self.generate_for_layout(text, values, letters, crate::kx::Layout::Current)
+    }
+    pub fn generate_for_layout(
+        &self,
+        text: &[u8],
+        values: &Values<'_>,
+        letters: &[Letter; 256],
+        document_layout: crate::kx::Layout,
+    ) -> Result<Geometry, &'static str> {
         let mut geometry = Geometry::default();
         let mut y = 0.;
         if self.flags & 2 != 0 {
             y += self.size[1] / 2.;
         }
         for line in format_lines(text, values)? {
-            self.append_line(&line.text, line.center, y, letters, &mut geometry);
+            self.append_line_with_metrics(
+                &line.text,
+                line.center,
+                y,
+                letters,
+                &mut geometry,
+                document_layout == crate::kx::Layout::Beta2004,
+            );
             for _ in 0..line.newlines {
                 y -= self.size[1] + self.space[1];
             }
         }
         Ok(geometry)
     }
-    fn character_width(&self, byte: u8, letters: &[Letter; 256]) -> f32 {
+    fn character_width(&self, byte: u8, letters: &[Letter; 256], released: bool) -> f32 {
         let letter = letters[byte as usize];
         let height = letter.uv[3] - letter.uv[1];
         if height > 0. {
-            letter.width / height * self.size[0]
+            (if released {
+                letter.uv[2] - letter.uv[0]
+            } else {
+                letter.width
+            }) / height
+                * self.size[0]
         } else {
             0.
         }
     }
     pub fn width(&self, text: &[u8], count: Option<usize>, letters: &[Letter; 256]) -> f32 {
+        self.width_for_layout(text, count, letters, crate::kx::Layout::Current)
+    }
+    pub fn width_for_layout(
+        &self,
+        text: &[u8],
+        count: Option<usize>,
+        letters: &[Letter; 256],
+        document_layout: crate::kx::Layout,
+    ) -> f32 {
+        let released = document_layout == crate::kx::Layout::Beta2004;
         let mut width = 0.;
         for &byte in text
             .iter()
             .take(count.unwrap_or(usize::MAX))
             .take_while(|&&b| b != 0)
         {
-            width += self.character_width(byte, letters) + self.space[0];
+            width += self.character_width(byte, letters, released) + self.space[0];
         }
         width - self.space[0]
     }
@@ -292,22 +323,42 @@ impl Layout {
         letters: &[Letter; 256],
         geometry: &mut Geometry,
     ) {
+        self.append_line_with_metrics(text, center, y, letters, geometry, false);
+    }
+    fn append_line_with_metrics(
+        &self,
+        text: &[u8],
+        center: Option<usize>,
+        y: f32,
+        letters: &[Letter; 256],
+        geometry: &mut Geometry,
+        released: bool,
+    ) {
+        let document_layout = if released {
+            crate::kx::Layout::Beta2004
+        } else {
+            crate::kx::Layout::Current
+        };
         let mut x = match (self.flags & 0x300) >> 8 {
             1 => {
                 -if let Some(count) = center {
-                    self.width(text, Some(count), letters)
+                    self.width_for_layout(text, Some(count), letters, document_layout)
                 } else {
-                    self.width(text, None, letters) / 2.
+                    self.width_for_layout(text, None, letters, document_layout) / 2.
                 }
             }
-            2 => -self.width(text, None, letters),
+            2 => -self.width_for_layout(text, None, letters, document_layout),
             _ => 0.,
         };
         for &byte in text.iter().take_while(|&&b| b != 0) {
             let letter = letters[byte as usize];
             let height = letter.uv[3] - letter.uv[1];
             if geometry.vertices.len() < 4096 * 4 && height > 0. {
-                let x0 = x + letter.pre_space * self.size[0] / height;
+                let x0 = if released {
+                    x
+                } else {
+                    x + letter.pre_space * self.size[0] / height
+                };
                 let width = (letter.uv[2] - letter.uv[0]) / height;
                 let (y0, y1, z0, z1) = if self.radius == 0. {
                     (y, y - self.size[1], 0., 0.)
@@ -340,7 +391,7 @@ impl Layout {
                     .indices
                     .extend([base, base + 1, base + 3, base, base + 3, base + 2]);
             }
-            x += self.character_width(byte, letters) + self.space[0];
+            x += self.character_width(byte, letters, released) + self.space[0];
         }
     }
 }

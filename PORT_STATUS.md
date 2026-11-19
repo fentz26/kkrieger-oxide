@@ -2087,3 +2087,24 @@ pose, glyph metrics, complete level traversal and audio parity remain open.
 After unsetting the selection, seven embedded/startup regressions pass,
 including byte-exact default document checks. Player Clippy, formatting and
 whitespace checks pass.
+
+### Released Print UV-only glyph placement
+
+Released glyph/width methods 0x80d53f and 0x80d641 read only 16-byte UV rectangles.
+Beta Print now computes advance from UV width/height and places glyphs without
+the later source's pre-space bearing. Development Print retains its separate
+bearing and advance metrics. The layout-aware geometry path uses the existing
+font table directly, without allocating or copying a converted atlas per draw.
+
+The native Print oracle now captures 64 widths and two successive glyph draws,
+including zero/negative UV height and negative UV width. Rust compares all
+captured position/UV words exactly with deliberately unrelated later metrics.
+The 12,804-byte metrics fixture SHA256 is
+21df355ef64b8abaf11612dbf0191b600bf4472d9c05510d0bf399cbb3e42c69.
+The existing five-word ABI fixture is unchanged. These captures verify ASCII A
+UV-based glyph geometry/advance for the selected finite cases, not complete
+native text-formatting, high-byte character indexing, atlas rasterization,
+font hinting, arbitrary-float rounding, or rendered pixel parity.
+
+Fourteen targeted Print tests and the explicitly invoked extracted startup
+gate pass. Player/Print Clippy, formatting and whitespace checks pass.
