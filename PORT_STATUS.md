@@ -1780,3 +1780,15 @@ constraint slots and all eight particle indices, including aliased links and
 degenerate arithmetic. Existing collider and full body-pass fixtures remain
 passing. Mixed-roster box constraint scheduling and particle/event integration
 are still pending.
+
+### Complete released box physics pass
+
+CollisionRuntime can execute an eight-particle box pass with upfront identity,
+kind, skip-cell and constraint-index validation, followed by all constraints,
+particle/world steps, a dynamic callback and deferred force additions. Caller
+particle/skip context is restored on success and failure. A new oracle runs the
+complete native Physic routine for one box and a real additive hull without
+replaced callees; 32 captures with one through four passes match every particle
+word. Checks also cover rejected identity/constraint registrations before
+mutation and skipped force addition after a dynamic-phase error. Integrating
+boxes with the interleaved scene roster and shared event aliases remains pending.

@@ -1037,3 +1037,55 @@ impl CollisionRuntime<'_, '_> {
         self.reconcile_cell(index, cell, &mut bodies, &registration_list)
     }
 }
+
+impl CollisionRuntime<'_, '_> {
+    /// Released box phase order: constraints, particles, dynamics, then forces.
+    pub fn step_box<F>(
+        &mut self,
+        body: &mut super::body::BoxBody,
+        ids: [usize; 8],
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(&mut Self, &mut super::body::BoxBody) -> Result<(), &'static str>,
+    {
+        if let Some(error) = self.error.or(self.hits.error) {
+            return Err(error);
+        }
+        for (particle, id) in body.particles.iter().zip(ids) {
+            self.validate_particle_at(particle, id, self.skip_cell)?;
+            if matches!(particle.flags[3], 1 | 3) {
+                return Err("five-particle group truncated");
+            }
+        }
+        if body
+            .constraints
+            .iter()
+            .any(|c| c.particles.iter().any(|&i| i >= 8))
+        {
+            return Err("constraint particle index out of range");
+        }
+        let previous = (self.particle_id, self.skip_cell);
+        let result = (|| {
+            for index in 0..body.constraints.len() {
+                body.solve_constraint(index)?;
+            }
+            for (particle, id) in body.particles.iter_mut().zip(ids) {
+                self.particle_id = id;
+                self.step_single(particle, settings)?;
+            }
+            dynamic(self, body)?;
+            if let Some(error) = self.error.or(self.hits.error) {
+                return Err(error);
+            }
+            for particle in &mut body.particles {
+                particle.apply_force();
+            }
+            Ok(())
+        })();
+        self.particle_id = previous.0;
+        self.skip_cell = previous.1;
+        result
+    }
+}
