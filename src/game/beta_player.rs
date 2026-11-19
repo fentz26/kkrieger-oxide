@@ -1,8 +1,26 @@
 //! Released player input translation before the shared particle physics pass.
 use super::{
-    beta_monster::{add, body::Body, down, mul},
+    beta_monster::{add, body::Body, down, mul, runtime::BodyRegistration},
     player::Sound,
 };
+
+/// Persistent player particles, registered before scene actor bodies.
+pub struct Player {
+    pub physics: [(Body, BodyRegistration); 1],
+}
+impl Player {
+    pub fn new(position: [f32; 4], cell: Option<usize>) -> Self {
+        Self {
+            physics: [(
+                Body::new(position, cell, 1),
+                BodyRegistration {
+                    particles: [0, 1, 2, 3, 4],
+                    skip_cell: None,
+                },
+            )],
+        }
+    }
+}
 
 pub struct Settings {
     pub right: [f32; 4],

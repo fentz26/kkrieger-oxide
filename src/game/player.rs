@@ -10,6 +10,7 @@ pub(super) use crate::mesh::euler_matrix_fsincos as orientation;
 
 pub struct Motion {
     pub(super) document_layout: crate::kx::Layout,
+    pub released_player: Option<super::beta_player::Player>,
     pub collider: Collider,
     pub old_position: [f32; 4],
     pub direction: f32,
@@ -37,6 +38,48 @@ pub struct Sound {
 }
 
 impl Motion {
+    /// Translate released particles before their shared physics pass.
+    pub fn prepare_released(
+        &mut self,
+        parameters: &Parameters,
+        slices: i32,
+        clearance: f32,
+    ) -> Result<Option<Sound>, &'static str> {
+        let player = self
+            .released_player
+            .as_mut()
+            .ok_or("released player body missing")?;
+        if self.jump_timer > 0 {
+            self.jump_timer -= 1;
+        }
+        let mut control = super::beta_player::Control {
+            speed_up: self.speed_up,
+            on_ground: self.on_ground,
+            off_ground_time: self.off_ground_time,
+            step_timer: self.step_timer,
+            step_foot: self.step_foot,
+        };
+        let sound = control.prepare(
+            &mut player.physics[0].0,
+            &super::beta_player::Settings {
+                right: self.matrix[0],
+                forward: self.matrix[2],
+                side: self.accel_side,
+                ahead: self.accel_forward,
+                gravity: parameters.gravity,
+                height: parameters.stair_height,
+                height_gain: parameters.damp_height,
+                slices,
+            },
+            clearance,
+        );
+        self.speed_up = control.speed_up;
+        self.on_ground = control.on_ground;
+        self.off_ground_time = control.off_ground_time;
+        self.step_timer = control.step_timer;
+        self.step_foot = control.step_foot;
+        Ok(sound)
+    }
     pub fn jump(&mut self, parameters: &Parameters) -> Option<Sound> {
         if self.on_ground && self.jump_timer == 0 {
             self.speed_up = parameters.jump_force;
@@ -93,6 +136,12 @@ impl Motion {
         matrix[3][1] += 0.85;
         Ok(Self {
             document_layout: layout,
+            released_player: released.then(|| {
+                super::beta_player::Player::new(
+                    position,
+                    found.and_then(|source| world.adds.iter().position(|&id| id == source)),
+                )
+            }),
             collider: Collider {
                 position,
                 radius: 0.5,
@@ -127,6 +176,7 @@ impl Motion {
     ) -> Result<(), &'static str> {
         let fresh = Self::spawn_for_layout(world, position, direction, self.document_layout)?;
         self.collider = fresh.collider;
+        self.released_player = fresh.released_player;
         self.old_position = fresh.old_position;
         self.direction = direction;
         self.look = look;

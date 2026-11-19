@@ -1543,3 +1543,16 @@ actor advancing together, ordinary moving-hull rejection against player
 particles, monster/owned-cell exclusions and context restoration. Live Motion
 still needs persistent released body ownership, ground queries and hitbox
 registration before this path can replace the development player collider.
+
+### Released player body ownership and input-state bridge
+
+Beta Motion now owns a persistent five-particle player body with IDs 0..4.
+Placement reconstructs it using released containment and additive-local cell
+indices, while the public motion collider retains source-world cell indices.
+Checkpoint placement resets particle history/forces without resetting movement
+timers or replacing the shared hit-cell identity. Motion::prepare_released maps
+input axes and control fields into the native-verified pre-physics translation,
+then copies landing/air/jump state back. Checks cover interleaved world indices,
+null cells, persistent force state, placement resets and pre-physics publication
+ordering. The main tick still invokes development player movement; released
+ground queries, post-physics publication and hitbox integration remain pending.

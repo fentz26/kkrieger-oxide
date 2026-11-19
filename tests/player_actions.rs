@@ -151,3 +151,125 @@ fn released_placement_preserves_outside_position_and_checkpoint_hit_identity() {
     assert_eq!(development.collider.position[..3], [0.; 3]);
     assert_eq!(development.collider.cell, 0);
 }
+
+#[test]
+fn released_player_body_survives_frames_and_rebuilds_on_placement() {
+    let cells = vec![
+        Cell::new(identity(), [1.; 3], 1),
+        Cell::new(identity(), [10.; 3], 0),
+    ];
+    let world = World {
+        connectivity: connectivity::connect(&cells),
+        entries: cells
+            .into_iter()
+            .map(|cell| Entry {
+                cell,
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0,
+                    condition: 0,
+                    value: 0,
+                    output: 0,
+                    events: [None, None],
+                },
+            })
+            .collect(),
+        adds: vec![1],
+        subs: vec![0],
+        zones: vec![],
+        faces: vec![None, None],
+    };
+    let position = [2., 1., 0., 1.];
+    let mut motion =
+        Motion::spawn_for_layout(&world, position, 0., kkrieger_oxide::kx::Layout::Beta2004)
+            .unwrap();
+    assert_eq!(motion.collider.cell, 1);
+    let player = motion.released_player.as_mut().unwrap();
+    assert_eq!(
+        player.physics[0].0,
+        kkrieger_oxide::game::beta_monster::body::Body::new(position, Some(0), 1)
+    );
+    assert_eq!(player.physics[0].1.particles, [0, 1, 2, 3, 4]);
+    player.physics[0].0.particles[0].force[0] = 3.;
+    assert_eq!(
+        motion.released_player.as_ref().unwrap().physics[0]
+            .0
+            .particles[0]
+            .force[0],
+        3.
+    );
+    motion.jump_timer = 8;
+    motion.place(&world, [3., 2., 1., 1.], 0.25, 0.).unwrap();
+    assert_eq!(motion.jump_timer, 8);
+    assert_eq!(
+        motion.released_player.as_ref().unwrap().physics[0].0,
+        kkrieger_oxide::game::beta_monster::body::Body::new([3., 2., 1., 1.], Some(0), 1)
+    );
+    motion.place(&world, [100., 0., 0., 1.], 0., 0.).unwrap();
+    assert!(
+        motion.released_player.as_ref().unwrap().physics[0]
+            .0
+            .particles
+            .iter()
+            .all(|p| p.cell.is_none())
+    );
+    assert!(
+        Motion::spawn(&world, position, 0.)
+            .unwrap()
+            .released_player
+            .is_none()
+    );
+}
+
+#[test]
+fn released_motion_input_updates_persistent_particles_and_control_fields() {
+    let world = World {
+        entries: vec![],
+        adds: vec![],
+        subs: vec![],
+        zones: vec![],
+        connectivity: connectivity::connect(&[]),
+        faces: vec![],
+    };
+    let mut motion = Motion::spawn_for_layout(
+        &world,
+        [2., 1., 0., 1.],
+        0.,
+        kkrieger_oxide::kx::Layout::Beta2004,
+    )
+    .unwrap();
+    motion.matrix = identity();
+    motion.accel_side = 0.1;
+    motion.speed_up = 0.02;
+    motion.jump_timer = 3;
+    motion.off_ground_time = 0.5;
+    motion.step_timer = 2.;
+    motion.step_foot = 1;
+    let parameters = Parameters {
+        gravity: 0.01,
+        stair_height: 1.,
+        damp_height: 0.2,
+        ..Default::default()
+    };
+    let before = motion.released_player.as_ref().unwrap().physics[0]
+        .0
+        .clone();
+    let sound = motion.prepare_released(&parameters, 2, 0.5).unwrap();
+    assert_eq!(sound.unwrap().slot, 5);
+    assert_eq!(motion.jump_timer, 2);
+    assert_eq!(motion.speed_up, 0.);
+    assert!(motion.on_ground);
+    assert_eq!(motion.off_ground_time, 0.);
+    assert_eq!(motion.step_timer, 0.);
+    assert_eq!(motion.step_foot, 0);
+    let body = &motion.released_player.as_ref().unwrap().physics[0].0;
+    assert!(body.particles[0].vectors[0][0] > 2.);
+    assert!(body.particles[0].vectors[0][1] > 1.);
+    assert_eq!(body.particles[0].vectors[2], before.particles[0].vectors[2]);
+    assert_eq!(
+        motion.collider.position,
+        [2., 1., 0., 1.],
+        "publication follows shared physics"
+    );
+}
