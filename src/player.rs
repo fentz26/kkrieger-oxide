@@ -64,13 +64,18 @@ impl Prepared {
         let resources = gpu_scene::Resources::prepare(&doc, root, true, 0)?;
         let mut execution = Execution::new_player(&doc);
         execution.prepare_game_operators(&doc, root)?;
-        let position = execution.game.parameters.start_position;
+        let position = kkrieger_oxide::game::root::initial_player_position(
+            &execution.game.parameters,
+            doc.layout,
+        );
         let scene = kkrieger_oxide::game::root::painter_scene(&doc, root)?
             .ok_or("intro root has no painter scene")?;
         let world = World::from_document(&doc, scene)?;
         let mut simulation =
             Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1))?;
-        simulation.restart(&mut execution, [0, 0])?;
+        if doc.layout != kkrieger_oxide::kx::Layout::Beta2004 {
+            simulation.restart(&mut execution, [0, 0])?;
+        }
         execution.switches[1] = 8;
         Ok(Self {
             doc,

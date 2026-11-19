@@ -28,6 +28,16 @@ pub fn select(switches: &mut [u8; 256]) -> Selection {
     }
 }
 pub fn switches() -> [u8; 256] {
+    switches_for_layout(crate::kx::Layout::Current)
+}
+/// Released constructor has one intro switch and no development option defaults.
+pub fn switches_for_layout(layout: crate::kx::Layout) -> [u8; 256] {
+    if layout == crate::kx::Layout::Beta2004 {
+        let mut switches = [0; 256];
+        switches[0] = 1;
+        switches[1] = 8;
+        return switches;
+    }
     let mut switches = [0; 256];
     for (index, value) in [
         (0, 1),
@@ -42,6 +52,14 @@ pub fn switches() -> [u8; 256] {
         switches[index] = value;
     }
     switches
+}
+/// The released player explicitly places the origin after collision-world setup.
+pub fn initial_player_position(parameters: &Parameters, layout: crate::kx::Layout) -> [f32; 4] {
+    if layout == crate::kx::Layout::Beta2004 {
+        [0.; 4]
+    } else {
+        parameters.start_position
+    }
 }
 impl State {
     pub fn player_build() -> Self {

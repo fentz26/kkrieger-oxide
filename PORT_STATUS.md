@@ -1975,3 +1975,29 @@ the current Prepared-style world/placement ordering restarts before the gameplay
 parameters execute. That gate remains explicitly failing. Native active-painter/
 world setup and intro-to-new-game ordering require further tracing; no eager
 parameter copy is introduced to hide this difference.
+
+### Released startup origin and frame target reset
+
+Native startup 0x81ec5d selects the final document operator, flushes and runs
+both world-building phases, then explicitly places the player at the origin
+with zero direction and look. The new 32-case startup oracle stubs the world
+walker and placement callee; it verifies their arguments and ordering, not the
+world implementation. A separate native constructor-tail capture verifies all
+256 switch bytes: switch 0 is one, switch 1 is eight, and the rest are zero.
+The Rust beta factory now uses those defaults and origin, and avoids the
+legacy startup Restart call. Development startup remains unchanged.
+
+These traces supersede the earlier diagnosis above: origin placement is native
+behavior, not evidence of a missing authored start-position copy. The ignored
+menu handoff gate still lacks deferred effect rendering; State aliases execute
+in that phase, so its render-free result cannot establish a placement bug or
+prove the complete menu handoff. That gate remains incomplete.
+
+The native main-loop call sequence also resets the postprocessing pool before
+root execution and after presentation. Beta scene preparation now resets its
+CPU target ownership and last output before executing the root; a regular test
+checks consecutive frames. Full GPU material-reset parity is not established.
+Native beta paints before OnTick; the application adapter still needs that
+layout-specific ordering. Targeted startup, simulation, dispatch and resource
+tests pass (17 passed, 3 ignored), as does Clippy for those targets and the
+player binary. No released-content shipping or full-playthrough claim is made.

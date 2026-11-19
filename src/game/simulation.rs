@@ -123,6 +123,11 @@ impl Simulation {
         self.bind_scene(execution, execution.time_reset);
         execution.game_camera.space = self.motion.camera(false);
         execution.game_camera.zoom_y = aspect;
+        if execution.document_layout == crate::kx::Layout::Beta2004
+            && let Some(pool) = execution.overlay.as_mut()
+        {
+            pool.reset();
+        }
         Ok(())
     }
     pub fn execute_scene(

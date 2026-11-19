@@ -131,7 +131,7 @@ fn released_beta_player_roots_prepare_render_resources() {
 }
 
 #[test]
-#[ignore = "requires extracted beta; native intro/new-game placement ordering remains pending"]
+#[ignore = "requires extracted beta; complete deferred menu rendering remains pending"]
 fn released_beta_player_startup_initializes_native_simulation() {
     std::thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
@@ -147,17 +147,19 @@ fn released_beta_player_startup_initializes_native_simulation() {
             let root = doc.roots[0].unwrap();
             let mut execution = Execution::new_player(&doc);
             execution.prepare_game_operators(&doc, root).unwrap();
-            let position = execution.game.parameters.start_position;
+            let position = root::initial_player_position(&execution.game.parameters, doc.layout);
+            assert_eq!(position, [0.; 4]);
             let scene = kkrieger_oxide::game::root::painter_scene(&doc, root)
                 .unwrap()
                 .unwrap();
             assert_eq!((root, scene), (4815, 4357));
+            assert_eq!(root, doc.operators.len() - 1);
             let parameter = &doc.operators[doc.operators[scene].inputs[0]];
             let world = World::from_document(&doc, scene).unwrap();
             let mut simulation =
                 Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1))
                     .unwrap();
-            simulation.restart(&mut execution, [0, 0]).unwrap();
+
             execution.switches[1] = 8;
             execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new(
                 kkrieger_oxide::scene::overlay::Viewport {
@@ -174,18 +176,41 @@ fn released_beta_player_startup_initializes_native_simulation() {
                 .execute_scene(&mut execution, &doc, root)
                 .unwrap();
             execution.finish_events();
-            execution.switches[1] = 2;
-            let tick = simulation
-                .tick(&mut execution, &doc, 1, 10, [0, 0])
-                .unwrap();
-            assert!(!tick.ran && !tick.quit);
-            simulation
-                .prepare_scene(&mut execution, 0, 10, 1., false)
-                .unwrap();
-            simulation
-                .execute_scene(&mut execution, &doc, root)
-                .unwrap();
-            execution.finish_events();
+            let mut clock = kkrieger_oxide::game::frame::Clock::new(0);
+            for (step, (now, key)) in [
+                (1000, Some(32)),
+                (3000, None),
+                (4000, Some(32)),
+            (5000, Some(kkrieger_oxide::game::input::ENTER)),
+                (5010, None),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                let frame = clock.advance(now, doc.bpm);
+                if let Some(key) = key {
+                    simulation.key(&mut execution, key, [0, 0]).unwrap();
+                }
+                simulation
+                    .prepare_scene(&mut execution, frame.beat, now, 1., false)
+                    .unwrap();
+                simulation
+                    .execute_scene(&mut execution, &doc, root)
+                    .unwrap();
+                execution.finish_events();
+                let tick = simulation
+                    .tick(&mut execution, &doc, frame.slices, now, [0, 0])
+                    .unwrap();
+                assert!(!tick.quit);
+
+                eprintln!(
+                    "released startup step {step}: mode {}, start {:?}, player {:?}, switches {:?}, key {}",
+                    execution.switches[1],
+                    execution.game.parameters.start_position,
+                    simulation.motion.collider.position, &execution.switches[..16], execution.game.last_key
+                );
+            }
+            assert_eq!(execution.switches[1],0,"authored menu must enter gameplay after its deferred effects execute");
             assert_eq!(
                 execution.game.parameters.start_position,
                 [
@@ -195,11 +220,12 @@ fn released_beta_player_startup_initializes_native_simulation() {
                     0.
                 ]
             );
+            let tick = simulation
+                .tick(&mut execution, &doc, 1, 10, [0, 0])
+                .unwrap();
+            assert!(!tick.ran && !tick.quit);
             assert_eq!(execution.switches[1], 0);
-            assert_eq!(
-                &simulation.motion.collider.position[..3],
-                &execution.game.parameters.start_position[..3]
-            );
+            assert!(simulation.motion.collider.position.iter().all(|value|value.is_finite()));
             assert!(simulation.released_actors.is_some());
             assert!(simulation.motion.released_player.is_some());
             assert!(simulation.player_cell.is_some());

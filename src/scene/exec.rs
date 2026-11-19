@@ -684,7 +684,7 @@ impl Execution {
     pub fn new_player(doc: &Document<'_>) -> Self {
         let mut execution = Self::new(doc);
         execution.game = crate::game::State::player_build();
-        execution.switches = crate::game::root::switches();
+        execution.switches = crate::game::root::switches_for_layout(doc.layout);
         execution
     }
     /// Original InitView boundary: discard dynamic and default-owned instance

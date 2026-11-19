@@ -545,3 +545,33 @@ fn released_restart_switches_match_native_and_preserve_only_the_first_switch() {
         assert_eq!(u32::from_le_bytes(case[516..520].try_into().unwrap()), 2);
     }
 }
+
+#[test]
+fn released_frame_preparation_releases_cached_viewport_owners() {
+    use kkrieger_oxide::scene::overlay::{Pool, Viewport};
+    let mut doc = doc();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut execution = Execution::new_player(&doc);
+    execution.overlay = Some(Pool::new(
+        Viewport {
+            screen: 0,
+            render_target: -1,
+            window: [0, 0, 800, 600],
+        },
+        std::array::from_fn(|i| 100 + i as i32),
+    ));
+    let mut simulation =
+        Simulation::new(world(), &mut execution, [0.; 4], 0, [0, 0], Random::new(1)).unwrap();
+    for time in [0, 10] {
+        let pool = execution.overlay.as_mut().unwrap();
+        let target = pool.allocate(Some(0), 1, 3);
+        pool.last_output = Some(target);
+        assert!(pool.find(Some(0)).is_some());
+        simulation
+            .prepare_scene(&mut execution, 0, time, 1., false)
+            .unwrap();
+        let pool = execution.overlay.as_ref().unwrap();
+        assert_eq!(pool.find(Some(0)), None);
+        assert_eq!(pool.last_output, None);
+    }
+}
