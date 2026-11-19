@@ -14,6 +14,42 @@ pub struct Point {
     pub skip_player: bool,
 }
 impl Point {
+    pub fn register_hit_state(
+        &self,
+        particle: usize,
+        events: &crate::scene::event::Scheduler,
+        hits: &mut super::hit::HitRegistry,
+    ) -> Result<(), &'static str> {
+        let words = self
+            .event
+            .map(|id| {
+                events
+                    .events
+                    .get(&id)
+                    .ok_or("released projectile event missing")?
+                    .try_borrow()
+                    .map_err(|_| "released projectile event already borrowed")
+                    .map(|event| event.released_hit_state())
+            })
+            .transpose()?;
+        if hits
+            .bound_event(particle)
+            .is_some_and(|id| Some(id) != self.event)
+        {
+            return Err("particle bound to another event");
+        }
+        hits.shots.insert(
+            particle,
+            super::hit::Shot {
+                kind: self.particle.flags[3],
+                event: words,
+            },
+        );
+        if let Some((id, words)) = self.event.zip(words) {
+            hits.bind_event(particle, id, words)?;
+        }
+        Ok(())
+    }
     pub fn new(
         words: &[u32],
         matrix: Matrix,
@@ -43,4 +79,36 @@ impl Point {
             skip_player,
         })
     }
+}
+
+/// Validate the full event batch before applying hit fields to live scene events.
+pub fn sync_hit_events(
+    events: &crate::scene::event::Scheduler,
+    hits: &super::hit::HitRegistry,
+) -> Result<(), &'static str> {
+    let updates = hits
+        .event_states()
+        .map(|(id, words)| {
+            Ok((
+                events
+                    .events
+                    .get(&id)
+                    .cloned()
+                    .ok_or("released projectile event missing")?,
+                words,
+            ))
+        })
+        .collect::<Result<Vec<_>, &'static str>>()?;
+    let mut borrowed = updates
+        .iter()
+        .map(|(event, _)| {
+            event
+                .try_borrow_mut()
+                .map_err(|_| "released projectile event already borrowed")
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    for (event, (_, words)) in borrowed.iter_mut().zip(&updates) {
+        event.apply_released_hit_state(words);
+    }
+    Ok(())
 }

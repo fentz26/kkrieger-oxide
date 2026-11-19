@@ -59,9 +59,15 @@ pub struct Shot {
     pub kind: u32,
     pub event: Option<[u32; 45]>,
 }
+struct SharedEvent {
+    words: [u32; 45],
+    particles: Vec<usize>,
+}
 /// Registry-owned shot events and pending effects. Operator slots are indexed
 /// by environment/monster target, then weapon kind 8..15.
 pub struct HitRegistry {
+    event_bindings: std::collections::BTreeMap<usize, crate::scene::event::Id>,
+    shared_events: std::collections::BTreeMap<crate::scene::event::Id, SharedEvent>,
     pub shots: std::collections::BTreeMap<usize, Shot>,
     pub operators: [[u32; 8]; 2],
     pub flags: [u32; 256],
@@ -73,6 +79,8 @@ pub struct HitRegistry {
 impl Default for HitRegistry {
     fn default() -> Self {
         Self {
+            event_bindings: Default::default(),
+            shared_events: Default::default(),
             shots: Default::default(),
             operators: [[0; 8]; 2],
             flags: [0; 256],
@@ -83,6 +91,53 @@ impl Default for HitRegistry {
     }
 }
 impl HitRegistry {
+    /// Begin a new frame's event bindings after live scene-event state is available.
+    pub fn clear_event_bindings(&mut self) {
+        self.event_bindings.clear();
+        self.shared_events.clear();
+    }
+    pub fn bind_event(
+        &mut self,
+        particle: usize,
+        event: crate::scene::event::Id,
+        words: [u32; 45],
+    ) -> Result<(), &'static str> {
+        if !self.shots.contains_key(&particle) {
+            return Err("shot identity missing");
+        }
+        if self
+            .event_bindings
+            .get(&particle)
+            .is_some_and(|&id| id != event)
+        {
+            return Err("particle bound to another event");
+        }
+        let shared = self
+            .shared_events
+            .entry(event)
+            .or_insert_with(|| SharedEvent {
+                words,
+                particles: Vec::new(),
+            });
+        if self.event_bindings.insert(particle, event).is_none() {
+            shared.particles.push(particle);
+        }
+        self.shots
+            .get_mut(&particle)
+            .ok_or("shot identity missing")?
+            .event = Some(shared.words);
+        Ok(())
+    }
+    pub(crate) fn bound_event(&self, particle: usize) -> Option<crate::scene::event::Id> {
+        self.event_bindings.get(&particle).copied()
+    }
+    pub(crate) fn event_states(
+        &self,
+    ) -> impl Iterator<Item = (crate::scene::event::Id, &[u32; 45])> {
+        self.shared_events
+            .iter()
+            .map(|(&id, event)| (id, &event.words))
+    }
     pub fn first_particle(
         &self,
         id: usize,
@@ -132,6 +187,17 @@ impl HitRegistry {
             },
         );
         *select = shot.event.as_ref().map(|event| event[12] as i32);
+        let updated = shot.event;
+        if let Some(&event) = self.event_bindings.get(&contact.particle) {
+            let shared = self
+                .shared_events
+                .get_mut(&event)
+                .ok_or("shared shot event missing")?;
+            shared.words = updated.ok_or("shared shot event state missing")?;
+            for id in &shared.particles {
+                self.shots.get_mut(id).ok_or("shot identity missing")?.event = Some(shared.words);
+            }
+        }
         if let Some(effect) = effect {
             self.pending.push(effect);
         }

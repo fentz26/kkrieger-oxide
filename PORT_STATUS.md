@@ -1676,3 +1676,16 @@ moving hull, live scene blocked-state publication, repeated visits and shared/
 exclusive borrow rejection before mutation. Native registration append routines
 were inspected to confirm repeated pointers are retained. Main-tick point event
 registration/synchronization and end-to-end projectile impacts remain pending.
+
+### Projectile hit state synchronizes with live scene events
+
+Scene events can snapshot/apply the five fields used by released Particle::Hit
+without replacing matrices, references, animation intervals or other event data.
+The bridge matches all existing native hit-effect captures. HitRegistry binds
+multiple particles to one scene event and immediately mirrors stop/reflection
+state among those aliases, preventing duplicate effects and honoring shared
+shot timestamps. Point registration captures its owning event, and batch commit
+validates every live event borrow before applying any changes. Checks cover
+shared stop/reflection gates, unrelated field preservation and borrow retries.
+Main-frame point preparation, effect-table/time setup and mixed-step invocation
+are still required before live projectile impacts use this bridge.

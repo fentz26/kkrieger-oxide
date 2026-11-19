@@ -77,6 +77,24 @@ impl Event {
         }
     }
 
+    /// Only the released Particle::Hit fields; unrelated event state stays live.
+    pub fn released_hit_state(&self) -> [u32; 45] {
+        let mut words = [0; 45];
+        words[2] = self.start as u32;
+        words[3] = self.end as u32;
+        words[5] = self.shot_time as u32;
+        words[10] = self.modulation.to_bits();
+        words[12] = self.select as u32;
+        words
+    }
+    pub fn apply_released_hit_state(&mut self, words: &[u32; 45]) {
+        self.start = words[2] as i32;
+        self.end = words[3] as i32;
+        self.shot_time = words[5] as i32;
+        self.modulation = f32::from_bits(words[10]);
+        self.select = words[12] as i32;
+    }
+
     pub fn stop(&mut self) {
         self.start = 0;
         self.end = 1;
