@@ -985,3 +985,47 @@ fn released_physic_hull_flags_match_native_monster_ownership() {
         }
     }
 }
+
+#[test]
+fn beta_physic_box_keeps_particle_storage_across_scene_frames() {
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    doc.classes[0].id = 0xce;
+    doc.operators[0].parameters = vec![
+        0x21,
+        0.1f32.to_bits(),
+        0,
+        0,
+        2f32.to_bits(),
+        3f32.to_bits(),
+        4f32.to_bits(),
+        0,
+        0,
+        0,
+        1f32.to_bits(),
+        8,
+    ];
+    doc.operators[0].inputs.clear();
+    let context = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = context;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_boxes.len(), 1);
+    assert!(execution.released_points.is_empty());
+    let retained = Rc::clone(&execution.released_boxes[0]);
+    for particle in &retained.borrow().body.particles {
+        assert_eq!(particle.cell, Some(0));
+        assert_eq!(particle.flags[3], 8);
+        assert_eq!(particle.weight, 1.);
+    }
+    retained.borrow_mut().body.particles[0].vectors[0][0] = 7.;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_boxes.len(), 1);
+    assert!(Rc::ptr_eq(&retained, &execution.released_boxes[0]));
+    assert_eq!(
+        execution.released_boxes[0].borrow().body.particles[0].vectors[0][0],
+        7.
+    );
+    assert!(execution.frame(&doc, usize::MAX).is_err());
+    assert!(execution.released_boxes.is_empty());
+}

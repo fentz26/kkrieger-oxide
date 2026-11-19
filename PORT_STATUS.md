@@ -1756,3 +1756,16 @@ executes PartBox::MakeMatrix at 0x81abbd without replaced callees; its 256 cases
 include arbitrary deformed positions and collapsed boxes. The implementation
 preserves the released negative-indefinite NaN bits on collapsed axes. Box
 scene ownership, registration and physics integration remain outstanding.
+
+### Persistent scene box projectile ownership
+
+The beta Physic mode-1 handler now initializes and retains BoxProjectile state,
+replays the same Rc particle storage on subsequent scene frames and reconstructs
+the child transform from that storage. Per-frame box registrations clear on
+normal frame reset and execution errors. A new native oracle follows the actual
+mode-1 handler initialization, stubbing only instance allocation; all particle
+and constraint words match 128 captures, including rotated speed, mass, kind,
+nullable event ownership and player exclusion. Scene tests cover persistence
+and error cleanup. Box registrations do not yet join the mixed physics roster:
+constraints, particle stepping, force application, reconciliation and shared
+event binding for all eight particles are still required for box gameplay.

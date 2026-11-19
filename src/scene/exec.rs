@@ -103,6 +103,7 @@ pub struct Execution {
     pub overlay_draws: Vec<super::overlay::Draw>,
     pub released_colliders: Vec<u32>,
     pub released_points: Vec<Rc<RefCell<crate::game::beta_monster::projectile::Point>>>,
+    pub released_boxes: Vec<Rc<RefCell<crate::game::beta_monster::projectile::BoxProjectile>>>,
     pub released_physics_order: Vec<crate::game::beta_monster::projectile::PhysicsSlot>,
     pub released_order: Vec<DynamicSlot>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
@@ -554,6 +555,7 @@ impl Execution {
             overlay_draws: Vec::new(),
             released_colliders: Vec::new(),
             released_points: Vec::new(),
+            released_boxes: Vec::new(),
             released_physics_order: Vec::new(),
             released_order: Vec::new(),
             dynamic_cells: Vec::new(),
@@ -819,6 +821,7 @@ impl Execution {
         self.dynamic_cells.clear();
         self.released_colliders.clear();
         self.released_points.clear();
+        self.released_boxes.clear();
         self.released_physics_order.clear();
         self.released_order.clear();
         self.game.monsters.begin_frame();
@@ -843,6 +846,7 @@ impl Execution {
             self.dynamic_cells.clear();
             self.released_colliders.clear();
             self.released_points.clear();
+            self.released_boxes.clear();
             self.released_physics_order.clear();
             self.released_order.clear();
             self.game.monsters.begin_frame();
@@ -969,6 +973,7 @@ impl Execution {
             self.dynamic_cells.clear();
             self.released_colliders.clear();
             self.released_points.clear();
+            self.released_boxes.clear();
             self.released_physics_order.clear();
             self.released_order.clear();
             self.game.monsters.begin_frame();
@@ -1934,6 +1939,28 @@ impl Execution {
                         ),
                     );
                     self.released_points.push(point);
+                    return self.exec_inputs(doc, root, matrix);
+                }
+                if beta && state.flags & 3 == 1 {
+                    if state.box_projectile.is_none() {
+                        state.box_projectile = Some(Rc::new(RefCell::new(
+                            crate::game::beta_monster::projectile::BoxProjectile::new(
+                                &p,
+                                parent,
+                                player_cell,
+                                self.current_event,
+                            )
+                            .map_err(fail)?,
+                        )));
+                    }
+                    let projectile = Rc::clone(
+                        state
+                            .box_projectile
+                            .as_ref()
+                            .ok_or_else(|| fail("released box state missing"))?,
+                    );
+                    let matrix = projectile.borrow().body.matrix();
+                    self.released_boxes.push(projectile);
                     return self.exec_inputs(doc, root, matrix);
                 }
                 if let Some(cell) = &state.cell {

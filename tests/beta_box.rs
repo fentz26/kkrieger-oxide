@@ -81,3 +81,75 @@ fn box_child_matrix_matches_released_particle_reconstruction() {
     }
     assert!(words.next().is_none());
 }
+
+#[test]
+fn scene_box_initializer_matches_released_physic_handler() {
+    use kkrieger_oxide::game::beta_monster::projectile::BoxProjectile;
+    let mut words = include_bytes!("fixtures/beta-box-projectile.bin")
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b));
+    assert_eq!(words.next(), Some(128));
+    for case in 0..128 {
+        let parameters = std::array::from_fn::<_, 12, _>(|_| words.next().unwrap());
+        let matrix =
+            std::array::from_fn(|_| std::array::from_fn(|_| f32::from_bits(words.next().unwrap())));
+        let cell_token = words.next().unwrap();
+        let event_token = words.next().unwrap();
+        let skip_token = words.next().unwrap();
+        let cell = (cell_token != 0).then_some(7);
+        let event = (event_token != 0).then_some(99);
+        let projectile = BoxProjectile::new(&parameters, matrix, cell, event).unwrap();
+        assert_eq!(projectile.flags, words.next().unwrap());
+        assert_eq!(projectile.skip_player, parameters[0] & 0x20 != 0);
+        assert_eq!(
+            projectile.event,
+            if projectile.skip_player { event } else { None }
+        );
+        for (index, particle) in projectile.body.particles.iter().enumerate() {
+            assert_eq!(particle.cell, cell);
+            let mut raw = [0; 32];
+            raw[..7].copy_from_slice(&particle.flags);
+            raw[7] = cell_token;
+            raw[8] = if projectile.skip_player {
+                skip_token
+            } else {
+                0
+            };
+            raw[9] = if projectile.event.is_some() {
+                event_token
+            } else {
+                0
+            };
+            raw[10] = particle.damping.to_bits();
+            raw[11] = particle.weight.to_bits();
+            raw[12..16].copy_from_slice(&particle.force.map(f32::to_bits));
+            for (out, value) in raw[16..]
+                .iter_mut()
+                .zip(particle.vectors.into_iter().flatten())
+            {
+                *out = value.to_bits();
+            }
+            for (field, value) in raw.into_iter().enumerate() {
+                assert_eq!(
+                    value,
+                    words.next().unwrap(),
+                    "case {case} particle {index} field {field}"
+                );
+            }
+        }
+        for constraint in &projectile.body.constraints {
+            for value in [
+                constraint.flags[0],
+                constraint.flags[1],
+                constraint.particles[0] as u32,
+                constraint.particles[1] as u32,
+                constraint.rest_length.to_bits(),
+            ] {
+                assert_eq!(value, words.next().unwrap(), "case {case}");
+            }
+        }
+    }
+    assert!(words.next().is_none());
+}
