@@ -726,6 +726,10 @@
     "beta-projectile-step.bin": {
       "bytes": 544772,
       "sha256": "47ae4045d5941354bb38ead4b8dfb7ffe6f6dd7c0d89706ead4acff11e40158a"
+    },
+    "beta-point-projectile.bin": {
+      "bytes": 32772,
+      "sha256": "0c6d8fb4b06b314800ee8974a9802258d2fce2d7981a08c2bfda8eb1d75be7bd"
     }
   }
 }

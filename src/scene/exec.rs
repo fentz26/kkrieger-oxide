@@ -74,6 +74,8 @@ pub trait Renderer {
 pub struct ActorContext {
     pub world: Rc<RefCell<crate::collision::world::World>>,
     pub player_position: [f32; 4],
+    /// Released additive-local player cell, copied by projectile initialization.
+    pub released_player_cell: Option<usize>,
     pub player_hit: Option<Rc<RefCell<DynamicCell>>>,
     pub time_reset: bool,
 }
@@ -100,6 +102,8 @@ pub struct Execution {
     pub render_textures: std::collections::BTreeMap<usize, super::overlay::Viewport>,
     pub overlay_draws: Vec<super::overlay::Draw>,
     pub released_colliders: Vec<u32>,
+    pub released_points: Vec<Rc<RefCell<crate::game::beta_monster::projectile::Point>>>,
+    pub released_physics_order: Vec<crate::game::beta_monster::projectile::PhysicsSlot>,
     pub released_order: Vec<DynamicSlot>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
@@ -549,6 +553,8 @@ impl Execution {
             render_textures: std::collections::BTreeMap::new(),
             overlay_draws: Vec::new(),
             released_colliders: Vec::new(),
+            released_points: Vec::new(),
+            released_physics_order: Vec::new(),
             released_order: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
@@ -812,6 +818,8 @@ impl Execution {
         self.render_commands.clear();
         self.dynamic_cells.clear();
         self.released_colliders.clear();
+        self.released_points.clear();
+        self.released_physics_order.clear();
         self.released_order.clear();
         self.game.monsters.begin_frame();
         self.game.released_monsters.begin_frame();
@@ -834,6 +842,8 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.released_colliders.clear();
+            self.released_points.clear();
+            self.released_physics_order.clear();
             self.released_order.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
@@ -958,6 +968,8 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.released_colliders.clear();
+            self.released_points.clear();
+            self.released_physics_order.clear();
             self.released_order.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
@@ -1889,7 +1901,41 @@ impl Execution {
             0xce => {
                 let flags = *p.first().ok_or_else(|| fail("missing physics flags"))?;
                 let scale = [f(4)?, f(5)?, f(6)?];
+                let beta = self.document_layout == crate::kx::Layout::Beta2004;
+                let player_cell = self
+                    .actors
+                    .as_ref()
+                    .and_then(|context| context.released_player_cell);
                 let state = self.instances.physic(root, flags, scale, parent)?;
+                if beta && state.flags & 3 == 0 {
+                    if state.point.is_none() {
+                        state.point = Some(Rc::new(RefCell::new(
+                            crate::game::beta_monster::projectile::Point::new(
+                                &p,
+                                parent,
+                                player_cell,
+                                self.current_event,
+                            )
+                            .map_err(fail)?,
+                        )));
+                    }
+                    let point = Rc::clone(
+                        state
+                            .point
+                            .as_ref()
+                            .ok_or_else(|| fail("released point state missing"))?,
+                    );
+                    let mut matrix = parent;
+                    matrix[3] = point.borrow().particle.vectors[0];
+                    matrix[3][3] = 1.;
+                    self.released_physics_order.push(
+                        crate::game::beta_monster::projectile::PhysicsSlot::Point(
+                            self.released_points.len(),
+                        ),
+                    );
+                    self.released_points.push(point);
+                    return self.exec_inputs(doc, root, matrix);
+                }
                 if let Some(cell) = &state.cell {
                     if flags & 0x10 != 0 {
                         cell.borrow_mut().monster = self.event_monster;
@@ -2231,6 +2277,11 @@ impl Execution {
                 .first()
                 .ok_or_else(|| fail("monster has no living input"))?;
             if actor.borrow().active {
+                self.released_physics_order.push(
+                    crate::game::beta_monster::projectile::PhysicsSlot::Actor(
+                        self.released_colliders.len(),
+                    ),
+                );
                 self.released_order
                     .push(DynamicSlot::Actor(self.released_colliders.len()));
                 self.released_colliders.push(token);

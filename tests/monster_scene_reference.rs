@@ -239,6 +239,7 @@ fn original_complete_monster_scene_handler_matches_native() {
         execution.actors = Some(ActorContext {
             world: Rc::new(RefCell::new(world)),
             player_position,
+            released_player_cell: None,
             player_hit: None,
             time_reset: false,
         });

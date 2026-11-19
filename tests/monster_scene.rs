@@ -80,6 +80,7 @@ fn setup() -> (Document<'static>, Execution) {
     execution.actors = Some(ActorContext {
         world: Rc::new(RefCell::new(world)),
         player_position: [-2., 0., 3., 1.],
+        released_player_cell: Some(0),
         player_hit: None,
         time_reset: false,
     });
@@ -422,6 +423,7 @@ fn run_released_original_root() {
     execution.actors = Some(ActorContext {
         world: Rc::new(RefCell::new(world)),
         player_position: player,
+        released_player_cell: player_cell,
         player_hit: None,
         time_reset: false,
     });
@@ -796,6 +798,21 @@ fn beta_scene_registration_interleaves_player_actor_and_live_geometry() {
     doc.operators[0].parameters = data;
     doc.classes[1].id = 0xce;
     doc.operators[1].parameters = vec![2, 0, 0, 0, 1f32.to_bits(), 1f32.to_bits(), 1f32.to_bits()];
+    doc.operators[1].inputs = vec![2];
+    doc.operators[2].parameters = vec![
+        0x20,
+        0.1f32.to_bits(),
+        0,
+        0,
+        1f32.to_bits(),
+        1f32.to_bits(),
+        1f32.to_bits(),
+        0,
+        0,
+        0,
+        1f32.to_bits(),
+        8,
+    ];
     let mut context = execution.actors.take().unwrap();
     context.player_hit = Some(Rc::new(RefCell::new(DynamicCell::new(
         Cell::new(identity(), [1.; 3], 2),
@@ -819,6 +836,15 @@ fn beta_scene_registration_interleaves_player_actor_and_live_geometry() {
         execution.frame(&doc, 0).unwrap();
         assert_eq!(execution.released_colliders, [1]);
         assert_eq!(
+            execution.released_physics_order,
+            [
+                kkrieger_oxide::game::beta_monster::projectile::PhysicsSlot::Actor(0),
+                kkrieger_oxide::game::beta_monster::projectile::PhysicsSlot::Point(0)
+            ]
+        );
+        let event = execution.released_points[0].borrow().event.unwrap();
+        assert_eq!(execution.events.events[&event].borrow().monster, Some(1));
+        assert_eq!(
             execution.released_order,
             [
                 DynamicSlot::Scene(0),
@@ -837,4 +863,60 @@ fn beta_scene_registration_interleaves_player_actor_and_live_geometry() {
         .life = 0;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.released_order, [DynamicSlot::Scene(0)]);
+    assert!(execution.released_points.is_empty());
+    assert!(execution.released_physics_order.is_empty());
+}
+
+#[test]
+fn beta_physic_point_keeps_instance_particles_across_frame_registration() {
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    doc.classes[0].id = 0xce;
+    doc.operators[0].parameters = vec![
+        0x20,
+        0.1f32.to_bits(),
+        0,
+        0,
+        1f32.to_bits(),
+        1f32.to_bits(),
+        1f32.to_bits(),
+        0,
+        0,
+        0,
+        1f32.to_bits(),
+        8,
+    ];
+    doc.operators[0].inputs.clear();
+    let context = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = context;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_points.len(), 1);
+    assert_eq!(
+        execution.released_physics_order,
+        [kkrieger_oxide::game::beta_monster::projectile::PhysicsSlot::Point(0)]
+    );
+    let retained = Rc::clone(&execution.released_points[0]);
+    assert_eq!(retained.borrow().particle.cell, Some(0));
+    assert_eq!(retained.borrow().particle.flags[3], 8);
+    assert!(retained.borrow().skip_player);
+    retained.borrow_mut().particle.vectors[0][0] = 3.;
+    retained.borrow_mut().particle.weight = 4.;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_points.len(), 1);
+    assert!(Rc::ptr_eq(&retained, &execution.released_points[0]));
+    assert_eq!(
+        execution.released_points[0].borrow().particle.vectors[0][0],
+        3.
+    );
+    assert_eq!(execution.released_points[0].borrow().particle.weight, 4.);
+    assert!(execution.frame(&doc, usize::MAX).is_err());
+    assert!(execution.released_points.is_empty());
+    assert!(execution.released_physics_order.is_empty());
+    let mut context = execution.actors.take().unwrap();
+    context.released_player_cell = None;
+    let mut without_cell = Execution::new(&doc);
+    without_cell.actors = Some(context);
+    without_cell.frame(&doc, 0).unwrap();
+    assert_eq!(without_cell.released_points[0].borrow().particle.cell, None);
 }

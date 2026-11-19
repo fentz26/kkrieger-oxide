@@ -1637,3 +1637,16 @@ hash. CollisionRuntime::step_single validates registration before mutation and
 uses real world/zone/hit callbacks. Focused primitive and runtime tests pass.
 Scene Physic mode-0 particle ownership, registration order and projectile event
 lifecycle are not yet connected; eight-particle projectile boxes also remain.
+
+### Scene Physic mode-0 point state and ownership
+
+A native oracle now runs released Physic mode-0 initialization, intercepting
+only instance allocation, for 128 authored-parameter/matrix combinations. The
+Rust Point state matches particle mass/kind, rotated velocity history, event
+references and player-skip flags. Beta scene instances retain that point across
+replay, register it in encounter order alongside actor bodies, and execute child
+geometry at its current particle position. Checks cover persistent state, event
+ownership, mixed actor/point registration and error cleanup. The current released player
+cell is copied through scene context without a new containment search. These
+points are not yet advanced by the main shared physics pass; event-state sync,
+projectile effects/lifetime integration and eight-particle boxes remain pending.

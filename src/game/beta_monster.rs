@@ -10,6 +10,7 @@ pub mod frame;
 pub mod hit;
 pub mod hull;
 pub mod physics;
+pub mod projectile;
 pub mod registration;
 pub mod registry;
 pub mod runtime;

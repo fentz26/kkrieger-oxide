@@ -42,6 +42,7 @@ pub struct Monster {
 pub struct Physic {
     pub flags: u32,
     pub cell: Option<Rc<RefCell<DynamicCell>>>,
+    pub point: Option<Rc<RefCell<crate::game::beta_monster::projectile::Point>>>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -228,6 +229,7 @@ impl Memory {
         match self.next(operator, || {
             State::Physic(Physic {
                 flags,
+                point: None,
                 cell: (flags & 3 == 2).then(|| {
                     Rc::new(RefCell::new(DynamicCell::new(
                         Cell::new(identity(), scale, 1),

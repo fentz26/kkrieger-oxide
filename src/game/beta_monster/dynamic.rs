@@ -9,7 +9,7 @@ pub struct Pose {
     pub matrix: Matrix,
     pub blocked: bool,
 }
-fn rotate(v: [f32; 3], m: Matrix) -> [f32; 3] {
+pub(super) fn rotate(v: [f32; 3], m: Matrix) -> [f32; 3] {
     std::array::from_fn(|axis| {
         let a = down(mul(f64::from(v[0]), f64::from(m[0][axis])));
         let b = down(add(

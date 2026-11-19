@@ -99,6 +99,11 @@ impl Simulation {
         execution.actors = Some(ActorContext {
             world: Rc::clone(&self.world),
             player_position: self.motion.collider.position,
+            released_player_cell: self
+                .motion
+                .released_player
+                .as_ref()
+                .and_then(|player| player.physics[0].0.particles[0].cell),
             player_hit: Some(Rc::clone(&self.motion.hit_cell)),
             time_reset,
         });
