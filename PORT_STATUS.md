@@ -1415,3 +1415,12 @@ into the scheduler. A scene-level check covers ranged publication and subsequent
 collider acceptance. Beta test executors are rebuilt after document edits so
 cached parameters reflect the intended fixture. Main application invocation and
 player/projectile integration remain pending.
+
+### Extracted beta scene with repeated actor-frame simulation
+
+The full beta root now runs four actor-frame steps and scene replays using the
+authored player start, gravity, damping and stair-height settings. The run
+exercises active physics (two colliders observed) and verifies finite particle
+state. Its reproducible ignored test passes with the larger traversal stack.
+This is a short stationary integration run. Player/projectile stepping, main
+application invocation, visual parity and full playthrough remain pending.

@@ -389,10 +389,39 @@ fn run_released_original_root() {
     let bytes = std::fs::read(".reference/verified-beta.kx").unwrap();
     let doc = Document::parse_layout(&bytes, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
     let world = World::from_document(&doc, 4357).unwrap();
+    use kkrieger_oxide::game::beta_monster::{
+        ai,
+        frame::{ActorSimulation, Settings},
+        hull, physics,
+        static_world::StaticWorld,
+    };
+    let static_world = StaticWorld::new(
+        world
+            .entries
+            .iter()
+            .map(|entry| (entry.cell.vertices, entry.cell.mode)),
+    );
+    let parameter = &doc.operators[doc.operators[4357].inputs[0]];
+    let player = [
+        parameter.float(29).unwrap(),
+        parameter.float(30).unwrap(),
+        parameter.float(31).unwrap(),
+        1.,
+    ];
+    let player_cell = hull::find_cell(
+        static_world
+            .additive_views()
+            .iter()
+            .enumerate()
+            .map(|(id, cell)| (id, cell.planes)),
+        player,
+    );
+    assert!(player_cell.is_some());
+    let mut simulation = ActorSimulation::new(static_world);
     let mut execution = Execution::new(&doc);
     execution.actors = Some(ActorContext {
         world: Rc::new(RefCell::new(world)),
-        player_position: [0., 0., 0., 1.],
+        player_position: player,
         player_hit: None,
         time_reset: false,
     });
@@ -406,6 +435,52 @@ fn run_released_original_root() {
     ));
     execution.frame(&doc, 4815).unwrap();
     assert!(!execution.game.released_monsters.active_ids().is_empty());
+    let settings = Settings {
+        physics: physics::Settings {
+            gravity: 0.,
+            gravity_player: execution.game.parameters.gravity,
+            damping_player_air: execution.game.parameters.damp_air,
+            damping_player_ground: execution.game.parameters.damp_ground,
+            fly_mode: 0,
+            on_ground: false,
+        },
+        ai: ai::Settings {
+            gravity: execution.game.parameters.gravity,
+            height: execution.game.parameters.stair_height,
+            height_gain: execution.game.parameters.damp_height,
+        },
+        player,
+        player_cell,
+        first_particle: 100,
+    };
+    let mut collider_count = 0;
+    for _ in 0..4 {
+        execution
+            .step_released_actors(&doc, &mut simulation, &settings)
+            .unwrap();
+        execution.frame(&doc, 4815).unwrap();
+        collider_count = collider_count.max(execution.released_colliders.len());
+        execution
+            .game
+            .released_monsters
+            .visit_active(|_, actor| {
+                assert!(
+                    actor
+                        .body
+                        .particles
+                        .iter()
+                        .flat_map(|p| p.vectors)
+                        .flatten()
+                        .all(f32::is_finite)
+                );
+                Ok(())
+            })
+            .unwrap();
+    }
+    assert!(
+        collider_count > 0,
+        "original-root run must exercise active physics"
+    );
 }
 
 #[test]
