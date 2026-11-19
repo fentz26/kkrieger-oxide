@@ -1493,3 +1493,15 @@ unchanged armor, hurt-sound gating, slot and volume. The oracle also captures
 the released audio call's zero sample offset and 44,100 Hz playback rate. Only
 the audio output call is intercepted. This verifies the health primitive; it
 does not establish released player-body or projectile registration parity.
+
+### Released player placement preserves null-cell positions
+
+Tracing released SetPlayer at 0x81cb71..0x81cc06 shows FindCell feeding the
+five-particle constructor directly, without the later source's first-cell
+fallback. Beta simulation creation and subsequent checkpoint/restart placement
+now preserve the requested position when no released additive hull contains it.
+Containment uses released hull planes, returning source-world cell indices to
+the existing motion layer. Development placement retains its fallback. A check
+covers outside/inside placement, stable hit-cell identity and preserved movement
+timers. Released five-particle player stepping and hitbox registration remain
+pending; the current motion integration still uses the development collider.

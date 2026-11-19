@@ -105,3 +105,49 @@ fn released_player_damage_matches_native_signed_arithmetic_and_audio_calls() {
     }
     assert!(r.0.is_empty());
 }
+
+#[test]
+fn released_placement_preserves_outside_position_and_checkpoint_hit_identity() {
+    let cells = vec![Cell::new(identity(), [10.; 3], 0)];
+    let world = World {
+        connectivity: connectivity::connect(&cells),
+        entries: cells
+            .into_iter()
+            .map(|cell| Entry {
+                cell,
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0,
+                    condition: 0,
+                    value: 0,
+                    output: 0,
+                    events: [None, None],
+                },
+            })
+            .collect(),
+        adds: vec![0],
+        subs: vec![],
+        zones: vec![],
+        faces: vec![None],
+    };
+    let outside = [100., -30., 20., 1.];
+    let mut beta =
+        Motion::spawn_for_layout(&world, outside, 0.25, kkrieger_oxide::kx::Layout::Beta2004)
+            .unwrap();
+    assert_eq!(beta.collider.position, outside);
+    assert_eq!(beta.collider.cell, usize::MAX);
+    assert_eq!(beta.camera_position, outside);
+    let hit = std::rc::Rc::clone(&beta.hit_cell);
+    beta.jump_timer = 7;
+    beta.place(&world, [0., 1., 0., 1.], 0.5, 0.1).unwrap();
+    assert_eq!(beta.collider.cell, 0);
+    assert_eq!(beta.jump_timer, 7);
+    assert!(std::rc::Rc::ptr_eq(&hit, &beta.hit_cell));
+    beta.place(&world, outside, 0., 0.).unwrap();
+    assert_eq!(beta.collider.position, outside);
+    assert_eq!(beta.collider.cell, usize::MAX);
+    let development = Motion::spawn(&world, outside, 0.).unwrap();
+    assert_eq!(development.collider.position[..3], [0.; 3]);
+    assert_eq!(development.collider.cell, 0);
+}

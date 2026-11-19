@@ -9,6 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 pub(super) use crate::mesh::euler_matrix_fsincos as orientation;
 
 pub struct Motion {
+    pub(super) document_layout: crate::kx::Layout,
     pub collider: Collider,
     pub old_position: [f32; 4],
     pub direction: f32,
@@ -51,15 +52,30 @@ impl Motion {
         }
     }
     /// Original SetPlayer collision placement and hit-cell geometry.
-    pub fn spawn(
+    pub fn spawn(world: &World, position: [f32; 4], direction: f32) -> Result<Self, &'static str> {
+        Self::spawn_for_layout(world, position, direction, crate::kx::Layout::Current)
+    }
+    pub fn spawn_for_layout(
         world: &World,
         mut position: [f32; 4],
         direction: f32,
+        layout: crate::kx::Layout,
     ) -> Result<Self, &'static str> {
         let requested = position;
-        let cell = if let Some(cell) = world.find_cell(position) {
+        let released = layout == crate::kx::Layout::Beta2004;
+        let found = if released {
+            world.adds.iter().copied().find(|&id| {
+                use super::beta_monster::hull::{Hull, outside_mask};
+                let source = &world.entries[id].cell;
+                let hull = Hull::from_vertices(source.vertices, source.mode);
+                outside_mask(&hull.planes[..hull.count], position, 0.) == 0
+            })
+        } else {
+            world.find_cell(position)
+        };
+        let cell = if let Some(cell) = found {
             cell
-        } else if let Some(&cell) = world.adds.first() {
+        } else if let Some(&cell) = world.adds.first().filter(|_| !released) {
             for (i, value) in position[..3].iter_mut().enumerate() {
                 *value = (world.entries[cell].cell.bounds[0][i]
                     + world.entries[cell].cell.bounds[1][i])
@@ -76,6 +92,7 @@ impl Motion {
         matrix[3] = position;
         matrix[3][1] += 0.85;
         Ok(Self {
+            document_layout: layout,
             collider: Collider {
                 position,
                 radius: 0.5,
@@ -108,7 +125,7 @@ impl Motion {
         direction: f32,
         look: f32,
     ) -> Result<(), &'static str> {
-        let fresh = Self::spawn(world, position, direction)?;
+        let fresh = Self::spawn_for_layout(world, position, direction, self.document_layout)?;
         self.collider = fresh.collider;
         self.old_position = fresh.old_position;
         self.direction = direction;
