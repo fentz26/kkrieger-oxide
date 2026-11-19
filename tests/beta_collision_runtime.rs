@@ -752,4 +752,87 @@ fn player_and_registered_actors_share_physics_phase_boundaries() {
     );
     assert_eq!(runtime.particle_id, 999);
     assert_eq!(runtime.skip_cell, None);
+    use kkrieger_oxide::game::beta_monster::{
+        projectile::{PhysicsSlot, Point},
+        runtime::{PhysicsRoster, RegisteredPoint},
+    };
+    let mut data = [0; 12];
+    data[1] = 0.1f32.to_bits();
+    data[10] = 1f32.to_bits();
+    data[11] = 8;
+    let mut matrix = kkrieger_oxide::mesh::identity();
+    matrix[3][0] = 3.;
+    let point = std::rc::Rc::new(std::cell::RefCell::new(
+        Point::new(&data, matrix, Some(0), None).unwrap(),
+    ));
+    let points = [RegisteredPoint {
+        point: std::rc::Rc::clone(&point),
+        particle: 10,
+        skip_cell: None,
+    }];
+    let colliders = [token];
+    let order = [PhysicsSlot::Point(0), PhysicsSlot::Actor(0)];
+    let roster = PhysicsRoster {
+        registry: &registry,
+        colliders: &colliders,
+        registrations: &registrations,
+        points: &points,
+        order: &order,
+    };
+    let before = prefix[0].0.clone();
+    assert_eq!(
+        runtime.step_mixed_roster(roster, &mut prefix, settings, |_, _, _, _| Ok(())),
+        Err("shot identity missing")
+    );
+    assert_eq!(prefix[0].0, before);
+    runtime.hits.shots.insert(
+        10,
+        Shot {
+            kind: 8,
+            event: None,
+        },
+    );
+    let bad_order = [PhysicsSlot::Actor(0), PhysicsSlot::Actor(0)];
+    let invalid = PhysicsRoster {
+        order: &bad_order,
+        ..roster
+    };
+    assert_eq!(
+        runtime.step_mixed_roster(invalid, &mut prefix, settings, |_, _, _, _| Ok(())),
+        Err("released physics order differs from registry")
+    );
+    assert_eq!(prefix[0].0, before);
+    let borrowed = point.borrow_mut();
+    assert_eq!(
+        runtime.step_mixed_roster(roster, &mut prefix, settings, |_, _, _, _| Ok(())),
+        Err("released point already borrowed")
+    );
+    assert_eq!(prefix[0].0, before);
+    drop(borrowed);
+    runtime
+        .step_mixed_roster(
+            roster,
+            &mut prefix,
+            settings,
+            |runtime, registry, _, points| {
+                assert_eq!(
+                    runtime.particle_id, 9,
+                    "point advances before actor particles"
+                );
+                assert!(points[0].point.borrow().particle.vectors[0][0] > 3.);
+                assert_eq!(points[0].point.borrow().particle.force, [0.; 4]);
+                points[0].point.borrow_mut().particle.force[0] = 0.1;
+                registry.get(token).unwrap().borrow_mut().body.particles[0].force[0] = 0.1;
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert!(point.borrow().particle.vectors[0][0] > 3.1);
+    assert_eq!(point.borrow().particle.force, [0.; 4]);
+    assert_eq!(
+        registry.get(token).unwrap().borrow().body.particles[0].force,
+        [0.; 4]
+    );
+    assert_eq!(runtime.particle_id, 999);
+    assert_eq!(runtime.skip_cell, None);
 }

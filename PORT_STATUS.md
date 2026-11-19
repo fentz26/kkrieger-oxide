@@ -1650,3 +1650,16 @@ ownership, mixed actor/point registration and error cleanup. The current release
 cell is copied through scene context without a new containment search. These
 points are not yet advanced by the main shared physics pass; event-state sync,
 projectile effects/lifetime integration and eight-particle boxes remain pending.
+
+### Mixed actor/point physics phase runner
+
+CollisionRuntime::step_mixed_roster now accepts registered standalone points and
+the scene-captured actor/point order, after player prefix bodies. It validates
+all identities, owned-cell indices, point borrows and roster completeness before
+mutation; constraints precede all particle movement, dynamic callbacks precede
+all force additions, and caller context is restored. Actor-only entry points
+now delegate to this runner. Checks cover point-before-actor ordering, delayed
+force application, missing identities, duplicate slots and conflicting point
+borrows, alongside existing native particle fixtures and actor frame tests.
+The main frame still needs point-event registration/synchronization and point
+participation in dynamic reconciliation before selecting this mixed path.

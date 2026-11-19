@@ -185,20 +185,24 @@ impl ResponseWorld for CollisionRuntime<'_, '_> {
 }
 
 impl CollisionRuntime<'_, '_> {
-    /// Advance one particle through released integration and real collision.
-    /// Caller selects the registered particle identity before each invocation.
+    /// Check identity and owned-cell metadata before particle mutation.
     fn validate_particle(&self, particle: &Particle) -> Result<(), &'static str> {
+        self.validate_particle_at(particle, self.particle_id, self.skip_cell)
+    }
+    fn validate_particle_at(
+        &self,
+        particle: &Particle,
+        id: usize,
+        skip: Option<usize>,
+    ) -> Result<(), &'static str> {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
         }
-        let identity = self.hits.first_particle(self.particle_id)?;
+        let identity = self.hits.first_particle(id)?;
         if identity.kind != particle.flags[3] {
             return Err("particle kind differs from registry");
         }
-        if self
-            .skip_cell
-            .is_some_and(|id| id >= self.candidates.dynamic_cells.len())
-        {
+        if skip.is_some_and(|id| id >= self.candidates.dynamic_cells.len()) {
             return Err("skip cell out of range");
         }
         Ok(())
@@ -273,6 +277,20 @@ impl super::physics::World for CollisionRuntime<'_, '_> {
 pub struct BodyRegistration {
     pub particles: [usize; 5],
     pub skip_cell: Option<usize>,
+}
+#[derive(Clone)]
+pub struct RegisteredPoint {
+    pub point: std::rc::Rc<std::cell::RefCell<super::projectile::Point>>,
+    pub particle: usize,
+    pub skip_cell: Option<usize>,
+}
+#[derive(Clone, Copy)]
+pub struct PhysicsRoster<'a> {
+    pub registry: &'a super::registry::Registry,
+    pub colliders: &'a [u32],
+    pub registrations: &'a std::collections::BTreeMap<u32, BodyRegistration>,
+    pub points: &'a [RegisteredPoint],
+    pub order: &'a [super::projectile::PhysicsSlot],
 }
 impl CollisionRuntime<'_, '_> {
     fn validate_body(
@@ -665,19 +683,90 @@ impl CollisionRuntime<'_, '_> {
             &mut [(super::body::Body, BodyRegistration)],
         ) -> Result<(), &'static str>,
     {
+        let order: Vec<_> = (0..colliders.len())
+            .map(super::projectile::PhysicsSlot::Actor)
+            .collect();
+        self.step_mixed_roster(
+            PhysicsRoster {
+                registry,
+                colliders,
+                registrations,
+                points: &[],
+                order: &order,
+            },
+            prefix,
+            settings,
+            |runtime, registry, prefix, _| dynamic(runtime, registry, prefix),
+        )
+    }
+    /// Player prefix bodies precede the mixed actor/point registration sequence.
+    /// Dynamic processing runs after every particle step and before every force add.
+    pub fn step_mixed_roster<F>(
+        &mut self,
+        roster: PhysicsRoster<'_>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(
+            &mut Self,
+            &super::registry::Registry,
+            &mut [(super::body::Body, BodyRegistration)],
+            &[RegisteredPoint],
+        ) -> Result<(), &'static str>,
+    {
+        use super::projectile::PhysicsSlot;
+        let PhysicsRoster {
+            registry,
+            colliders,
+            registrations,
+            points,
+            order,
+        } = roster;
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
+        }
+        if order.len() != colliders.len() + points.len() {
+            return Err("released physics order differs from registry");
+        }
+        let mut seen_actors = vec![false; colliders.len()];
+        let mut seen_points = vec![false; points.len()];
+        for slot in order {
+            let seen = match *slot {
+                PhysicsSlot::Actor(index) => seen_actors.get_mut(index),
+                PhysicsSlot::Point(index) => seen_points.get_mut(index),
+            }
+            .ok_or("released physics order differs from registry")?;
+            if std::mem::replace(seen, true) {
+                return Err("released physics order differs from registry");
+            }
         }
         for (body, registration) in prefix.iter() {
             self.validate_body(body, registration)?;
         }
         registry.visit_tokens(colliders, |token, actor| {
-            let registration = registrations
-                .get(&token)
-                .ok_or("released body registration missing")?;
-            self.validate_body(&actor.body, registration)?;
-            Ok(())
+            self.validate_body(
+                &actor.body,
+                registrations
+                    .get(&token)
+                    .ok_or("released body registration missing")?,
+            )
         })?;
+        for registration in points {
+            let point = registration
+                .point
+                .try_borrow()
+                .map_err(|_| "released point already borrowed")?;
+            self.validate_particle_at(
+                &point.particle,
+                registration.particle,
+                registration.skip_cell,
+            )?;
+            if matches!(point.particle.flags[3], 1 | 3) {
+                return Err("five-particle group truncated");
+            }
+        }
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
             for (body, _) in prefix.iter_mut() {
@@ -685,12 +774,16 @@ impl CollisionRuntime<'_, '_> {
                     body.solve_constraint(index)?;
                 }
             }
-            registry.visit_tokens(colliders, |_, actor| {
-                for i in 0..actor.body.constraints.len() {
-                    actor.body.solve_constraint(i)?;
+            for slot in order {
+                if let PhysicsSlot::Actor(index) = *slot {
+                    registry.visit_tokens(&colliders[index..index + 1], |_, actor| {
+                        for index in 0..actor.body.constraints.len() {
+                            actor.body.solve_constraint(index)?;
+                        }
+                        Ok(())
+                    })?;
                 }
-                Ok(())
-            })?;
+            }
             for (body, registration) in prefix.iter_mut() {
                 self.skip_cell = registration.skip_cell;
                 for (index, id) in registration.particles.into_iter().enumerate() {
@@ -698,26 +791,55 @@ impl CollisionRuntime<'_, '_> {
                     self.step_particle(body, index, settings)?;
                 }
             }
-            registry.visit_tokens(colliders, |token, actor| {
-                let registration = &registrations[&token];
-                self.skip_cell = registration.skip_cell;
-                for (index, id) in registration.particles.into_iter().enumerate() {
-                    self.particle_id = id;
-                    self.step_particle(&mut actor.body, index, settings)?;
+            for slot in order {
+                match *slot {
+                    PhysicsSlot::Actor(index) => {
+                        registry.visit_tokens(&colliders[index..index + 1], |token, actor| {
+                            let registration = &registrations[&token];
+                            self.skip_cell = registration.skip_cell;
+                            for (index, id) in registration.particles.into_iter().enumerate() {
+                                self.particle_id = id;
+                                self.step_particle(&mut actor.body, index, settings)?;
+                            }
+                            Ok(())
+                        })?
+                    }
+                    PhysicsSlot::Point(index) => {
+                        let registration = &points[index];
+                        let mut point = registration
+                            .point
+                            .try_borrow_mut()
+                            .map_err(|_| "released point already borrowed")?;
+                        self.particle_id = registration.particle;
+                        self.skip_cell = registration.skip_cell;
+                        self.step_single(&mut point.particle, settings)?;
+                    }
                 }
-                Ok(())
-            })?;
-            dynamic(self, registry, prefix)?;
+            }
+            dynamic(self, registry, prefix, points)?;
             if let Some(error) = self.error.or(self.hits.error) {
                 return Err(error);
             }
             for (body, _) in prefix.iter_mut() {
                 body.apply_forces();
             }
-            registry.visit_tokens(colliders, |_, actor| {
-                actor.body.apply_forces();
-                Ok(())
-            })
+            for slot in order {
+                match *slot {
+                    PhysicsSlot::Actor(index) => {
+                        registry.visit_tokens(&colliders[index..index + 1], |_, actor| {
+                            actor.body.apply_forces();
+                            Ok(())
+                        })?
+                    }
+                    PhysicsSlot::Point(index) => points[index]
+                        .point
+                        .try_borrow_mut()
+                        .map_err(|_| "released point already borrowed")?
+                        .particle
+                        .apply_force(),
+                }
+            }
+            Ok(())
         })();
         self.particle_id = previous.0;
         self.skip_cell = previous.1;
