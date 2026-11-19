@@ -19,6 +19,8 @@ pub struct Actor {
     pub body: Body,
     pub hit_cell: MovingCell,
     pub active: bool,
+    /// Scene allocation corresponding to the native embedded live event.
+    pub scene_event: Option<crate::scene::event::Id>,
     /// Melee and ranged attack progress, respectively.
     pub cooldowns: [f32; 2],
 }
@@ -68,6 +70,7 @@ impl Actor {
             body,
             hit_cell,
             active: false,
+            scene_event: None,
             cooldowns: [0.; 2],
         })
     }

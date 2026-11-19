@@ -1098,3 +1098,96 @@ fn released_actor_event_replay_preserves_projectile_hit_fields() {
         }
     }
 }
+
+#[test]
+fn released_hit_commit_updates_actor_words_atomically_and_checks_event_ownership() {
+    use kkrieger_oxide::game::beta_monster::{
+        hit::{HitRegistry, Shot},
+        subtractive::{DynamicEffects, ParticleContact},
+    };
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut words = vec![0; 26];
+    words[10] = 20;
+    words[20..23].fill(1f32.to_bits());
+    doc.operators[0].parameters = words;
+    doc.operators[0].inputs = vec![1];
+    doc.classes[1].id = 3;
+    doc.operators[1].inputs.clear();
+    let context = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = context;
+    execution.frame(&doc, 0).unwrap();
+    let live = *execution
+        .events
+        .events
+        .iter()
+        .find(|(_, event)| event.borrow().monster == Some(1))
+        .unwrap()
+        .0;
+    let actor = execution.game.released_monsters.get(1).unwrap();
+    execution.events.events[&live].borrow_mut().start = 50;
+    for own in [true, false] {
+        let event = if own {
+            live
+        } else {
+            execution.events.insert(
+                Event {
+                    monster: Some(1),
+                    start: 50,
+                    end: 100,
+                    ..Default::default()
+                },
+                true,
+            )
+        };
+        let before = actor.borrow().initial.event_words;
+        let mut hits = HitRegistry::default();
+        let state = execution.events.events[&event]
+            .borrow()
+            .released_hit_state();
+        hits.shots.insert(
+            10,
+            Shot {
+                kind: 8,
+                event: Some(state),
+            },
+        );
+        hits.bind_event(10, event, state).unwrap();
+        hits.time = 20;
+        let mut select = hits.first_particle(10).unwrap().shot_select;
+        hits.particle_hit(
+            ParticleContact {
+                cell: 0,
+                particle: 10,
+                kind: 8,
+                position: [0., 0., 0., 1.],
+                plane: [0., 1., 0., 0.],
+                monster: false,
+            },
+            &mut select,
+        );
+        if own {
+            let guard = actor.borrow();
+            assert_eq!(
+                execution.sync_released_hit_events(&hits),
+                Err("released actor already borrowed")
+            );
+            assert_eq!(execution.events.events[&event].borrow().start, 50);
+            assert_eq!(guard.initial.event_words, before);
+            drop(guard);
+        }
+        execution.sync_released_hit_events(&hits).unwrap();
+        assert_eq!(execution.events.events[&event].borrow().shot_time, 20);
+        if own {
+            for i in [2, 3, 5, 10, 12] {
+                assert_eq!(
+                    actor.borrow().initial.event_words[i],
+                    hits.shots[&10].event.unwrap()[i]
+                );
+            }
+        } else {
+            assert_eq!(actor.borrow().initial.event_words, before);
+        }
+    }
+}

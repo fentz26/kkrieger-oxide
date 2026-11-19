@@ -92,10 +92,25 @@ pub fn sync_hit_events(
     events: &crate::scene::event::Scheduler,
     hits: &super::hit::HitRegistry,
 ) -> Result<(), &'static str> {
+    sync_hit_events_inner(events, hits, None)
+}
+pub(crate) fn sync_actor_hit_events(
+    events: &crate::scene::event::Scheduler,
+    hits: &super::hit::HitRegistry,
+    actors: &super::registry::Registry,
+) -> Result<(), &'static str> {
+    sync_hit_events_inner(events, hits, Some(actors))
+}
+fn sync_hit_events_inner(
+    events: &crate::scene::event::Scheduler,
+    hits: &super::hit::HitRegistry,
+    actors: Option<&super::registry::Registry>,
+) -> Result<(), &'static str> {
     let updates = hits
         .event_states()
         .map(|(id, words)| {
             Ok((
+                id,
                 events
                     .events
                     .get(&id)
@@ -107,14 +122,46 @@ pub fn sync_hit_events(
         .collect::<Result<Vec<_>, &'static str>>()?;
     let mut borrowed = updates
         .iter()
-        .map(|(event, _)| {
+        .map(|(_, event, _)| {
             event
                 .try_borrow_mut()
                 .map_err(|_| "released projectile event already borrowed")
         })
         .collect::<Result<Vec<_>, _>>()?;
-    for (event, (_, words)) in borrowed.iter_mut().zip(&updates) {
+    let mut actor_updates = Vec::new();
+    if let Some(actors) = actors {
+        for ((id, _, words), event) in updates.iter().zip(&borrowed) {
+            if let Some(actor) = event
+                .monster
+                .and_then(|token| u32::try_from(token).ok())
+                .and_then(|token| actors.get(token))
+            {
+                let owns_event = actor
+                    .try_borrow()
+                    .map_err(|_| "released actor already borrowed")?
+                    .scene_event
+                    == Some(*id);
+                if owns_event {
+                    actor_updates.push((actor, *words));
+                }
+            }
+        }
+    }
+    let mut actor_borrows = actor_updates
+        .iter()
+        .map(|(actor, _)| {
+            actor
+                .try_borrow_mut()
+                .map_err(|_| "released actor already borrowed")
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    for (event, (_, _, words)) in borrowed.iter_mut().zip(&updates) {
         event.apply_released_hit_state(words);
+    }
+    for (actor, (_, words)) in actor_borrows.iter_mut().zip(&actor_updates) {
+        for index in [2, 3, 5, 10, 12] {
+            actor.initial.event_words[index] = words[index];
+        }
     }
     Ok(())
 }

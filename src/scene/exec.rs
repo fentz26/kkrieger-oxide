@@ -2279,6 +2279,7 @@ impl Execution {
                 Some(token as usize),
             );
             let live = self.events.insert(event, false);
+            actor.borrow_mut().scene_event = Some(live);
             let death = self.events.insert(super::event::Event::default(), false);
             let instance = super::instance::Monster {
                 released: true,
@@ -2383,6 +2384,17 @@ impl Execution {
         )?);
         self.publish_released_actor_events(doc, &mut simulation.hits.pending)?;
         Ok(sounds)
+    }
+    /// Commit native hit fields to scene events and their owning actor records.
+    pub fn sync_released_hit_events(
+        &self,
+        hits: &crate::game::beta_monster::hit::HitRegistry,
+    ) -> Result<(), &'static str> {
+        crate::game::beta_monster::projectile::sync_actor_hit_events(
+            &self.events,
+            hits,
+            &self.game.released_monsters,
+        )
     }
     pub fn publish_released_actor_events(
         &mut self,

@@ -432,10 +432,7 @@ impl Simulation {
                     &mut player.physics,
                     &released_settings,
                 )?;
-                super::beta_monster::projectile::sync_hit_events(
-                    &execution.events,
-                    &released.hits,
-                )?;
+                execution.sync_released_hit_events(&released.hits)?;
                 velocity = self.motion.publish_released(&world)?;
                 self.player_cell =
                     (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);

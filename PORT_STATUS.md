@@ -1844,3 +1844,16 @@ actor translation and culling distance over repeated frames. This fixes replay
 persistence; the actor's raw event words still do not share the scene allocation,
 and immediate raw-word synchronization after main-tick projectile hits remains
 to be audited against complete native frame traces.
+
+### Main-tick hit commit updates owning actor records
+
+Released scene actor creation records the identity of its live event allocation.
+The main-tick hit commit resolves that exact ownership before copying the five
+hit fields into actor event words; a separate attack event referencing the same
+monster does not qualify. Scene and actor mutable borrows are validated for the
+entire batch before any commit. Tests cover immediate raw-word updates, an actor
+borrow preventing both scene and actor mutation, retry after release and foreign
+attack-event isolation. The general scene-only synchronization entry point
+continues to support standalone registries. Full shared-allocation/event-VM
+parity beyond the hit fields and complete native mixed frame traces remain
+unverified.
