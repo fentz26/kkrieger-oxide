@@ -1395,3 +1395,13 @@ views after each accepted update. Collision masks, zone interactions and runtime
 errors pass through the probe runtimes, and accepted geometry is published to
 persistent actors. Integration checks verify acceptance and persistent writeback.
 The complete physics/AI frame wrapper and game-loop invocation remain pending.
+
+### Owned actor-frame stage composition
+
+ActorSimulation owns the released static world, hit registry and zone masks.
+Its step captures scene colliders, runs global physics and sequential dynamic
+reconciliation, then ticks monster AI against accepted geometry. The integration
+check covers inactive activation, collider acceptance on the following frame,
+melee health/sound output and dead-actor behavior. Native actor tick comparisons
+and collision runtime tests pass. Player/projectile physics, game-loop invocation,
+scene token resolution and full playthrough remain pending.

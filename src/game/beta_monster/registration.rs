@@ -7,6 +7,7 @@ use super::{
     subtractive::DynamicCell,
 };
 use std::collections::BTreeMap;
+#[derive(Clone)]
 pub struct ActorFrame {
     pub cells: Vec<(u32, MovingCell)>,
     collided: Vec<u32>,

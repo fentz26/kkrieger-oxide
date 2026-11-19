@@ -6,6 +6,7 @@ pub mod ai;
 pub mod body;
 pub mod collision;
 pub mod dynamic;
+pub mod frame;
 pub mod hit;
 pub mod hull;
 pub mod physics;
