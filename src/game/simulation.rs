@@ -285,11 +285,22 @@ impl Simulation {
                     .as_ref()
                     .ok_or("released player body missing")?;
                 let main = &player.physics[0].0.particles[0];
-                let clearance = released.player_clearance(
+                let scene = execution
+                    .dynamic_cells
+                    .iter()
+                    .map(|cell| {
+                        super::beta_monster::scene_cells::SceneCell::capture(
+                            Rc::clone(cell),
+                            Rc::ptr_eq(cell, &self.motion.hit_cell),
+                        )
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let clearance = released.player_clearance_with_cells(
                     main.vectors[0],
                     main.cell,
                     execution.game.parameters.gravity,
                     execution.game.parameters.stair_height,
+                    &scene,
                 )?;
                 (
                     self.motion

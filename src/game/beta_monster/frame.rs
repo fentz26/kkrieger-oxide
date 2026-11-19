@@ -25,6 +25,16 @@ impl ActorSimulation {
         gravity: f32,
         height: f32,
     ) -> Result<f32, &'static str> {
+        self.player_clearance_with_cells(position, cell, gravity, height, &[])
+    }
+    pub fn player_clearance_with_cells(
+        &mut self,
+        position: [f32; 4],
+        cell: Option<usize>,
+        gravity: f32,
+        height: f32,
+        scene: &[super::scene_cells::SceneCell],
+    ) -> Result<f32, &'static str> {
         use super::ai::World;
         let base = super::down(super::add(f64::from(gravity), f64::from(height)));
         if cell.is_none() {
@@ -38,12 +48,16 @@ impl ActorSimulation {
             .iter()
             .map(Vec::as_slice)
             .collect();
+        let mut views = scene
+            .iter()
+            .map(super::scene_cells::SceneCell::collision_view)
+            .collect::<Result<Vec<_>, _>>()?;
         let mut runtime = CollisionRuntime {
             adds: &adds,
             candidates: CandidateWorld {
                 static_cells: &statics,
                 lists: &lists,
-                dynamic_cells: &mut [],
+                dynamic_cells: &mut views,
             },
             zones: &mut [],
             zone_lists: &[],

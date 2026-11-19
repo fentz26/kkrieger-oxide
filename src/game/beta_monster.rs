@@ -13,6 +13,7 @@ pub mod physics;
 pub mod registration;
 pub mod registry;
 pub mod runtime;
+pub mod scene_cells;
 pub mod static_world;
 pub mod subtractive;
 pub mod world_cast;

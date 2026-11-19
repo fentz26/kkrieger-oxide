@@ -1573,3 +1573,16 @@ An opt-in extracted-data check also ran full root 4815 and four main gameplay
 ticks at the authored start position, verifying finite player particles,
 published player state, registered player shots and active actor colliders.
 It forces the options switch off and does not establish a complete playthrough.
+
+### Scene-owned hull bridge feeds released player ground rays
+
+SceneCell captures a stable scene dynamic-cell handle, rebuilds local planes
+with released hull arithmetic, and exposes tagged collision views. It can
+publish accepted collision planes/transforms, logic masks and blocked state
+back to the same scene instance. Player mode conversion and monster ownership
+are explicit; borrow conflicts fail without replacing the instance. Main beta
+player ground rays now include these scene-owned hull views, while preserving
+the native null-particle exclusion for player and monster hulls. Checks cover
+ordinary hull clearance, tagged exclusions, native plane capture and accepted/
+blocked publication. Scene hulls still need to join particle casts and native
+dynamic reconciliation; their interpolation remains on the development path.
