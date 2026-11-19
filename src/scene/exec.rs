@@ -2297,6 +2297,17 @@ impl Execution {
             .ok_or_else(|| fail("released actor instance missing"))?;
         if actor.borrow().initial.life > 0 {
             self.game.released_monsters.register(token).map_err(fail)?;
+            // Native actor and scene execution share this event allocation.
+            // Preserve fields changed by projectile hits before publishing actor pose.
+            let hit_state = self.events.events[&instance.live]
+                .borrow()
+                .released_hit_state();
+            {
+                let mut actor = actor.borrow_mut();
+                for index in [2, 3, 5, 10, 12] {
+                    actor.initial.event_words[index] = hit_state[index];
+                }
+            }
             let event = super::event::Event::from_released_words(
                 &actor.borrow().initial.event_words,
                 None,
@@ -2321,6 +2332,15 @@ impl Execution {
             let collision_matrix = actor.borrow().initial.matrix;
             actor.borrow_mut().hit_cell.current = collision_matrix;
             self.execute_event(doc, input, instance.live, identity())?;
+            let hit_state = self.events.events[&instance.live]
+                .borrow()
+                .released_hit_state();
+            {
+                let mut actor = actor.borrow_mut();
+                for index in [2, 3, 5, 10, 12] {
+                    actor.initial.event_words[index] = hit_state[index];
+                }
+            }
             let matrix = self.events.events[&instance.live].borrow().matrix;
             for (word, value) in actor.borrow_mut().initial.event_words[27..43]
                 .iter_mut()

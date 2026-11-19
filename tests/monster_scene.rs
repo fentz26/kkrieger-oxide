@@ -1037,3 +1037,64 @@ fn beta_physic_box_keeps_particle_storage_across_scene_frames() {
     assert!(execution.frame(&doc, usize::MAX).is_err());
     assert!(execution.released_boxes.is_empty());
 }
+
+#[test]
+fn released_actor_event_replay_preserves_projectile_hit_fields() {
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut words = vec![0; 26];
+    words[10] = 20;
+    words[20..23].fill(1f32.to_bits());
+    doc.operators[0].parameters = words;
+    doc.operators[0].inputs = vec![1];
+    doc.classes[1].id = 3;
+    doc.operators[1].inputs.clear();
+    let context = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = context;
+    execution.frame(&doc, 0).unwrap();
+    let live = *execution
+        .events
+        .events
+        .iter()
+        .find(|(_, event)| event.borrow().monster == Some(1))
+        .unwrap()
+        .0;
+    let actor = execution.game.released_monsters.get(1).unwrap();
+    for (start, end, time, select, modulation) in [(50, 100, 20, 0, 5.), (0, 1, 40, 1, 3.)] {
+        {
+            let mut event = execution.events.events[&live].borrow_mut();
+            event.start = start;
+            event.end = end;
+            event.shot_time = time;
+            event.select = select;
+            event.modulation = modulation;
+        }
+        {
+            let mut actor = actor.borrow_mut();
+            actor.body.particles[0].vectors[0][0] = 3.;
+            actor.update_event_pose([0., 0., 1., 0.]);
+            actor.update_health_modulation();
+        }
+        execution.frame(&doc, 0).unwrap();
+        let event = execution.events.events[&live].borrow();
+        assert_eq!(
+            (
+                event.start,
+                event.end,
+                event.shot_time,
+                event.select,
+                event.modulation
+            ),
+            (start, end, time, select, modulation)
+        );
+        assert_eq!(event.translate[0], 3.);
+        assert_eq!(event.cull_distance, 35);
+        for index in [2, 3, 5, 10, 12] {
+            assert_eq!(
+                actor.borrow().initial.event_words[index],
+                event.released_hit_state()[index]
+            );
+        }
+    }
+}

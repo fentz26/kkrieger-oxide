@@ -1832,3 +1832,15 @@ effect at the wall and rejected cross-projectile/corner identity overlaps before
 mutation. Scene replay checks verify box-order registration. Full weapon
 playthroughs, actor-live event synchronization and complete native mixed frame
 trace parity remain unproven.
+
+### Actor scene replay retains live hit fields
+
+Released actor scene replay previously replaced its live event from stale actor
+words, discarding projectile stop/reflection state. It now imports the five live
+hit fields before republishing actor pose/animation data and captures those
+fields again after executing the live input. A regression reproduces the stale
+reset and checks retained timing, selection and modulation alongside updated
+actor translation and culling distance over repeated frames. This fixes replay
+persistence; the actor's raw event words still do not share the scene allocation,
+and immediate raw-word synchronization after main-tick projectile hits remains
+to be audited against complete native frame traces.
