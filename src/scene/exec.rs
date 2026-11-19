@@ -2227,3 +2227,52 @@ impl Execution {
         Ok(())
     }
 }
+
+impl Execution {
+    pub fn step_released_actors(
+        &mut self,
+        doc: &Document<'_>,
+        simulation: &mut crate::game::beta_monster::frame::ActorSimulation,
+        settings: &crate::game::beta_monster::frame::Settings,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
+        if doc.layout != crate::kx::Layout::Beta2004 {
+            return Err("released actor step requires beta document");
+        }
+        let sounds = simulation.step(
+            &self.game.released_monsters,
+            &self.released_colliders,
+            &mut self.game.inventory,
+            settings,
+        )?;
+        let actors = &self.game.released_monsters;
+        let events =
+            self.events
+                .publish_released(&mut simulation.hits.pending, |kind, token| {
+                    use super::event::ReleasedReference;
+                    match kind {
+                        ReleasedReference::Operator => {
+                            let id = token as usize - 1;
+                            if id >= doc.operators.len() {
+                                return Err("released event operator out of range");
+                            }
+                            Ok(id)
+                        }
+                        ReleasedReference::Spline => {
+                            let id = token as usize - 1;
+                            if id >= doc.splines.len() {
+                                return Err("released event spline out of range");
+                            }
+                            Ok(id)
+                        }
+                        ReleasedReference::Monster => {
+                            actors.get(token).ok_or("released event actor missing")?;
+                            Ok(token as usize)
+                        }
+                    }
+                })?;
+        for event in events {
+            self.add_event(event);
+        }
+        Ok(sounds)
+    }
+}

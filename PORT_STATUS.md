@@ -1405,3 +1405,13 @@ check covers inactive activation, collider acceptance on the following frame,
 melee health/sound output and dead-actor behavior. Native actor tick comparisons
 and collision runtime tests pass. Player/projectile physics, game-loop invocation,
 scene token resolution and full playthrough remain pending.
+
+### Scene-owned released actor frame stepping
+
+Execution::step_released_actors consumes its persistent registry and captured
+collider list, applies the actor frame simulation to game inventory, resolves
+encoded document operator/spline and actor tokens, and publishes emitted events
+into the scheduler. A scene-level check covers ranged publication and subsequent
+collider acceptance. Beta test executors are rebuilt after document edits so
+cached parameters reflect the intended fixture. Main application invocation and
+player/projectile integration remain pending.

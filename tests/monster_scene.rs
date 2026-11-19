@@ -342,6 +342,9 @@ fn released_monster_scene_uses_beta_storage_and_replays_instance() {
     doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
     doc.operators[0].parameters.truncate(26);
     doc.operators[0].links = vec![Some(2)];
+    let actors = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = actors;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.game.released_monsters.active_ids(), [1]);
     assert!(execution.game.monsters.active_ids().is_empty());
@@ -403,4 +406,84 @@ fn run_released_original_root() {
     ));
     execution.frame(&doc, 4815).unwrap();
     assert!(!execution.game.released_monsters.active_ids().is_empty());
+}
+
+#[test]
+fn released_scene_actor_step_publishes_ranged_events_with_document_identities() {
+    use kkrieger_oxide::game::beta_monster::{
+        HitBox, ai,
+        frame::{ActorSimulation, Settings},
+        physics,
+        static_world::StaticWorld,
+    };
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut data = vec![0; 26];
+    data[7] = 10f32.to_bits();
+    data[8] = 10f32.to_bits();
+    data[10] = 20;
+    data[14] = 5;
+    data[13] = 0.01f32.to_bits();
+    data[15] = 0.01f32.to_bits();
+    data[20..23].fill(1f32.to_bits());
+    doc.operators[0].parameters = data;
+    doc.operators[0].links = vec![Some(2)];
+    let actors = execution.actors.take();
+    execution = Execution::new(&doc);
+    execution.actors = actors;
+    execution.frame(&doc, 0).unwrap();
+    let mut simulation = ActorSimulation::new(StaticWorld::new([(
+        HitBox {
+            matrix: identity(),
+            scale: [20.; 3],
+        }
+        .vertices(),
+        0,
+    )]));
+    let settings = Settings {
+        physics: physics::Settings {
+            gravity: 0.,
+            gravity_player: 0.,
+            damping_player_air: 0.,
+            damping_player_ground: 0.,
+            fly_mode: 0,
+            on_ground: false,
+        },
+        ai: ai::Settings {
+            gravity: 0.,
+            height: 1.,
+            height_gain: 0.,
+        },
+        player: [-5., 0., 0., 1.],
+        player_cell: Some(0),
+        first_particle: 100,
+    };
+    assert!(
+        execution
+            .step_released_actors(&doc, &mut simulation, &settings)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(simulation.hits.pending.is_empty());
+    assert!(execution.events.events.values().any(|event| {
+        let event = event.borrow();
+        event.operator == Some(2) && event.monster == Some(1)
+    }));
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_colliders, [1]);
+    execution
+        .step_released_actors(&doc, &mut simulation, &settings)
+        .unwrap();
+    assert_eq!(
+        execution
+            .game
+            .released_monsters
+            .get(1)
+            .unwrap()
+            .borrow()
+            .hit_cell
+            .mode
+            & 0x20,
+        0
+    );
 }
