@@ -1710,3 +1710,17 @@ then replaces bindings only after all point/event borrows and identity arithmeti
 succeed. Tests cover aliasing, stale-event retirement, missing-event retries,
 exclusive-access conflicts and overflow without losing prior bindings or queued
 impact effects. Main-loop invocation and native hit-table/time setup remain pending.
+
+### Main tick advances released point projectiles
+
+The beta main loop now prepares the scene's point roster after reserving actor
+particle identities, uses the recorded actor/point order for mixed physics,
+applies the player's dynamic-cell exclusion and commits shared hit fields back
+to owning scene events before zone processing. Impact operators use the existing
+one-based released-reference encoding; weapon reflection flags and the game tick
+counter feed the native hit logic. Native OnTick at 0x81dd74 increments the same
+0x15540 field read by Particle::Hit at 0x81a9ef. Queued impacts are published through
+the released-event scheduler alongside actor effects. A main-tick integration
+check covers wall collision, stop/reflection lifetime, hit timestamp and actual
+impact-event publication. Projectile box modes, complete weapon playthroughs and
+full mixed native frame-trace parity remain unverified or unimplemented.

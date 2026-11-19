@@ -377,13 +377,62 @@ impl Simulation {
                             *slot == super::beta_monster::registration::DynamicSlot::Scene(index)
                         })
                     });
-                let accepted = released.physics_with_order(
-                    &execution.game.released_monsters,
-                    &execution.released_colliders,
+                let first_point = execution
+                    .game
+                    .released_monsters
+                    .active_ids()
+                    .iter()
+                    .copied()
+                    .max()
+                    .unwrap_or(0) as usize;
+                let first_point = first_point
+                    .checked_mul(5)
+                    .and_then(|n| released_settings.first_particle.checked_add(n))
+                    .ok_or("released point particle identity overflow")?;
+                let points = super::beta_monster::projectile::prepare_points(
+                    &execution.released_points,
+                    first_point,
+                    player.physics[0].1.skip_cell,
+                    &execution.events,
+                    &mut released.hits,
+                )?;
+                let mut operators = [[0; 8]; 2];
+                for (target, source) in operators.iter_mut().zip(&execution.game.events.explode) {
+                    for (target, source) in target.iter_mut().zip(source) {
+                        *target = source
+                            .map(|id| {
+                                u32::try_from(id)
+                                    .ok()
+                                    .and_then(|id| id.checked_add(1))
+                                    .ok_or("released impact operator identity overflow")
+                            })
+                            .transpose()?
+                            .unwrap_or(0);
+                    }
+                }
+                released.hits.operators = operators;
+                for (target, &source) in released.hits.flags[8..16]
+                    .iter_mut()
+                    .zip(&execution.game.parameters.weapon_flags)
+                {
+                    *target = source as u32;
+                }
+                released.hits.time = self.tick_count;
+                let accepted = released.physics_frame(
+                    super::beta_monster::frame::FrameInput {
+                        registry: &execution.game.released_monsters,
+                        colliders: &execution.released_colliders,
+                        scene,
+                        dynamic_order: Some(&execution.released_order),
+                        points: &points,
+                        physics_order: Some(&execution.released_physics_order),
+                    },
                     &mut player.physics,
                     &released_settings,
-                    scene,
-                    Some(&execution.released_order),
+                )?;
+                super::beta_monster::projectile::sync_hit_events(
+                    &execution.events,
+                    &released.hits,
                 )?;
                 velocity = self.motion.publish_released(&world)?;
                 self.player_cell =

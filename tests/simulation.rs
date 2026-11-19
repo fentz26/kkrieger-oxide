@@ -341,3 +341,88 @@ fn preparation_installs_the_new_frame_clock_after_tick_and_sets_camera_aspect() 
     ));
     execution.finish_events();
 }
+
+#[test]
+fn released_main_tick_steps_points_and_synchronizes_owning_events() {
+    use kkrieger_oxide::{
+        collision::DynamicCell,
+        game::beta_monster::{
+            projectile::{PhysicsSlot, Point},
+            registration::DynamicSlot,
+        },
+        scene::event::Event,
+    };
+    for reflect in [false, true] {
+        let mut doc = doc();
+        doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+        let mut execution = Execution::new(&doc);
+        execution.switches[1] = 0;
+        execution.game.parameters.stair_height = 0.55;
+        execution.game.parameters.weapon_flags[0] = if reflect { 2 } else { 0 };
+        execution.game.events.explode[0][0] = Some(0);
+        let mut simulation = Simulation::new(
+            world(),
+            &mut execution,
+            [-5., 0., 0., 1.],
+            0,
+            [0, 0],
+            Random::new(1),
+        )
+        .unwrap();
+        simulation.tick_count = 19;
+        let event = execution.events.insert(
+            Event {
+                start: 50,
+                end: 100,
+                ..Default::default()
+            },
+            true,
+        );
+        let mut words = [0; 12];
+        words[0] = 0x20;
+        words[1] = 2.5f32.to_bits();
+        words[10] = 1f32.to_bits();
+        words[11] = 8;
+        let point = std::rc::Rc::new(std::cell::RefCell::new(
+            Point::new(&words, identity(), Some(0), Some(event)).unwrap(),
+        ));
+        let mut matrix = identity();
+        matrix[3][0] = 1.5;
+        let wall = std::rc::Rc::new(std::cell::RefCell::new(DynamicCell::new(
+            Cell::new(identity(), [1., 4., 4.], 1),
+            matrix,
+        )));
+        wall.borrow_mut().cell.mode &= !0x20;
+        execution.dynamic_cells = vec![simulation.motion.hit_cell.clone(), wall];
+        execution.released_order = vec![DynamicSlot::Scene(0), DynamicSlot::Scene(1)];
+        execution.released_points.push(point.clone());
+        execution.released_physics_order.push(PhysicsSlot::Point(0));
+        let result = simulation
+            .tick(&mut execution, &doc, 1, 10, [0, 0])
+            .unwrap();
+        assert!(result.ran);
+        assert!((0. ..1.).contains(&point.borrow().particle.vectors[0][0]));
+        let effects = execution
+            .events
+            .events
+            .iter()
+            .filter(|(id, event_state)| **id != event && event_state.borrow().operator == Some(0))
+            .count();
+        assert_eq!(effects, 1);
+        assert!(
+            simulation
+                .released_actors
+                .as_ref()
+                .unwrap()
+                .hits
+                .pending
+                .is_empty()
+        );
+        let live = execution.events.events[&event].borrow();
+        assert_eq!(live.shot_time, 20);
+        assert_eq!(
+            (live.start, live.end, live.select),
+            if reflect { (50, 100, 0) } else { (0, 1, 1) }
+        );
+    }
+}
