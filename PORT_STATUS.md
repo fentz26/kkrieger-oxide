@@ -2061,3 +2061,29 @@ whitespace checks pass. The CPU extracted startup test already exercises the
 released order, but an actual beta windowed/GPU run remains pending because the
 embedded player still loads the development document. Full native GPU cache
 reset semantics and rendered parity remain open.
+
+### Build-time released document selection and window smoke tests
+
+Setting KKRIEGER_BETA_PROJECT to the extracted beta document path now packs that
+file into the executable at build time and selects the Beta2004 parser. The
+build script tracks both the environment setting and selected input file. The
+default remains assets/kkrieger3383.kx. This adds no runtime file loader and does
+not commit extracted assets or silently change the shipped default.
+
+On macOS ARM64 / Rust 1.100.0, the selected beta release executable successfully
+completed --frames=1 and --frames=240 windowed runs with exit status zero and
+no reported runtime errors. These are execution smoke tests, not captured-pixel,
+menu-input, audio-waveform or full-playthrough comparisons. The binary measured
+1,300,672 bytes, SHA256
+74a11f568f05d63b134a3465ffa599c1b6610ef798abfffdd99914068ea0b52a.
+Build/run command:
+
+    KKRIEGER_BETA_PROJECT="$PWD/.reference/verified-beta.kx" CARGO_INCREMENTAL=0 CARGO_TARGET_DIR="$PWD/target" cargo run --release --bin kkrieger-oxide -- --frames=240
+
+This supersedes the earlier limitation that the beta adapter could not yet be
+exercised in a window. Actual menu-to-game GPU rendering, native first-gameplay
+pose, glyph metrics, complete level traversal and audio parity remain open.
+
+After unsetting the selection, seven embedded/startup regressions pass,
+including byte-exact default document checks. Player Clippy, formatting and
+whitespace checks pass.

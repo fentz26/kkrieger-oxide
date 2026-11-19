@@ -70,13 +70,23 @@ pub(crate) fn pack(source: &[u8]) -> Vec<u8> {
 }
 
 fn main() {
-    println!("cargo:rerun-if-changed=assets/kkrieger3383.kx");
-    let source = fs::read("assets/kkrieger3383.kx").expect("read authored project");
+    println!("cargo:rerun-if-env-changed=KKRIEGER_BETA_PROJECT");
+    let beta = env::var_os("KKRIEGER_BETA_PROJECT");
+    let project = beta
+        .as_deref()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("assets/kkrieger3383.kx"));
+    println!("cargo:rerun-if-changed={}", project.display());
+    let source = fs::read(&project).expect("read authored project");
     let output = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     fs::write(output.join("kkrieger.kxz"), pack(&source)).expect("write packed project");
     fs::write(
         output.join("embedded_size.rs"),
-        format!("const LENGTH: usize = {};\n", source.len()),
+        format!(
+            "const LENGTH: usize = {};\npub const BETA: bool = {};\n",
+            source.len(),
+            beta.is_some()
+        ),
     )
     .expect("write project size");
 }

@@ -59,7 +59,12 @@ impl Prepared {
         );
     }
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
-        let doc = Document::parse(kkrieger_oxide::embedded::data()?)?;
+        let data = kkrieger_oxide::embedded::data()?;
+        let doc = if kkrieger_oxide::embedded::BETA {
+            Document::parse_layout(data, kkrieger_oxide::kx::Layout::Beta2004)?
+        } else {
+            Document::parse(data)?
+        };
         let root = doc.roots[0].ok_or("authored intro root missing")?;
         let resources = gpu_scene::Resources::prepare(&doc, root, true, 0)?;
         let mut execution = Execution::new_player(&doc);
