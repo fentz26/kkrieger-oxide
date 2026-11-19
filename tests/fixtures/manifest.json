@@ -710,6 +710,10 @@
     "beta-zone-logic.bin": {
       "bytes": 3720708,
       "sha256": "62470aa74f589c1a7a43287c3006ac6cf9037ecaea25317c1bdf8adcf8de9c3e"
+    },
+    "beta-player-hit.bin": {
+      "bytes": 58756,
+      "sha256": "f87b694d206ccbc90a6c2e6c5bb61e703375caaa57162ea7f15253f3a4a72b5f"
     }
   }
 }

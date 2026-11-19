@@ -78,3 +78,30 @@ fn original_jump_and_damage_preserve_gating_armor_and_sound_order() {
     }
     assert!(r.0.is_empty());
 }
+
+#[test]
+fn released_player_damage_matches_native_signed_arithmetic_and_audio_calls() {
+    let mut r = Reader(include_bytes!("fixtures/beta-player-hit.bin"));
+    assert_eq!(r.word(), 1984);
+    for case in 0..1984 {
+        let mut inventory = Inventory::default();
+        inventory.amounts[0] = r.word() as i32;
+        inventory.amounts[1] = r.word() as i32;
+        let hits = r.word() as i32;
+        let sound = inventory.hit(hits);
+        assert_eq!(inventory.amounts[0], r.word() as i32, "life case {case}");
+        assert_eq!(inventory.amounts[1], r.word() as i32, "armor case {case}");
+        assert_eq!(
+            usize::from(sound.is_some()),
+            r.word() as usize,
+            "audio case {case}"
+        );
+        if let Some(sound) = sound {
+            assert_eq!(sound.slot, r.word() as i32);
+            assert_eq!(sound.volume.to_bits(), r.word());
+            assert_eq!(r.word(), 0f32.to_bits()); // Native sample start offset.
+            assert_eq!(r.word(), 44100); // Native playback frequency.
+        }
+    }
+    assert!(r.0.is_empty());
+}

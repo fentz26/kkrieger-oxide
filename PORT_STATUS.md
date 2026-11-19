@@ -1483,3 +1483,13 @@ references, mask consumption, lethal hits and retry after a conflicting actor
 borrow. This follows the dynamic dispatch loop at 0x81d218..0x81d29e; released
 player/projectile body registration and player weapon-hit dispatch remain
 incomplete, so ordinary released projectile impacts are not yet end-to-end.
+
+### Released player damage checked directly
+
+A native oracle now executes Player::Hit at 0x819cf4 for 1,984 cases: the full
+12-by-12-by-12 grid of signed edge values for life, armor and damage, plus 256
+seeded random cases. The existing shared Inventory::hit matches resulting life,
+unchanged armor, hurt-sound gating, slot and volume. The oracle also captures
+the released audio call's zero sample offset and 44,100 Hz playback rate. Only
+the audio output call is intercepted. This verifies the health primitive; it
+does not establish released player-body or projectile registration parity.
