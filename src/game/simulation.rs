@@ -335,7 +335,7 @@ impl Simulation {
             let parameters = &execution.game.parameters;
             let mut released_settings = super::beta_monster::frame::Settings {
                 physics: super::beta_monster::physics::Settings {
-                    gravity: 0.,
+                    gravity: super::beta_monster::physics::PARTICLE_GRAVITY,
                     gravity_player: parameters.gravity,
                     damping_player_air: parameters.damp_air,
                     damping_player_ground: parameters.damp_ground,

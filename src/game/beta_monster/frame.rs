@@ -11,6 +11,15 @@ pub struct Settings {
     pub player_cell: Option<usize>,
     pub first_particle: usize,
 }
+/// Point shot identities/event bindings are prepared before entering physics.
+pub struct FrameInput<'a> {
+    pub registry: &'a Registry,
+    pub colliders: &'a [u32],
+    pub scene: Vec<super::scene_cells::SceneCell>,
+    pub dynamic_order: Option<&'a [super::registration::DynamicSlot]>,
+    pub points: &'a [super::runtime::RegisteredPoint],
+    pub physics_order: Option<&'a [super::projectile::PhysicsSlot]>,
+}
 pub struct ActorSimulation {
     pub world: StaticWorld,
     pub hits: HitRegistry,
@@ -168,12 +177,39 @@ impl ActorSimulation {
         scene: Vec<super::scene_cells::SceneCell>,
         order: Option<&[super::registration::DynamicSlot]>,
     ) -> Result<ActorFrame, &'static str> {
+        self.physics_frame(
+            FrameInput {
+                registry,
+                colliders,
+                scene,
+                dynamic_order: order,
+                points: &[],
+                physics_order: None,
+            },
+            prefix,
+            settings,
+        )
+    }
+    pub fn physics_frame(
+        &mut self,
+        input: FrameInput<'_>,
+        prefix: &mut [(super::body::Body, super::runtime::BodyRegistration)],
+        settings: &Settings,
+    ) -> Result<ActorFrame, &'static str> {
+        let FrameInput {
+            registry,
+            colliders,
+            scene,
+            dynamic_order,
+            points,
+            physics_order,
+        } = input;
         if self.zone_masks.len() != self.world.hulls.len() {
             return Err("released zone registry count differs");
         }
         let mut captured = ActorFrame::capture(registry, colliders, settings.first_particle)?;
         captured.attach_scene(scene)?;
-        if let Some(order) = order {
+        if let Some(order) = dynamic_order {
             captured.set_order(order)?;
         }
         let mut prefix_shots = std::collections::BTreeMap::new();
@@ -191,7 +227,42 @@ impl ActorSimulation {
                 );
             }
         }
+        let mut point_ids = std::collections::BTreeMap::new();
+        for point in points {
+            let pointer = std::rc::Rc::as_ptr(&point.point);
+            if captured.particles.contains_key(&point.particle)
+                || prefix_shots.contains_key(&point.particle)
+                || point_ids
+                    .insert(point.particle, pointer)
+                    .is_some_and(|old| old != pointer)
+            {
+                return Err("released particle identity overlaps");
+            }
+        }
+        let fallback_order: Vec<_> = if physics_order.is_none() {
+            (0..colliders.len())
+                .map(super::projectile::PhysicsSlot::Actor)
+                .chain((0..points.len()).map(super::projectile::PhysicsSlot::Point))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let roster = super::runtime::PhysicsRoster {
+            registry,
+            colliders,
+            registrations: &captured.bodies,
+            points,
+            order: physics_order.unwrap_or(&fallback_order),
+        };
         let mut accepted = captured.clone();
+        self.hits.retain_particles(
+            |id| {
+                captured.particles.contains_key(&id)
+                    || prefix_shots.contains_key(&id)
+                    || point_ids.contains_key(&id)
+            },
+            |id| point_ids.contains_key(&id),
+        );
         self.hits.shots.extend(prefix_shots);
         self.hits.shots.extend(captured.particles.clone());
         let adds = self.world.additive_views();
@@ -233,15 +304,11 @@ impl ActorSimulation {
                 interrupted: false,
                 error: None,
             };
-            runtime.step_body_roster(
-                registry,
-                colliders,
-                &captured.bodies,
+            runtime.step_mixed_roster(
+                roster,
                 prefix,
                 settings.physics,
-                |runtime, registry, prefix| {
-                    accepted.reconcile_all_with_bodies(runtime, registry, prefix)
-                },
+                |runtime, _, prefix, _| accepted.reconcile_all_with_roster(runtime, roster, prefix),
             )?;
         }
         for (target, zone) in self.zone_masks.iter_mut().zip(zones) {

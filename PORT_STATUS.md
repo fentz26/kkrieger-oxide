@@ -1689,3 +1689,14 @@ validates every live event borrow before applying any changes. Checks cover
 shared stop/reflection gates, unrelated field preservation and borrow retries.
 Main-frame point preparation, effect-table/time setup and mixed-step invocation
 are still required before live projectile impacts use this bridge.
+
+### Owned frame accepts point projectile physics
+
+ActorSimulation accepts explicit point registrations and mixed physics order,
+steps projectiles against scene walls and reconciles them with moving hulls.
+Integration checks cover stop/reflection event updates, impact effects, identity
+overlap rejection and retirement of stale shot/event bindings while retaining
+queued effects. The released general-particle gravity constant is restored from
+the native initializer. Main-tick point preparation, effect tables, time setup
+and event synchronization remain pending; these checks do not establish full
+projectile gameplay parity.

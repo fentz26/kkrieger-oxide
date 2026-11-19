@@ -5,6 +5,9 @@ use super::{
     down, mul,
 };
 
+/// Released Panic stores this general-particle gravity at 0x819dc0.
+pub const PARTICLE_GRAVITY: f32 = f32::from_bits(0x3951_b717);
+
 #[derive(Clone, Copy, Debug)]
 pub struct Settings {
     pub gravity: f32,

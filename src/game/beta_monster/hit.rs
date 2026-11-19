@@ -128,6 +128,20 @@ impl HitRegistry {
             .event = Some(shared.words);
         Ok(())
     }
+    pub(crate) fn retain_particles<F, B>(&mut self, active: F, bound: B)
+    where
+        F: Fn(usize) -> bool,
+        B: Fn(usize) -> bool,
+    {
+        self.shots.retain(|&id, _| active(id));
+        self.event_bindings.retain(|&id, _| bound(id));
+        self.shared_events.retain(|id, event| {
+            event
+                .particles
+                .retain(|particle| self.event_bindings.get(particle) == Some(id));
+            !event.particles.is_empty()
+        });
+    }
     pub(crate) fn bound_event(&self, particle: usize) -> Option<crate::scene::event::Id> {
         self.event_bindings.get(&particle).copied()
     }
