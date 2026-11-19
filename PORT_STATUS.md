@@ -1818,3 +1818,17 @@ exclusions. The mixed runner matches all 32 complete native box-pass captures;
 checks also cover hull rejection, position restoration, repeated box references
 and borrow conflicts. ActorSimulation and the main scene tick still pass an
 empty box roster until their frame identity/order wiring is completed.
+
+### Main tick includes scene box projectiles
+
+Physic mode-1 scene execution records box slots in encounter order. The main
+loop prepares point and box bindings together, reserves their identities after
+actor bodies and passes both rosters to ActorSimulation. Owned-frame identity
+validation distinguishes every box corner while allowing repeated registrations
+of the same physical corner; metadata retirement retains live box event aliases.
+Boxes now participate in all mixed physics and moving-hull phases. Main-tick
+checks cover point/box stop and reflection, shared timestamps, a single impact
+effect at the wall and rejected cross-projectile/corner identity overlaps before
+mutation. Scene replay checks verify box-order registration. Full weapon
+playthroughs, actor-live event synchronization and complete native mixed frame
+trace parity remain unproven.

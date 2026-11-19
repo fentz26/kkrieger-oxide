@@ -389,8 +389,9 @@ impl Simulation {
                     .checked_mul(5)
                     .and_then(|n| released_settings.first_particle.checked_add(n))
                     .ok_or("released point particle identity overflow")?;
-                let points = super::beta_monster::projectile::prepare_points(
+                let projectiles = super::beta_monster::projectile::prepare_projectiles(
                     &execution.released_points,
+                    &execution.released_boxes,
                     first_point,
                     player.physics[0].1.skip_cell,
                     &execution.events,
@@ -424,7 +425,8 @@ impl Simulation {
                         colliders: &execution.released_colliders,
                         scene,
                         dynamic_order: Some(&execution.released_order),
-                        points: &points,
+                        points: &projectiles.points,
+                        boxes: &projectiles.boxes,
                         physics_order: Some(&execution.released_physics_order),
                     },
                     &mut player.physics,

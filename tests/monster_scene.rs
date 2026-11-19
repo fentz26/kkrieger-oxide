@@ -1011,6 +1011,10 @@ fn beta_physic_box_keeps_particle_storage_across_scene_frames() {
     execution.actors = context;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.released_boxes.len(), 1);
+    assert_eq!(
+        execution.released_physics_order,
+        [kkrieger_oxide::game::beta_monster::projectile::PhysicsSlot::Box(0)]
+    );
     assert!(execution.released_points.is_empty());
     let retained = Rc::clone(&execution.released_boxes[0]);
     for particle in &retained.borrow().body.particles {
@@ -1021,6 +1025,10 @@ fn beta_physic_box_keeps_particle_storage_across_scene_frames() {
     retained.borrow_mut().body.particles[0].vectors[0][0] = 7.;
     execution.frame(&doc, 0).unwrap();
     assert_eq!(execution.released_boxes.len(), 1);
+    assert_eq!(
+        execution.released_physics_order,
+        [kkrieger_oxide::game::beta_monster::projectile::PhysicsSlot::Box(0)]
+    );
     assert!(Rc::ptr_eq(&retained, &execution.released_boxes[0]));
     assert_eq!(
         execution.released_boxes[0].borrow().body.particles[0].vectors[0][0],

@@ -1960,6 +1960,11 @@ impl Execution {
                             .ok_or_else(|| fail("released box state missing"))?,
                     );
                     let matrix = projectile.borrow().body.matrix();
+                    self.released_physics_order.push(
+                        crate::game::beta_monster::projectile::PhysicsSlot::Box(
+                            self.released_boxes.len(),
+                        ),
+                    );
                     self.released_boxes.push(projectile);
                     return self.exec_inputs(doc, root, matrix);
                 }

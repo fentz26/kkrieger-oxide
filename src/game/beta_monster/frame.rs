@@ -11,13 +11,14 @@ pub struct Settings {
     pub player_cell: Option<usize>,
     pub first_particle: usize,
 }
-/// Point shot identities/event bindings are prepared before entering physics.
+/// Projectile shot identities/event bindings are prepared before entering physics.
 pub struct FrameInput<'a> {
     pub registry: &'a Registry,
     pub colliders: &'a [u32],
     pub scene: Vec<super::scene_cells::SceneCell>,
     pub dynamic_order: Option<&'a [super::registration::DynamicSlot]>,
     pub points: &'a [super::runtime::RegisteredPoint],
+    pub boxes: &'a [super::runtime::RegisteredBox],
     pub physics_order: Option<&'a [super::projectile::PhysicsSlot]>,
 }
 pub struct ActorSimulation {
@@ -184,6 +185,7 @@ impl ActorSimulation {
                 scene,
                 dynamic_order: order,
                 points: &[],
+                boxes: &[],
                 physics_order: None,
             },
             prefix,
@@ -202,6 +204,7 @@ impl ActorSimulation {
             scene,
             dynamic_order,
             points,
+            boxes,
             physics_order,
         } = input;
         if self.zone_masks.len() != self.world.hulls.len() {
@@ -227,22 +230,37 @@ impl ActorSimulation {
                 );
             }
         }
-        let mut point_ids = std::collections::BTreeMap::new();
+        let mut projectile_ids = std::collections::BTreeMap::new();
         for point in points {
-            let pointer = std::rc::Rc::as_ptr(&point.point);
+            let pointer = (std::rc::Rc::as_ptr(&point.point) as usize, 0);
             if captured.particles.contains_key(&point.particle)
                 || prefix_shots.contains_key(&point.particle)
-                || point_ids
+                || projectile_ids
                     .insert(point.particle, pointer)
                     .is_some_and(|old| old != pointer)
             {
                 return Err("released particle identity overlaps");
             }
         }
+        for registration in boxes {
+            let pointer = std::rc::Rc::as_ptr(&registration.projectile) as usize;
+            for (index, id) in registration.particles.into_iter().enumerate() {
+                let identity = (pointer, index);
+                if captured.particles.contains_key(&id)
+                    || prefix_shots.contains_key(&id)
+                    || projectile_ids
+                        .insert(id, identity)
+                        .is_some_and(|old| old != identity)
+                {
+                    return Err("released particle identity overlaps");
+                }
+            }
+        }
         let fallback_order: Vec<_> = if physics_order.is_none() {
             (0..colliders.len())
                 .map(super::projectile::PhysicsSlot::Actor)
                 .chain((0..points.len()).map(super::projectile::PhysicsSlot::Point))
+                .chain((0..boxes.len()).map(super::projectile::PhysicsSlot::Box))
                 .collect()
         } else {
             Vec::new()
@@ -252,7 +270,7 @@ impl ActorSimulation {
             colliders,
             registrations: &captured.bodies,
             points,
-            boxes: &[],
+            boxes,
             order: physics_order.unwrap_or(&fallback_order),
         };
         let mut accepted = captured.clone();
@@ -260,9 +278,9 @@ impl ActorSimulation {
             |id| {
                 captured.particles.contains_key(&id)
                     || prefix_shots.contains_key(&id)
-                    || point_ids.contains_key(&id)
+                    || projectile_ids.contains_key(&id)
             },
-            |id| point_ids.contains_key(&id),
+            |id| projectile_ids.contains_key(&id),
         );
         self.hits.shots.extend(prefix_shots);
         self.hits.shots.extend(captured.particles.clone());

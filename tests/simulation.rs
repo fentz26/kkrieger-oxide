@@ -347,12 +347,12 @@ fn released_main_tick_steps_points_and_synchronizes_owning_events() {
     use kkrieger_oxide::{
         collision::DynamicCell,
         game::beta_monster::{
-            projectile::{PhysicsSlot, Point},
+            projectile::{BoxProjectile, PhysicsSlot, Point},
             registration::DynamicSlot,
         },
         scene::event::Event,
     };
-    for reflect in [false, true] {
+    for (reflect, is_box) in [(false, false), (true, false), (false, true), (true, true)] {
         let mut doc = doc();
         doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
         let mut execution = Execution::new(&doc);
@@ -386,6 +386,15 @@ fn released_main_tick_steps_points_and_synchronizes_owning_events() {
         let point = std::rc::Rc::new(std::cell::RefCell::new(
             Point::new(&words, identity(), Some(0), Some(event)).unwrap(),
         ));
+        let box_projectile = if is_box {
+            words[0] = 0x21;
+            words[4..7].fill(1f32.to_bits());
+            Some(std::rc::Rc::new(std::cell::RefCell::new(
+                BoxProjectile::new(&words, identity(), Some(0), Some(event)).unwrap(),
+            )))
+        } else {
+            None
+        };
         let mut matrix = identity();
         matrix[3][0] = 1.5;
         let wall = std::rc::Rc::new(std::cell::RefCell::new(DynamicCell::new(
@@ -395,13 +404,25 @@ fn released_main_tick_steps_points_and_synchronizes_owning_events() {
         wall.borrow_mut().cell.mode &= !0x20;
         execution.dynamic_cells = vec![simulation.motion.hit_cell.clone(), wall];
         execution.released_order = vec![DynamicSlot::Scene(0), DynamicSlot::Scene(1)];
-        execution.released_points.push(point.clone());
-        execution.released_physics_order.push(PhysicsSlot::Point(0));
+        if let Some(projectile) = &box_projectile {
+            execution.released_boxes.push(projectile.clone());
+            execution.released_physics_order.push(PhysicsSlot::Box(0));
+        } else {
+            execution.released_points.push(point.clone());
+            execution.released_physics_order.push(PhysicsSlot::Point(0));
+        }
         let result = simulation
             .tick(&mut execution, &doc, 1, 10, [0, 0])
             .unwrap();
         assert!(result.ran);
-        assert!((0. ..1.).contains(&point.borrow().particle.vectors[0][0]));
+        let position = box_projectile.as_ref().map_or_else(
+            || point.borrow().particle.vectors[0][0],
+            |body| body.borrow().body.particles[0].vectors[0][0],
+        );
+        assert!(
+            ((if is_box { -0.5 } else { 0. })..1.).contains(&position),
+            "box={is_box} reflection={reflect}: {position}"
+        );
         let effects = execution
             .events
             .events
@@ -409,6 +430,16 @@ fn released_main_tick_steps_points_and_synchronizes_owning_events() {
             .filter(|(id, event_state)| **id != event && event_state.borrow().operator == Some(0))
             .count();
         assert_eq!(effects, 1);
+        let impact = execution
+            .events
+            .events
+            .iter()
+            .find(|(id, state)| **id != event && state.borrow().operator == Some(0))
+            .unwrap()
+            .1
+            .borrow();
+        assert!((0.99..1.01).contains(&impact.translate[0]));
+        drop(impact);
         assert!(
             simulation
                 .released_actors

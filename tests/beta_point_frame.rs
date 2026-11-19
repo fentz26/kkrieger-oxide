@@ -4,9 +4,9 @@ use kkrieger_oxide::{
         HitBox, ai,
         frame::{ActorSimulation, FrameInput, Settings},
         physics,
-        projectile::{PhysicsSlot, Point, sync_hit_events},
+        projectile::{BoxProjectile, PhysicsSlot, Point, sync_hit_events},
         registry::Registry,
-        runtime::RegisteredPoint,
+        runtime::{RegisteredBox, RegisteredPoint},
         scene_cells::SceneCell,
         static_world::StaticWorld,
     },
@@ -108,6 +108,7 @@ fn run_wall_impact(reflect: bool) {
                     scene: Vec::new(),
                     dynamic_order: None,
                     points: &invalid,
+                    boxes: &[],
                     physics_order: None,
                 },
                 &mut [],
@@ -117,6 +118,39 @@ fn run_wall_impact(reflect: bool) {
         ));
         assert_eq!(point.borrow().particle.vectors[0], before);
         assert!(simulation.hits.pending.is_empty());
+        let mut box_words = words;
+        box_words[0] = 1;
+        let box_state = Rc::new(RefCell::new(
+            BoxProjectile::new(&box_words, identity(), Some(0), None).unwrap(),
+        ));
+        for ids in [
+            [999, 1001, 1002, 1003, 1004, 1005, 1006, 1007],
+            [1000, 1000, 1002, 1003, 1004, 1005, 1006, 1007],
+        ] {
+            let boxes = [RegisteredBox {
+                projectile: box_state.clone(),
+                particles: ids,
+                skip_cell: None,
+            }];
+            let saved = box_state.borrow().body.clone();
+            assert!(matches!(
+                simulation.physics_frame(
+                    FrameInput {
+                        registry: &registry,
+                        colliders: &[],
+                        scene: Vec::new(),
+                        dynamic_order: None,
+                        points: &points,
+                        boxes: &boxes,
+                        physics_order: None
+                    },
+                    &mut [],
+                    &settings
+                ),
+                Err("released particle identity overlaps")
+            ));
+            assert_eq!(box_state.borrow().body, saved);
+        }
     }
     simulation
         .physics_frame(
@@ -126,6 +160,7 @@ fn run_wall_impact(reflect: bool) {
                 scene,
                 dynamic_order: None,
                 points: &points,
+                boxes: &[],
                 physics_order: Some(&order),
             },
             &mut [],
@@ -157,6 +192,7 @@ fn run_wall_impact(reflect: bool) {
                 scene: Vec::new(),
                 dynamic_order: None,
                 points: &[],
+                boxes: &[],
                 physics_order: None,
             },
             &mut [],
