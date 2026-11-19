@@ -37,6 +37,29 @@ fn main() {
             }
         }
     }
+    if let Some(path) =
+        std::env::args().find_map(|arg| arg.strip_prefix("--export=").map(str::to_owned))
+    {
+        let mut bytes = b"KGLS".to_vec();
+        bytes.extend_from_slice(&(states.len() as u32).to_le_bytes());
+        for (id, state) in &states {
+            let source = state
+                .shader_sources()
+                .unwrap_or_else(|e| panic!("material {id}: {e}"));
+            for value in [
+                *id as u32,
+                source.vertex.len() as u32,
+                source.fragment.len() as u32,
+            ] {
+                bytes.extend_from_slice(&value.to_le_bytes());
+            }
+            bytes.extend_from_slice(source.vertex.as_bytes());
+            bytes.extend_from_slice(source.fragment.as_bytes());
+        }
+        std::fs::write(path, bytes).unwrap();
+        println!("exported {} authored shader pairs", states.len());
+        return;
+    }
     miniquad::start(
         conf::Conf {
             window_title: "kkrieger-oxide shader check".into(),

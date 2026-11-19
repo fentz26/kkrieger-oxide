@@ -2170,3 +2170,22 @@ No RTX 4070 Super draw, pixel-comparison, audio-output or frame-rate result is
 claimed by these CPU checks. A final Windows rerun and actual GPU validation
 remain required. Platform-specific test counts differ because of conditional
 compilation; the ignored gates are excluded from the passing totals.
+
+### AMD Radeon RX 9060 XT shader verification
+
+Linux x86_64 hardware EGL/OpenGL testing identified an AMD Radeon RX 9060 XT
+(radeonsi, gfx1200), OpenGL 4.6 compatibility profile, Mesa 26.0.8. Software EGL
+devices and software renderers were excluded.
+
+- Released beta catalogue: 218/218 shader pairs compiled and linked.
+- Development catalogue: 248/248 shader pairs compiled and linked.
+- Both catalogues reported zero GL errors and no compile/link failures.
+- An offscreen clear/readback produced RGBA [64,128,191,255] for the requested
+  [0.25,0.5,0.75,1] clear color.
+
+The offline shader-check binary can now export its authored shader pairs with
+--export=PATH (and --beta for released data). tools/check_glsl_headless.py checks
+those catalogues using a system EGL provider without opening a display. The
+tester is separate from the game executable. These results establish shader
+compatibility and a basic device readback, not authored game-frame pixel parity,
+mesh/texture submission, full playthrough or frame-rate performance.
