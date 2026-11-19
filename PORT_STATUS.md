@@ -2148,3 +2148,25 @@ complete level traversal/ending, exact first-gameplay native pose, complete
 font/GPU rendering parity, Windows/Linux audio and full-song waveform parity,
 and final compactness/performance goals remain incomplete or unverified. This
 is an intermediate regression audit, not completion of the rewrite.
+
+### Platform verification: Windows / RTX 4070 Super
+
+Windows x86_64 testing used Rust 1.100.0. The GPU was identified by the user as
+an NVIDIA GeForce RTX 4070 Super; its renderer/driver was not independently
+queried. The runs below exercised CPU tests, not GPU rendering or performance.
+
+- Full intermediate portability run: 489 passed, 5 failed, 29 ignored across
+  214 test-binary result blocks. Failures covered source-oracle NaN signs,
+  primitive/composed geometry and shadow vertex precision.
+- Subsequent targeted geometry/collision run: 15 passed, 1 failed, 4 ignored.
+  Cube geometry, crease-aware normals, shadow vertices and both collision
+  targets passed. The remaining failure was composed geometry at operator 1221.
+- The x87 Euler/helper mismatch behind that composed result was subsequently
+  corrected in 4628788, including the source oracle. That revision passed the
+  full macOS ARM64 regular suite: 496 passed, zero failed, 34 ignored across
+  215 result blocks. It has not yet been rerun on Windows.
+
+No RTX 4070 Super draw, pixel-comparison, audio-output or frame-rate result is
+claimed by these CPU checks. A final Windows rerun and actual GPU validation
+remain required. Platform-specific test counts differ because of conditional
+compilation; the ignored gates are excluded from the passing totals.
