@@ -313,7 +313,7 @@ impl Simulation {
                     .and_then(|source| world.adds.iter().position(|&id| id == source)),
                 first_particle: 5,
             };
-            let released_frame = if let Some(released) = self.released_actors.as_mut() {
+            let mut released_frame = if let Some(released) = self.released_actors.as_mut() {
                 Some(released.physics(
                     &execution.game.released_monsters,
                     &execution.released_colliders,
@@ -346,8 +346,14 @@ impl Simulation {
             });
 
             if let (Some(released), Some(accepted)) =
-                (self.released_actors.as_mut(), released_frame.as_ref())
+                (self.released_actors.as_mut(), released_frame.as_mut())
             {
+                released.apply_weapon_hits(
+                    accepted,
+                    &execution.game.released_monsters,
+                    &execution.game.parameters.weapon_hits,
+                    &mut execution.switches,
+                )?;
                 released_settings.player = self.motion.collider.position;
                 released_settings.player_cell = self
                     .player_cell

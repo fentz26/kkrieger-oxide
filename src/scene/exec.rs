@@ -2240,9 +2240,20 @@ impl Execution {
         if doc.layout != crate::kx::Layout::Beta2004 {
             return Err("released actor step requires beta document");
         }
-        let sounds = simulation.step(
+        let mut accepted = simulation.physics(
             &self.game.released_monsters,
             &self.released_colliders,
+            settings,
+        )?;
+        simulation.apply_weapon_hits(
+            &mut accepted,
+            &self.game.released_monsters,
+            &self.game.parameters.weapon_hits,
+            &mut self.switches,
+        )?;
+        let sounds = simulation.think(
+            &self.game.released_monsters,
+            &accepted,
             &mut self.game.inventory,
             settings,
         )?;

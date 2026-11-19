@@ -17,6 +17,21 @@ pub struct ActorSimulation {
     pub zone_masks: Vec<[u32; 3]>,
 }
 impl ActorSimulation {
+    pub fn apply_weapon_hits(
+        &self,
+        accepted: &mut ActorFrame,
+        registry: &Registry,
+        damage: &[i32; 8],
+        switches: &mut [u8; 256],
+    ) -> Result<(), &'static str> {
+        let adds = self.world.additive_views();
+        accepted.apply_weapon_hits(registry, damage, switches, |point| {
+            super::hull::find_cell(
+                adds.iter().enumerate().map(|(id, cell)| (id, cell.planes)),
+                point,
+            )
+        })
+    }
     /// Transfer source-indexed collision masks before the shared zone logic runs.
     pub fn publish_zone_interactions(
         &mut self,

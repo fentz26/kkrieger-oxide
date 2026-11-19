@@ -93,3 +93,49 @@ fn scene_collider_capture_keeps_particle_ids_stable_and_actor_borrows_free() {
     assert!(ActorFrame::capture(&registry, &[99], 100).is_err());
     assert!(ActorFrame::capture(&registry, &[], usize::MAX).is_err());
 }
+
+#[test]
+fn collision_weapon_bits_damage_shared_actors_once_in_weapon_order() {
+    use kkrieger_oxide::game::beta_monster::registration::ActorFrame;
+    let mut registry = Registry::default();
+    let mut data = [0; 26];
+    data[10] = 100;
+    data[11] = 20;
+    data[17] = 9;
+    let token = registry.spawn(&data, identity(), 0, |_| Some(0)).unwrap();
+    registry.register(token).unwrap();
+    let mut frame = ActorFrame::capture(&registry, &[token, token], 5).unwrap();
+    frame.save_collision_masks(&[0x101, 0x300]).unwrap();
+    let mut switches = [0; 256];
+    let damage = [30, 90, 0, 0, 0, 0, 0, 0];
+    let actor = registry.get(token).unwrap();
+    let borrowed = actor.borrow_mut();
+    assert_eq!(
+        frame.apply_weapon_hits(&registry, &damage, &mut switches, |_| Some(0)),
+        Err("released actor already borrowed")
+    );
+    assert_eq!(frame.dynamic_views().unwrap()[0].collided, 0x101);
+    assert_eq!(borrowed.initial.life, 100);
+    drop(borrowed);
+    frame
+        .apply_weapon_hits(&registry, &damage, &mut switches, |_| Some(0))
+        .unwrap();
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 10);
+    assert!(registry.get(token).unwrap().borrow().active);
+    frame
+        .apply_weapon_hits(&registry, &damage, &mut switches, |_| Some(0))
+        .unwrap();
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 10);
+    frame.save_collision_masks(&[0x8000, 0]).unwrap();
+    frame
+        .apply_weapon_hits(&registry, &[20; 8], &mut switches, |_| Some(0))
+        .unwrap();
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 5);
+    assert_eq!(switches[9], 0);
+    frame.save_collision_masks(&[0x300, 0x300]).unwrap();
+    frame
+        .apply_weapon_hits(&registry, &damage, &mut switches, |_| Some(0))
+        .unwrap();
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 0);
+    assert_eq!(switches[9], 1);
+}

@@ -15,6 +15,65 @@ pub struct ActorFrame {
     pub particles: BTreeMap<usize, Shot>,
 }
 impl ActorFrame {
+    /// Released zone tail: weapon bits 8..15 hit each shared dynamic actor.
+    pub fn apply_weapon_hits<F>(
+        &mut self,
+        registry: &Registry,
+        damage: &[i32; 8],
+        switches: &mut [u8; 256],
+        mut find_cell: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        if self.collided.len() != self.cells.len() {
+            return Err("released collision mask count differs");
+        }
+        let mut targets = Vec::<(u32, u32)>::new();
+        let mut indices = BTreeMap::<u32, usize>::new();
+        for ((token, _), mask) in self.cells.iter().zip(&self.collided) {
+            if let Some(&index) = indices.get(token) {
+                targets[index].1 |= mask;
+            } else {
+                indices.insert(*token, targets.len());
+                targets.push((*token, *mask));
+            }
+        }
+        targets.retain(|(_, mask)| mask & 0xff00 != 0);
+        let handles = targets
+            .iter()
+            .map(|(token, _)| {
+                registry
+                    .get(*token)
+                    .ok_or("released collider identity missing")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut actors = handles
+            .iter()
+            .map(|handle| {
+                handle
+                    .try_borrow_mut()
+                    .map_err(|_| "released actor already borrowed")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        for (actor, (_, mask)) in actors.iter().zip(&targets) {
+            if actor.initial.life > 0
+                && mask & 0xff00 != 0
+                && actor.initial.copied.parameters[11] as i32 > 255
+            {
+                return Err("monster kill switch out of range");
+            }
+        }
+        for (actor, (_, mask)) in actors.iter_mut().zip(targets) {
+            for (weapon, &hits) in damage.iter().enumerate() {
+                if mask & (1 << (weapon + 8)) != 0 {
+                    actor.hit(hits, switches, &mut find_cell)?;
+                }
+            }
+        }
+        self.collided.fill(0);
+        Ok(())
+    }
     pub fn capture(
         registry: &Registry,
         colliders: &[u32],

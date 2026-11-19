@@ -1471,3 +1471,15 @@ weapons only when their previous amount is zero, and apply the released x87
 round-down arithmetic to speed-up actions. The development rules remain covered
 by their existing C++ oracle. The released function's subsequent player/dynamic
 weapon-hit dispatch is outside this fixture and still needs integration.
+
+### Released dynamic weapon-mask damage dispatch
+
+Actor frames now consume weapon collision bits 8..15 in ascending weapon order
+and invoke the released actor Hit implementation before AI in the main tick and
+the scene-owned actor step. Repeated references to a shared actor combine their
+masks and apply each weapon once. Activation uses the released additive hulls;
+lethal damage updates the authored kill switch. Checks cover armor, repeated
+references, mask consumption, lethal hits and retry after a conflicting actor
+borrow. This follows the dynamic dispatch loop at 0x81d218..0x81d29e; released
+player/projectile body registration and player weapon-hit dispatch remain
+incomplete, so ordinary released projectile impacts are not yet end-to-end.
