@@ -89,3 +89,65 @@ fn actor_frame_runs_physics_then_ai_with_captured_scene_colliders() {
     );
     assert_eq!(inventory.amounts[0], 80);
 }
+
+#[test]
+fn owned_frame_advances_player_body_in_shared_physics() {
+    use kkrieger_oxide::game::beta_monster::{body::Body, runtime::BodyRegistration};
+    let world = StaticWorld::new([(
+        HitBox {
+            matrix: identity(),
+            scale: [20.; 3],
+        }
+        .vertices(),
+        0,
+    )]);
+    let mut simulation = ActorSimulation::new(world);
+    let mut registry = Registry::default();
+    let mut data = [0; 26];
+    data[10] = 100;
+    let token = registry.spawn(&data, identity(), 0, |_| Some(0)).unwrap();
+    registry.register(token).unwrap();
+    registry.get(token).unwrap().borrow_mut().active = true;
+    let mut prefix = [(
+        Body::new([2., 0., 0., 1.], Some(0), 1),
+        BodyRegistration {
+            particles: [0, 1, 2, 3, 4],
+            skip_cell: None,
+        },
+    )];
+    let mut settings = Settings {
+        physics: physics::Settings {
+            gravity: 0.,
+            gravity_player: 0.01,
+            damping_player_air: 0.,
+            damping_player_ground: 0.,
+            fly_mode: 0,
+            on_ground: false,
+        },
+        ai: ai::Settings {
+            gravity: 0.01,
+            height: 1.,
+            height_gain: 0.,
+        },
+        player: [2., 0., 0., 1.],
+        player_cell: Some(0),
+        first_particle: 0,
+    };
+    let before = prefix[0].0.clone();
+    assert!(
+        simulation
+            .physics_with_bodies(&registry, &[token], &mut prefix, &settings)
+            .is_err()
+    );
+    assert_eq!(prefix[0].0, before);
+    assert!(simulation.hits.shots.is_empty());
+    settings.first_particle = 5;
+    simulation
+        .physics_with_bodies(&registry, &[token], &mut prefix, &settings)
+        .unwrap();
+    assert!(prefix[0].0.particles[0].vectors[0][1] < 0.);
+    assert_eq!(simulation.hits.shots.len(), 10);
+    assert_eq!(simulation.hits.shots[&0].kind, 1);
+    assert_eq!(simulation.hits.shots[&5].kind, 3);
+    assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][1] < 0.5);
+}

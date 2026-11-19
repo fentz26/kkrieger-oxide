@@ -741,15 +741,15 @@ impl CollisionRuntime<'_, '_> {
     }
 }
 
-struct BorrowedActor<'a>(std::cell::RefMut<'a, super::actor::Actor>);
-impl AsRef<super::body::Body> for BorrowedActor<'_> {
+struct BorrowedBody<'a>(&'a mut super::body::Body);
+impl AsRef<super::body::Body> for BorrowedBody<'_> {
     fn as_ref(&self) -> &super::body::Body {
-        &self.0.body
+        self.0
     }
 }
-impl AsMut<super::body::Body> for BorrowedActor<'_> {
+impl AsMut<super::body::Body> for BorrowedBody<'_> {
     fn as_mut(&mut self) -> &mut super::body::Body {
-        &mut self.0.body
+        self.0
     }
 }
 impl CollisionRuntime<'_, '_> {
@@ -760,9 +760,22 @@ impl CollisionRuntime<'_, '_> {
         registry: &super::registry::Registry,
         registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
     ) -> Result<(), &'static str> {
+        self.reconcile_body_roster(index, cell, registry, registrations, &mut [])
+    }
+    pub fn reconcile_body_roster(
+        &mut self,
+        index: usize,
+        cell: &mut super::dynamic::MovingCell,
+        registry: &super::registry::Registry,
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+    ) -> Result<(), &'static str> {
         let mut seen = std::collections::BTreeSet::new();
         let mut handles = Vec::new();
-        let mut registration_list = Vec::new();
+        let mut registration_list: Vec<_> = prefix
+            .iter()
+            .map(|(_, registration)| *registration)
+            .collect();
         for &token in registry.active_ids() {
             if !seen.insert(token) {
                 continue;
@@ -789,10 +802,14 @@ impl CollisionRuntime<'_, '_> {
             .map(|actor| {
                 actor
                     .try_borrow_mut()
-                    .map(BorrowedActor)
                     .map_err(|_| "released actor already borrowed")
             })
             .collect::<Result<Vec<_>, _>>()?;
-        self.reconcile_cell(index, cell, &mut actors, &registration_list)
+        let mut bodies: Vec<_> = prefix
+            .iter_mut()
+            .map(|(body, _)| BorrowedBody(body))
+            .chain(actors.iter_mut().map(|actor| BorrowedBody(&mut actor.body)))
+            .collect();
+        self.reconcile_cell(index, cell, &mut bodies, &registration_list)
     }
 }

@@ -1530,3 +1530,16 @@ covers player/actor particle movement, phase-visible state, force application,
 context restoration and validation before mutation. Live player ownership,
 dynamic-cell reconciliation against the player and Motion integration remain
 pending; this supplies the common phase runner without changing live movement.
+
+### Owned actor frames accept player bodies through reconciliation
+
+ActorSimulation::physics_with_bodies now registers prefix bodies (including
+player kinds 1/2) alongside captured actor particles and carries them through
+the common phase runner and every dynamic reconciliation probe. Particle-ID
+collisions fail before shot registration or body mutation. Reconciliation uses
+borrowed body references and preserves native owned-cell exclusions and the
+monster-hull rule that skips non-weapon particles. Checks cover a player and
+actor advancing together, ordinary moving-hull rejection against player
+particles, monster/owned-cell exclusions and context restoration. Live Motion
+still needs persistent released body ownership, ground queries and hitbox
+registration before this path can replace the development player collider.

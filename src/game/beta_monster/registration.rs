@@ -186,6 +186,14 @@ impl ActorFrame {
         runtime: &mut super::runtime::CollisionRuntime<'_, '_>,
         registry: &Registry,
     ) -> Result<(), &'static str> {
+        self.reconcile_all_with_bodies(runtime, registry, &mut [])
+    }
+    pub fn reconcile_all_with_bodies(
+        &mut self,
+        runtime: &mut super::runtime::CollisionRuntime<'_, '_>,
+        registry: &Registry,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+    ) -> Result<(), &'static str> {
         if runtime.candidates.dynamic_cells.len() != self.cells.len() {
             return Err("released dynamic registry count differs");
         }
@@ -216,8 +224,13 @@ impl ActorFrame {
                     interrupted: runtime.interrupted,
                     error: runtime.error,
                 };
-                let result =
-                    probe.reconcile_registered(index, &mut proposed, registry, &self.bodies);
+                let result = probe.reconcile_body_roster(
+                    index,
+                    &mut proposed,
+                    registry,
+                    &self.bodies,
+                    prefix,
+                );
                 runtime.interrupted = probe.interrupted;
                 runtime.error = probe.error;
                 for (target, source) in runtime.zones.iter_mut().zip(probe.zones.iter()) {

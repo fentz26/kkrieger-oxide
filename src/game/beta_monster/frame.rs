@@ -74,11 +74,36 @@ impl ActorSimulation {
         colliders: &[u32],
         settings: &Settings,
     ) -> Result<ActorFrame, &'static str> {
+        self.physics_with_bodies(registry, colliders, &mut [], settings)
+    }
+    pub fn physics_with_bodies(
+        &mut self,
+        registry: &Registry,
+        colliders: &[u32],
+        prefix: &mut [(super::body::Body, super::runtime::BodyRegistration)],
+        settings: &Settings,
+    ) -> Result<ActorFrame, &'static str> {
         if self.zone_masks.len() != self.world.hulls.len() {
             return Err("released zone registry count differs");
         }
         let captured = ActorFrame::capture(registry, colliders, settings.first_particle)?;
+        let mut prefix_shots = std::collections::BTreeMap::new();
+        for (body, registration) in prefix.iter() {
+            for (particle, id) in body.particles.iter().zip(registration.particles) {
+                if captured.particles.contains_key(&id) || prefix_shots.contains_key(&id) {
+                    return Err("released particle identity overlaps");
+                }
+                prefix_shots.insert(
+                    id,
+                    super::hit::Shot {
+                        kind: particle.flags[3],
+                        event: None,
+                    },
+                );
+            }
+        }
         let mut accepted = captured.clone();
+        self.hits.shots.extend(prefix_shots);
         self.hits.shots.extend(captured.particles.clone());
         let adds = self.world.additive_views();
         let statics = self.world.static_views();
@@ -119,12 +144,15 @@ impl ActorSimulation {
                 interrupted: false,
                 error: None,
             };
-            runtime.step_collider_roster(
+            runtime.step_body_roster(
                 registry,
                 colliders,
                 &captured.bodies,
+                prefix,
                 settings.physics,
-                |runtime, registry| accepted.reconcile_all(runtime, registry),
+                |runtime, registry, prefix| {
+                    accepted.reconcile_all_with_bodies(runtime, registry, prefix)
+                },
             )?;
         }
         for (target, zone) in self.zone_masks.iter_mut().zip(zones) {

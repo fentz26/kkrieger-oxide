@@ -213,6 +213,52 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
     }
     assert_eq!(runtime.particle_id, 99);
     assert_eq!(runtime.skip_cell, None);
+    let player = Body::new([-0.5, 0., 0., 1.], Some(0), 1);
+    for (id, particle) in player.particles.iter().enumerate() {
+        runtime.hits.shots.insert(
+            id,
+            Shot {
+                kind: particle.flags[3],
+                event: None,
+            },
+        );
+    }
+    let mut prefix = [(
+        player,
+        BodyRegistration {
+            particles: [0, 1, 2, 3, 4],
+            skip_cell: None,
+        },
+    )];
+    let registry = kkrieger_oxide::game::beta_monster::registry::Registry::default();
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    runtime
+        .reconcile_body_roster(0, &mut moving, &registry, &Default::default(), &mut prefix)
+        .unwrap();
+    assert!(
+        moving.pose.blocked,
+        "player participates in ordinary moving hull rejection"
+    );
+    assert_eq!(prefix[0].0.particles[0].vectors[0][0], -0.5);
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    moving.monster = true;
+    runtime
+        .reconcile_body_roster(0, &mut moving, &registry, &Default::default(), &mut prefix)
+        .unwrap();
+    assert!(
+        !moving.pose.blocked,
+        "monster hulls still skip non-weapon player particles"
+    );
+    moving.monster = false;
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    prefix[0].1.skip_cell = Some(0);
+    runtime
+        .reconcile_body_roster(0, &mut moving, &registry, &Default::default(), &mut prefix)
+        .unwrap();
+    assert!(!moving.pose.blocked, "player excludes its own dynamic cell");
+    assert_eq!(runtime.particle_id, 99);
+    assert_eq!(runtime.skip_cell, None);
 }
 
 #[test]
