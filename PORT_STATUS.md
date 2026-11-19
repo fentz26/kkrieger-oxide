@@ -33,8 +33,9 @@ below; those notes record the state when individual subsystems were ported.
   checker exercises compositing and captures the final target. Shadow disabling
   retains mesh draws and produces no shadow draws in the tested authored frame.
 - Build-time project packing decodes byte for byte to the original export. The
-  refreshed macOS ARM64 release executable is 1,300,656 bytes. One `--bench` run
-  precalculates the embedded development intro assets in 2,634.206 ms, producing
+  refreshed macOS ARM64 release executable is 1,300,656 bytes; the existing tiny
+  profile produces 1,154,816 bytes. Three alternating `--bench` samples give
+  median asset-preparation times of 4,072.102 ms (release) and 7,075.031 ms (tiny), producing
   10 meshes, 138,690 vertices, 11 materials and 22 bitmaps (46,137,344 host pixel
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
@@ -1882,3 +1883,27 @@ The executable is 149,056 bytes larger than the earlier recorded 1,151,600-byte
 build; the added released physics paths and intervening changes have not yet
 received a size comparison under the tiny profile. These measurements do not
 establish the requested distribution-size or runtime-performance outcome.
+
+### Tiny-profile size and asset-preparation comparison
+
+Rust 1.100.0 builds both existing profiles successfully. Three alternating runs
+of each executable's `--bench` path give these macOS ARM64 measurements:
+
+| Profile | Optimization | Executable bytes | Median precalculation ms | Sample range ms |
+| --- | --- | ---: | ---: | ---: |
+| release | s | 1,300,656 | 4,072.102 | 2,514.612–4,354.524 |
+| tiny | z | 1,154,816 | 7,075.031 | 4,317.365–7,145.943 |
+
+Tiny saves 145,840 bytes. Its executable SHA-256 is
+`968a38f1274a0a602744e6b689c27492f3582e8859a08556c8603a36654ce94e`.
+These unisolated samples measure development-intro asset preparation only;
+gameplay frame timing and complete released-content generation remain unmeasured.
+The default release profile remains unchanged pending that performance evidence.
+A compiler experiment (`cargo rustc --profile tiny --bin kkrieger-oxide --
+-C force-unwind-tables=no`) produces the same byte count and SHA-256 as ordinary
+tiny, so no additional compiler setting is introduced. Its documented semantics
+were checked against the [Rust 1.100.0 codegen options](https://github.com/rust-lang/rust/blob/1.100.0/src/doc/rustc/src/codegen-options/index.md#force-unwind-tables).
+A simple one-byte-small-offset/escape encoding for the existing packed-project
+matches would add 549 offset bytes (3,435 short and 3,984 longer offsets); the
+current stream remains 46,343 bytes. Full-game fidelity and distribution-size
+optimization are still open.
