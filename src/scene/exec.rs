@@ -1937,7 +1937,7 @@ impl Execution {
                     return self.exec_inputs(doc, root, matrix);
                 }
                 if let Some(cell) = &state.cell {
-                    if flags & 0x10 != 0 {
+                    if !beta && flags & 0x10 != 0 {
                         cell.borrow_mut().monster = self.event_monster;
                     }
                     cell.borrow_mut().matrix1 = parent;

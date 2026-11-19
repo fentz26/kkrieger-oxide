@@ -1724,3 +1724,14 @@ the released-event scheduler alongside actor effects. A main-tick integration
 check covers wall collision, stop/reflection lifetime, hit timestamp and actual
 impact-event publication. Projectile box modes, complete weapon playthroughs and
 full mixed native frame-trace parity remain unverified or unimplemented.
+
+### Released Physic hulls preserve native monster ownership
+
+A new native capture executes complete Physic mode-2/mode-3 handlers, replacing
+only instance allocation and child execution. Across 32 inputs with varied
+transforms/scales and flags 0x02/0x12/0x22/0x32 and 0x03/0x13/0x23/0x33, mode 2
+registers one dynamic hull with a null monster owner; mode 3 registers none.
+The Rust scene handler incorrectly inherited later-source flag-0x10 monster
+assignment. That assignment now applies only to the development layout. The
+scene regression checks native ownership and counts during live actor events
+and repeated frame replay. This does not implement the missing mode-1 box body.

@@ -920,3 +920,68 @@ fn beta_physic_point_keeps_instance_particles_across_frame_registration() {
     without_cell.frame(&doc, 0).unwrap();
     assert_eq!(without_cell.released_points[0].borrow().particle.cell, None);
 }
+
+#[test]
+fn released_physic_hull_flags_match_native_monster_ownership() {
+    let bytes = include_bytes!("fixtures/beta-physic-hull-modes.bin");
+    let words: Vec<_> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b))
+        .collect();
+    assert_eq!(words.len(), 1 + words[0] as usize * 3);
+    for case in words[1..].as_chunks::<3>().0 {
+        let (mut doc, mut execution) = setup();
+        doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+        let mut data = vec![0; 26];
+        data[10] = 20;
+        data[20..23].fill(1f32.to_bits());
+        doc.operators[0].parameters = data;
+        doc.operators[0].inputs = vec![1];
+        doc.classes[1].id = 0xce;
+        doc.operators[1].parameters = vec![
+            case[0],
+            0,
+            0,
+            0,
+            1f32.to_bits(),
+            1f32.to_bits(),
+            1f32.to_bits(),
+            0,
+            0,
+            0,
+            0,
+            0,
+        ];
+        doc.operators[1].inputs.clear();
+        let context = execution.actors.take();
+        execution = Execution::new(&doc);
+        execution.actors = context;
+        execution.frame(&doc, 0).unwrap();
+        execution
+            .game
+            .released_monsters
+            .get(1)
+            .unwrap()
+            .borrow_mut()
+            .active = true;
+        for _ in 0..2 {
+            execution.frame(&doc, 0).unwrap();
+            assert_eq!(
+                execution.dynamic_cells.len(),
+                case[1] as usize,
+                "flags {:x}",
+                case[0]
+            );
+            for cell in &execution.dynamic_cells {
+                assert_eq!(
+                    cell.borrow().monster.map(|id| id as u32).unwrap_or(0),
+                    case[2],
+                    "flags {:x}",
+                    case[0]
+                );
+            }
+        }
+    }
+}
