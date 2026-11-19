@@ -623,8 +623,36 @@ impl CollisionRuntime<'_, '_> {
     where
         F: FnOnce(&mut Self, &super::registry::Registry) -> Result<(), &'static str>,
     {
+        self.step_body_roster(
+            registry,
+            colliders,
+            registrations,
+            &mut [],
+            settings,
+            |runtime, registry, _| dynamic(runtime, registry),
+        )
+    }
+    pub fn step_body_roster<F>(
+        &mut self,
+        registry: &super::registry::Registry,
+        colliders: &[u32],
+        registrations: &std::collections::BTreeMap<u32, BodyRegistration>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(
+            &mut Self,
+            &super::registry::Registry,
+            &mut [(super::body::Body, BodyRegistration)],
+        ) -> Result<(), &'static str>,
+    {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
+        }
+        for (body, registration) in prefix.iter() {
+            self.validate_body(body, registration)?;
         }
         registry.visit_tokens(colliders, |token, actor| {
             let registration = registrations
@@ -635,12 +663,24 @@ impl CollisionRuntime<'_, '_> {
         })?;
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
+            for (body, _) in prefix.iter_mut() {
+                for index in 0..body.constraints.len() {
+                    body.solve_constraint(index)?;
+                }
+            }
             registry.visit_tokens(colliders, |_, actor| {
                 for i in 0..actor.body.constraints.len() {
                     actor.body.solve_constraint(i)?;
                 }
                 Ok(())
             })?;
+            for (body, registration) in prefix.iter_mut() {
+                self.skip_cell = registration.skip_cell;
+                for (index, id) in registration.particles.into_iter().enumerate() {
+                    self.particle_id = id;
+                    self.step_particle(body, index, settings)?;
+                }
+            }
             registry.visit_tokens(colliders, |token, actor| {
                 let registration = &registrations[&token];
                 self.skip_cell = registration.skip_cell;
@@ -650,9 +690,12 @@ impl CollisionRuntime<'_, '_> {
                 }
                 Ok(())
             })?;
-            dynamic(self, registry)?;
+            dynamic(self, registry, prefix)?;
             if let Some(error) = self.error.or(self.hits.error) {
                 return Err(error);
+            }
+            for (body, _) in prefix.iter_mut() {
+                body.apply_forces();
             }
             registry.visit_tokens(colliders, |_, actor| {
                 actor.body.apply_forces();

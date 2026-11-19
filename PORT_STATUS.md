@@ -1518,3 +1518,15 @@ conditions and unordered comparisons. Particle positions and control fields
 match exactly; histories, forces and constraints remain unchanged. This input
 stage is not yet wired into live Motion: player body persistence, shared physics
 ordering, ground queries and released hitbox registration remain necessary.
+
+### Player bodies can share registered actor physics phases
+
+CollisionRuntime::step_body_roster accepts owned prefix bodies and their stable
+particle registrations before the scene-captured actor roster. Both groups now
+complete constraints before either group advances particles; dynamic callbacks
+then see both updated groups, and forces apply afterward. Existing actor-only
+calls delegate to this path with an empty prefix. A synthetic collision-world check
+covers player/actor particle movement, phase-visible state, force application,
+context restoration and validation before mutation. Live player ownership,
+dynamic-cell reconciliation against the player and Motion integration remain
+pending; this supplies the common phase runner without changing live movement.

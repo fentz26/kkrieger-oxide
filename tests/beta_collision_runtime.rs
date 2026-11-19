@@ -554,3 +554,129 @@ fn ai_world_casts_floor_and_visibility_against_additive_hull() {
     );
     assert_eq!(registry.get(inactive).unwrap().borrow().body, inactive_body);
 }
+
+#[test]
+fn player_and_registered_actors_share_physics_phase_boundaries() {
+    use kkrieger_oxide::game::beta_monster::{
+        physics, registry::Registry, runtime::BodyRegistration,
+    };
+    let planes = [
+        [1., 0., 0., 100.],
+        [-1., 0., 0., 100.],
+        [0., 1., 0., 100.],
+        [0., -1., 0., 100.],
+        [0., 0., 1., 100.],
+        [0., 0., -1., 100.],
+    ];
+    let adds = [AdditiveCell {
+        planes: &planes,
+        neighbors: &[],
+        only_for_shot: false,
+    }];
+    let lists: [&[usize]; 1] = [&[]];
+    let mut hits = HitRegistry::default();
+    let mut prefix = vec![(
+        Body::new([0., 0., 0., 1.], Some(0), 1),
+        BodyRegistration {
+            particles: [0, 1, 2, 3, 4],
+            skip_cell: None,
+        },
+    )];
+    let mut registry = Registry::default();
+    let mut data = [0; 26];
+    data[10] = 100;
+    let mut matrix = kkrieger_oxide::mesh::identity();
+    matrix[3][0] = 2.;
+    let token = registry.spawn(&data, matrix, 0, |_| Some(0)).unwrap();
+    registry.register(token).unwrap();
+    registry.get(token).unwrap().borrow_mut().active = true;
+    for (id, particle) in prefix[0]
+        .0
+        .particles
+        .iter()
+        .chain(registry.get(token).unwrap().borrow().body.particles.iter())
+        .enumerate()
+    {
+        hits.shots.insert(
+            id,
+            Shot {
+                kind: particle.flags[3],
+                event: None,
+            },
+        );
+    }
+    let registrations = std::collections::BTreeMap::from([(
+        token,
+        BodyRegistration {
+            particles: [5, 6, 7, 8, 9],
+            skip_cell: None,
+        },
+    )]);
+    let mut runtime = CollisionRuntime {
+        adds: &adds,
+        candidates: CandidateWorld {
+            static_cells: &[],
+            lists: &lists,
+            dynamic_cells: &mut [],
+        },
+        zones: &mut [],
+        zone_lists: &lists,
+        hits: &mut hits,
+        particle_id: 999,
+        skip_cell: None,
+        monster_mode: false,
+        interrupted: false,
+        error: None,
+    };
+    let settings = physics::Settings {
+        gravity: 0.,
+        gravity_player: 0.01,
+        damping_player_air: 0.,
+        damping_player_ground: 0.,
+        fly_mode: 0,
+        on_ground: false,
+    };
+    let before = prefix[0].0.clone();
+    let actor_y = registry.get(token).unwrap().borrow().body.particles[0].vectors[0][1];
+    assert_eq!(
+        runtime.step_body_roster(
+            &registry,
+            &[token],
+            &Default::default(),
+            &mut prefix,
+            settings,
+            |_, _, _| Ok(())
+        ),
+        Err("released body registration missing")
+    );
+    assert_eq!(prefix[0].0, before);
+    runtime
+        .step_body_roster(
+            &registry,
+            &[token],
+            &registrations,
+            &mut prefix,
+            settings,
+            |runtime, registry, prefix| {
+                assert!(prefix[0].0.particles[0].vectors[0][1] < 0.);
+                assert!(
+                    registry.get(token).unwrap().borrow().body.particles[0].vectors[0][1] < actor_y
+                );
+                assert_eq!(prefix[0].0.particles[0].force, [0.; 4]);
+                prefix[0].0.particles[0].force[0] = 0.1;
+                registry.get(token).unwrap().borrow_mut().body.particles[0].force[0] = 0.1;
+                assert_eq!(runtime.particle_id, 9);
+                Ok(())
+            },
+        )
+        .unwrap();
+    assert!(prefix[0].0.particles[0].vectors[0][0] > 0.);
+    assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][0] > 2.);
+    assert_eq!(prefix[0].0.particles[0].force, [0.; 4]);
+    assert_eq!(
+        registry.get(token).unwrap().borrow().body.particles[0].force,
+        [0.; 4]
+    );
+    assert_eq!(runtime.particle_id, 999);
+    assert_eq!(runtime.skip_cell, None);
+}
