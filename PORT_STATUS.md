@@ -2108,3 +2108,22 @@ font hinting, arbitrary-float rounding, or rendered pixel parity.
 
 Fourteen targeted Print tests and the explicitly invoked extracted startup
 gate pass. Player/Print Clippy, formatting and whitespace checks pass.
+
+### Released State activation keys
+
+Released State handler 0x81937b accepts Enter alone for condition two; the later
+source additionally accepts MouseLeft. Scene execution now chooses the released
+rule for beta documents while preserving the existing development API. Ignored
+mouse activation still executes children and preserves the key, matching the
+native handler's unconditional child callback.
+
+A new oracle executes 480 native cases across conditions -1 through 8, twelve
+keys, matching/mismatching guard switches, zero/nonzero output switches and
+wrapping output values. Only child execution is stubbed, and every case verifies
+that callback occurs once. Rust compares all 256 resulting switch bytes and the
+remaining key. Fixture SHA256:
+3321a50e4b215c15fa4deaceb0f8bc57f87619ae5943b6ffcfbbc6be8ab1cd41.
+A scene integration test checks the ignored-click/child-execution boundary;
+a separate regression preserves development click activation. Ten targeted
+menu tests, player/menu Clippy, formatting and whitespace checks pass. This
+verifies State semantics, not the complete native menu scheduler or playthrough.

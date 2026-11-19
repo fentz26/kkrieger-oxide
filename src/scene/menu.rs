@@ -56,6 +56,26 @@ pub fn set_if(
         }),
     }
 }
+/// Released State accepts Enter for condition two; development also accepts a click.
+pub fn state_for_layout(
+    switches: &mut [u8; 256],
+    key: &mut u32,
+    parameters: &[u32; 5],
+    layout: crate::kx::Layout,
+) -> Result<(), &'static str> {
+    if layout == crate::kx::Layout::Beta2004 && parameters[2] == 2 && *key == MOUSE_LEFT {
+        return Ok(());
+    }
+    state(
+        switches,
+        key,
+        parameters[0] as usize,
+        parameters[1] as i32,
+        parameters[2] as i32,
+        parameters[3] as usize,
+        parameters[4] as i32,
+    )
+}
 pub fn state(
     switches: &mut [u8; 256],
     key: &mut u32,

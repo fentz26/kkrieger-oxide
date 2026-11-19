@@ -1637,16 +1637,13 @@ impl Execution {
             }
             0x0b => {
                 let p = p
-                    .get(..5)
+                    .first_chunk::<5>()
                     .ok_or_else(|| fail("truncated state parameters"))?;
-                super::menu::state(
+                super::menu::state_for_layout(
                     &mut self.switches,
                     &mut self.game.last_key,
-                    p[0] as usize,
-                    p[1] as i32,
-                    p[2] as i32,
-                    p[3] as usize,
-                    p[4] as i32,
+                    p,
+                    doc.layout,
                 )
                 .map_err(fail)?;
                 self.exec_inputs(doc, root, parent)

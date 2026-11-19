@@ -139,3 +139,21 @@ fn scene_state_consumes_key_before_child_menu() {
     assert_eq!(execution.switches[9], 0);
     assert_eq!(execution.game.last_key, 0);
 }
+
+#[test]
+fn released_state_keeps_mouse_key_and_still_executes_its_child() {
+    use kkrieger_oxide::{game::input::MOUSE_LEFT, kx::Layout, scene::exec::Execution};
+    let mut doc = document();
+    doc.layout = Layout::Beta2004;
+    doc.operators[0].class = 2;
+    doc.operators[0].parameters = vec![7, 2, 2, 6, 1];
+    doc.operators[1].class = 2;
+    doc.operators[1].parameters = vec![9, 5, 0, 6, 1];
+    let mut execution = Execution::new(&doc);
+    execution.game.last_key = MOUSE_LEFT;
+    execution.switches[6] = 1;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.switches[7], 0);
+    assert_eq!(execution.switches[9], 5);
+    assert_eq!(execution.game.last_key, MOUSE_LEFT);
+}
