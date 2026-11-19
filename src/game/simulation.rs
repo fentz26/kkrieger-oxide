@@ -292,6 +292,37 @@ impl Simulation {
             self.player_cell =
                 (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
             execution.physics((slice as f32 + 1.) / slices as f32);
+            let parameters = &execution.game.parameters;
+            let mut released_settings = super::beta_monster::frame::Settings {
+                physics: super::beta_monster::physics::Settings {
+                    gravity: 0.,
+                    gravity_player: parameters.gravity,
+                    damping_player_air: parameters.damp_air,
+                    damping_player_ground: parameters.damp_ground,
+                    fly_mode: 0,
+                    on_ground: self.motion.on_ground,
+                },
+                ai: super::beta_monster::ai::Settings {
+                    gravity: parameters.gravity,
+                    height: parameters.stair_height,
+                    height_gain: parameters.damp_height,
+                },
+                player: self.motion.collider.position,
+                player_cell: self
+                    .player_cell
+                    .and_then(|source| world.adds.iter().position(|&id| id == source)),
+                first_particle: 5,
+            };
+            let released_frame = if let Some(released) = self.released_actors.as_mut() {
+                Some(released.physics(
+                    &execution.game.released_monsters,
+                    &execution.released_colliders,
+                    &released_settings,
+                )?)
+            } else {
+                None
+            };
+
             let resets = self.zones.tick(
                 &mut execution.game,
                 &mut self.motion,
@@ -310,6 +341,27 @@ impl Simulation {
                 up: self.motion.matrix[1],
                 forward: self.motion.matrix[2],
             });
+
+            if let (Some(released), Some(accepted)) =
+                (self.released_actors.as_mut(), released_frame.as_ref())
+            {
+                released_settings.player = self.motion.collider.position;
+                released_settings.player_cell = self
+                    .player_cell
+                    .and_then(|source| world.adds.iter().position(|&id| id == source));
+                for sound in released.think(
+                    &execution.game.released_monsters,
+                    accepted,
+                    &mut execution.game.inventory,
+                    &released_settings,
+                )? {
+                    result.sounds.push(Audio {
+                        sound,
+                        position: self.motion.collider.position,
+                    });
+                }
+                execution.publish_released_actor_events(doc, &mut released.hits.pending)?;
+            }
             monster_magnet::apply(&actors, &mut self.random);
             let mut previous = false;
             let mut machine = false;

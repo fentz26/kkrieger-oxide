@@ -2246,35 +2246,41 @@ impl Execution {
             &mut self.game.inventory,
             settings,
         )?;
+        self.publish_released_actor_events(doc, &mut simulation.hits.pending)?;
+        Ok(sounds)
+    }
+    pub fn publish_released_actor_events(
+        &mut self,
+        doc: &Document<'_>,
+        pending: &mut Vec<[u32; 45]>,
+    ) -> Result<(), &'static str> {
         let actors = &self.game.released_monsters;
-        let events =
-            self.events
-                .publish_released(&mut simulation.hits.pending, |kind, token| {
-                    use super::event::ReleasedReference;
-                    match kind {
-                        ReleasedReference::Operator => {
-                            let id = token as usize - 1;
-                            if id >= doc.operators.len() {
-                                return Err("released event operator out of range");
-                            }
-                            Ok(id)
-                        }
-                        ReleasedReference::Spline => {
-                            let id = token as usize - 1;
-                            if id >= doc.splines.len() {
-                                return Err("released event spline out of range");
-                            }
-                            Ok(id)
-                        }
-                        ReleasedReference::Monster => {
-                            actors.get(token).ok_or("released event actor missing")?;
-                            Ok(token as usize)
-                        }
+        let events = self.events.publish_released(pending, |kind, token| {
+            use super::event::ReleasedReference;
+            match kind {
+                ReleasedReference::Operator => {
+                    let id = token as usize - 1;
+                    if id >= doc.operators.len() {
+                        return Err("released event operator out of range");
                     }
-                })?;
+                    Ok(id)
+                }
+                ReleasedReference::Spline => {
+                    let id = token as usize - 1;
+                    if id >= doc.splines.len() {
+                        return Err("released event spline out of range");
+                    }
+                    Ok(id)
+                }
+                ReleasedReference::Monster => {
+                    actors.get(token).ok_or("released event actor missing")?;
+                    Ok(token as usize)
+                }
+            }
+        })?;
         for event in events {
             self.add_event(event);
         }
-        Ok(sounds)
+        Ok(())
     }
 }

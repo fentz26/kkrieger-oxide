@@ -617,3 +617,65 @@ fn game_simulation_owns_released_world_only_for_beta_documents() {
         }
     }
 }
+
+#[test]
+fn main_tick_advances_scene_owned_beta_actors() {
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut data = vec![0; 26];
+    data[7] = 10f32.to_bits();
+    data[8] = 10f32.to_bits();
+    data[10] = 20;
+    data[14] = 5;
+    data[13] = 0.01f32.to_bits();
+    data[15] = 0.01f32.to_bits();
+    data[20..23].fill(1f32.to_bits());
+    doc.operators[0].parameters = data;
+    doc.operators[0].links = vec![Some(2)];
+    let context = execution.actors.take().unwrap();
+    let world = Rc::try_unwrap(context.world).ok().unwrap().into_inner();
+    execution = Execution::new(&doc);
+    execution.switches[1] = 0;
+    execution.game.inventory.amounts[0] = 100;
+    execution.game.inventory.maxima[0] = 100;
+    execution.game.parameters.gravity = 0.01;
+    execution.game.parameters.stair_height = 0.55;
+    execution.game.parameters.damp_camera = 0.25;
+    let mut simulation = kkrieger_oxide::game::simulation::Simulation::new(
+        world,
+        &mut execution,
+        [-5., 0., 0., 1.],
+        0,
+        [0, 0],
+        kkrieger_oxide::random::Random::new(1),
+    )
+    .unwrap();
+    simulation.bind_scene(&mut execution, false);
+    execution.frame(&doc, 0).unwrap();
+    let result = simulation
+        .tick(&mut execution, &doc, 1, 10, [0, 0])
+        .unwrap();
+    assert!(result.ran);
+    assert!(
+        execution
+            .game
+            .released_monsters
+            .get(1)
+            .unwrap()
+            .borrow()
+            .active
+    );
+    assert!(execution.events.events.values().any(|event| {
+        let event = event.borrow();
+        event.operator == Some(2) && event.monster == Some(1)
+    }));
+    assert!(
+        simulation
+            .released_actors
+            .as_ref()
+            .unwrap()
+            .hits
+            .pending
+            .is_empty()
+    );
+}

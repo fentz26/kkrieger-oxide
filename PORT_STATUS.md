@@ -1440,3 +1440,13 @@ released actor world for beta documents. Root replacement rebuilds that world
 and clears its pending actor events. Checks cover layout selection and scene
 replacement, alongside existing simulation and monster-scene tests. Main tick
 stage invocation and player/projectile parity remain pending.
+
+### Released actor stages invoked by main game tick
+
+The main simulation now invokes released actor physics before zone/player
+postprocessing and monster AI afterward. Authored gravity/damping/height settings
+and current player/cell state feed the stages. Emitted events use the shared
+scene publication path, and hurt sounds enter tick audio output. A beta main-tick
+check verifies activation and ranged publication. Existing simulation, scene and
+actor-frame tests pass. Player/projectile ABI parity, shared zone semantics and
+full released-game playthrough remain pending.
