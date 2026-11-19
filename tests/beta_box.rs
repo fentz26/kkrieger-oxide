@@ -56,3 +56,28 @@ fn box_particles_and_constraints_match_released_initializer() {
     }
     assert!(words.next().is_none());
 }
+
+#[test]
+fn box_child_matrix_matches_released_particle_reconstruction() {
+    let mut words = include_bytes!("fixtures/beta-box-matrix.bin")
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b));
+    assert_eq!(words.next(), Some(256));
+    for case in 0..256 {
+        let mut body = BoxBody::new(kkrieger_oxide::mesh::identity(), [1.; 3], [0.; 4], None);
+        for particle in &mut body.particles {
+            particle.vectors[0] = std::array::from_fn(|_| f32::from_bits(words.next().unwrap()));
+        }
+        let matrix = body.matrix();
+        for (field, value) in matrix.into_iter().flatten().enumerate() {
+            assert_eq!(
+                value.to_bits(),
+                words.next().unwrap(),
+                "case {case} matrix field {field}"
+            );
+        }
+    }
+    assert!(words.next().is_none());
+}

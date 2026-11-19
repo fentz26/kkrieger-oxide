@@ -1746,3 +1746,13 @@ across varied transforms, velocity, nullable cell references, negative scales
 and degenerate zero axes. The Physic handler's mass/kind/event assignment, box
 registration, constraints/physics participation and child-pose reconstruction
 remain required before mode-1 box projectiles are functional in gameplay.
+
+### Box child transform reconstruction
+
+BoxBody reconstructs the released child matrix from the eight current particle
+positions: it accumulates four directed edges per basis axis, normalizes each
+axis independently and averages all corners for translation. A native oracle
+executes PartBox::MakeMatrix at 0x81abbd without replaced callees; its 256 cases
+include arbitrary deformed positions and collapsed boxes. The implementation
+preserves the released negative-indefinite NaN bits on collapsed axes. Box
+scene ownership, registration and physics integration remain outstanding.

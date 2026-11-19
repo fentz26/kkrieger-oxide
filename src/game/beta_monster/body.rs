@@ -257,3 +257,46 @@ impl BoxBody {
         }
     }
 }
+
+impl BoxBody {
+    /// Released PartBox::MakeMatrix: normalize averaged corner-edge directions.
+    pub fn matrix(&self) -> crate::mesh::Matrix {
+        const AXES: [[[usize; 2]; 4]; 3] = [
+            [[3, 0], [2, 1], [7, 4], [6, 5]],
+            [[1, 0], [2, 3], [5, 4], [6, 7]],
+            [[4, 0], [5, 1], [6, 2], [7, 3]],
+        ];
+        let mut matrix = [[0.; 4]; 4];
+        for (row, edges) in matrix[..3].iter_mut().zip(AXES) {
+            let mut direction = [0.; 3];
+            for [a, b] in edges {
+                for (axis, value) in direction.iter_mut().enumerate() {
+                    let delta = down(add(
+                        f64::from(self.particles[a].vectors[0][axis]),
+                        -f64::from(self.particles[b].vectors[0][axis]),
+                    ));
+                    *value = down(add(f64::from(delta), f64::from(*value)));
+                }
+            }
+            let normalized = if direction.iter().all(|&value| value == 0.) {
+                [f32::from_bits(0xffc0_0000); 3]
+            } else {
+                super::dynamic::normalize(direction)
+            };
+            row[..3].copy_from_slice(&normalized);
+        }
+        for particle in &self.particles {
+            for axis in 0..3 {
+                matrix[3][axis] = down(add(
+                    f64::from(particle.vectors[0][axis]),
+                    f64::from(matrix[3][axis]),
+                ));
+            }
+        }
+        for value in &mut matrix[3][..3] {
+            *value = down(mul(f64::from(*value), 0.125));
+        }
+        matrix[3][3] = 1.;
+        matrix
+    }
+}

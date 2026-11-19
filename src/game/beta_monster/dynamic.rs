@@ -277,7 +277,7 @@ impl MovingCell {
     }
 }
 
-fn normalize(v: [f32; 3]) -> [f32; 3] {
+pub(super) fn normalize(v: [f32; 3]) -> [f32; 3] {
     let factor = inverse_scale(v);
     v.map(|value| down(mul(f64::from(value), f64::from(factor))))
 }
