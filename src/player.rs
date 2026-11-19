@@ -296,13 +296,11 @@ impl App {
             limit,
         })
     }
-    fn frame(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(target_os = "macos")]
-        self.music.check()?;
-        let frame = self
-            .clock
-            .advance(self.start.elapsed().as_millis() as i32, self.doc.bpm);
-        let mouse = self.mouse.map(|v| v as i32);
+    fn tick_frame(
+        &mut self,
+        frame: &kkrieger_oxide::game::frame::Frame,
+        mouse: [i32; 2],
+    ) -> Result<bool, Box<dyn std::error::Error>> {
         let tick = self.simulation.tick(
             &mut self.execution,
             &self.doc,
@@ -312,7 +310,7 @@ impl App {
         )?;
         if tick.quit {
             window::quit();
-            return Ok(());
+            return Ok(true);
         }
         if tick.options_changed {
             let settings = kkrieger_oxide::game::options::Settings::read(&self.execution.switches)?;
@@ -326,8 +324,24 @@ impl App {
         self.music.tick(tick, frame.time)?;
         #[cfg(not(target_os = "macos"))]
         let _ = tick;
+        Ok(false)
+    }
+    fn frame(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        #[cfg(target_os = "macos")]
+        self.music.check()?;
+        let frame = self
+            .clock
+            .advance(self.start.elapsed().as_millis() as i32, self.doc.bpm);
+        let mouse = self.mouse.map(|v| v as i32);
+        let tick_after_paint = self.doc.layout == kkrieger_oxide::kx::Layout::Beta2004;
+        if !tick_after_paint && self.tick_frame(&frame, mouse)? {
+            return Ok(());
+        }
         let (width, height) = window::screen_size();
         if width <= 0. || height <= 0. {
+            if tick_after_paint {
+                self.tick_frame(&frame, mouse)?;
+            }
             return Ok(());
         }
         let master = Viewport {
@@ -403,6 +417,13 @@ impl App {
         present.draw(&mut **ctx, source);
         ctx.end_render_pass();
         ctx.commit_frame();
+        drop(graphics);
+        if tick_after_paint {
+            self.execution.overlay.as_mut().unwrap().reset();
+            if self.tick_frame(&frame, mouse)? {
+                return Ok(());
+            }
+        }
         self.frames += 1;
         if self.limit.is_some_and(|limit| self.frames >= limit) {
             window::quit();

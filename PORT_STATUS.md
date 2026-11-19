@@ -2044,3 +2044,20 @@ particle truncation failure; it does not prove GPU pixels or complete gameplay.
 Sixteen targeted particle regressions pass, the explicitly invoked extracted
 startup gate passes (11.88 seconds), and Clippy for those targets, the resource
 test and player binary passes. Formatting and whitespace checks pass.
+
+### Released window-adapter paint-before-tick order
+
+The application adapter now runs beta OnTick after scene execution and screen
+presentation, releasing the graphics borrow before processing tick effects.
+It also resets CPU postprocessing target ownership after presentation, matching
+the existing before-root reset. The development path retains its previous
+tick-before-paint order. A zero-size window skips painting but still ticks; this
+host-window behavior is not independently native-verified.
+
+The startup oracle now verifies the pinned native main-loop root execution,
+presentation, post-presentation reset and OnTick call order. Seventeen targeted
+frame/simulation/dispatch/startup tests pass; player Clippy, formatting and
+whitespace checks pass. The CPU extracted startup test already exercises the
+released order, but an actual beta windowed/GPU run remains pending because the
+embedded player still loads the development document. Full native GPU cache
+reset semantics and rendered parity remain open.

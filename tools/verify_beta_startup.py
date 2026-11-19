@@ -43,4 +43,12 @@ out.extend(u.mem_read(game+0x14fe8,256))
 from capstone import Cs,CS_ARCH_X86,CS_MODE_32
 instructions=Cs(CS_ARCH_X86,CS_MODE_32).disasm(image[0x81e9be-0x7c0000:0x81ea44-0x7c0000],0x81e9be)
 assert [i.op_str for i in instructions if i.mnemonic=='call']==['0x81429e','0x818d42','0x8142e1','0x814e2f','0x81429e']
+# The released frame presents and resets targets before invoking game OnTick.
+frame=list(Cs(CS_ARCH_X86,CS_MODE_32).disasm(image[0x81e8f8-0x7c0000:0x81eaf0-0x7c0000],0x81e8f8))
+calls=[(i.address,i.op_str) for i in frame if i.mnemonic=='call']
+root_call=next(address for address,target in calls if target=='0x818d42')
+present_call=next(address for address,target in calls if target=='0x814e2f')
+tick_call=next(address for address,target in calls if target=='0x81dd4c')
+assert root_call < present_call < tick_call
+assert any(present_call < address < tick_call and target=='0x81429e' for address,target in calls)
 p=root/'tests/fixtures/beta-startup.bin';p.write_bytes(out);print(len(out),hashlib.sha256(out).hexdigest())
