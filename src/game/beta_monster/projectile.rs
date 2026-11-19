@@ -20,36 +20,9 @@ impl Point {
         events: &crate::scene::event::Scheduler,
         hits: &mut super::hit::HitRegistry,
     ) -> Result<(), &'static str> {
-        let words = self
-            .event
-            .map(|id| {
-                events
-                    .events
-                    .get(&id)
-                    .ok_or("released projectile event missing")?
-                    .try_borrow()
-                    .map_err(|_| "released projectile event already borrowed")
-                    .map(|event| event.released_hit_state())
-            })
-            .transpose()?;
-        if hits
-            .bound_event(particle)
-            .is_some_and(|id| Some(id) != self.event)
-        {
-            return Err("particle bound to another event");
-        }
-        hits.shots.insert(
-            particle,
-            super::hit::Shot {
-                kind: self.particle.flags[3],
-                event: words,
-            },
-        );
-        if let Some((id, words)) = self.event.zip(words) {
-            hits.bind_event(particle, id, words)?;
-        }
-        Ok(())
+        register_particle_event(self.particle.flags[3], self.event, particle, events, hits)
     }
+
     pub fn new(
         words: &[u32],
         matrix: Matrix,
@@ -79,6 +52,38 @@ impl Point {
             skip_player,
         })
     }
+}
+
+fn register_particle_event(
+    kind: u32,
+    event: Option<Id>,
+    particle: usize,
+    events: &crate::scene::event::Scheduler,
+    hits: &mut super::hit::HitRegistry,
+) -> Result<(), &'static str> {
+    let words = event
+        .map(|id| {
+            events
+                .events
+                .get(&id)
+                .ok_or("released projectile event missing")?
+                .try_borrow()
+                .map_err(|_| "released projectile event already borrowed")
+                .map(|event| event.released_hit_state())
+        })
+        .transpose()?;
+    if hits
+        .bound_event(particle)
+        .is_some_and(|id| Some(id) != event)
+    {
+        return Err("particle bound to another event");
+    }
+    hits.shots
+        .insert(particle, super::hit::Shot { kind, event: words });
+    if let Some((id, words)) = event.zip(words) {
+        hits.bind_event(particle, id, words)?;
+    }
+    Ok(())
 }
 
 /// Validate the full event batch before applying hit fields to live scene events.
@@ -122,6 +127,22 @@ pub fn prepare_points(
     events: &crate::scene::event::Scheduler,
     hits: &mut super::hit::HitRegistry,
 ) -> Result<Vec<super::runtime::RegisteredPoint>, &'static str> {
+    Ok(prepare_projectiles(points, &[], first_particle, player_cell, events, hits)?.points)
+}
+
+pub struct PreparedProjectiles {
+    pub points: Vec<super::runtime::RegisteredPoint>,
+    pub boxes: Vec<super::runtime::RegisteredBox>,
+}
+/// Stage all point and box bindings together; commit only after full validation.
+pub fn prepare_projectiles(
+    points: &[std::rc::Rc<std::cell::RefCell<Point>>],
+    boxes: &[std::rc::Rc<std::cell::RefCell<BoxProjectile>>],
+    first_particle: usize,
+    player_cell: Option<usize>,
+    events: &crate::scene::event::Scheduler,
+    hits: &mut super::hit::HitRegistry,
+) -> Result<PreparedProjectiles, &'static str> {
     let mut identities = std::collections::BTreeMap::new();
     let mut staged = super::hit::HitRegistry::default();
     let mut registrations = Vec::with_capacity(points.len());
@@ -147,8 +168,42 @@ pub fn prepare_points(
             skip_cell: if state.skip_player { player_cell } else { None },
         });
     }
+    let mut box_identities = std::collections::BTreeMap::new();
+    let mut box_registrations = Vec::with_capacity(boxes.len());
+    for projectile in boxes {
+        let pointer = std::rc::Rc::as_ptr(projectile);
+        let particles = if let Some(&ids) = box_identities.get(&pointer) {
+            ids
+        } else {
+            let base = box_identities
+                .len()
+                .checked_mul(8)
+                .and_then(|n| n.checked_add(identities.len()))
+                .and_then(|n| first_particle.checked_add(n))
+                .ok_or("released box particle identity overflow")?;
+            base.checked_add(7)
+                .ok_or("released box particle identity overflow")?;
+            let ids = std::array::from_fn(|index| base + index);
+            box_identities.insert(pointer, ids);
+            ids
+        };
+        let state = projectile
+            .try_borrow_mut()
+            .map_err(|_| "released box already borrowed")?;
+        for (particle, id) in state.body.particles.iter().zip(particles) {
+            register_particle_event(particle.flags[3], state.event, id, events, &mut staged)?;
+        }
+        box_registrations.push(super::runtime::RegisteredBox {
+            projectile: std::rc::Rc::clone(projectile),
+            particles,
+            skip_cell: if state.skip_player { player_cell } else { None },
+        });
+    }
     hits.replace_projectile_bindings(staged);
-    Ok(registrations)
+    Ok(PreparedProjectiles {
+        points: registrations,
+        boxes: box_registrations,
+    })
 }
 
 /// Persistent released Physic mode-1 state, shared by frame registrations.

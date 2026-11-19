@@ -284,6 +284,12 @@ pub struct RegisteredPoint {
     pub particle: usize,
     pub skip_cell: Option<usize>,
 }
+#[derive(Clone)]
+pub struct RegisteredBox {
+    pub projectile: std::rc::Rc<std::cell::RefCell<super::projectile::BoxProjectile>>,
+    pub particles: [usize; 8],
+    pub skip_cell: Option<usize>,
+}
 #[derive(Clone, Copy)]
 pub struct PhysicsRoster<'a> {
     pub registry: &'a super::registry::Registry,

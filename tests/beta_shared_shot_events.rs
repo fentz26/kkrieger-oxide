@@ -146,3 +146,123 @@ fn point_event_binding_and_commit_preserve_live_event_fields_and_retry() {
     assert_eq!(event.interval, [0.25, 0.75]);
     assert_eq!(event.modulation, 5.);
 }
+
+#[test]
+fn point_and_box_rosters_share_one_live_event_and_preserve_box_aliases() {
+    use kkrieger_oxide::{
+        game::beta_monster::projectile::{
+            BoxProjectile, Point, prepare_projectiles, sync_hit_events,
+        },
+        mesh::identity,
+        scene::event::{Event, Scheduler},
+    };
+    use std::{cell::RefCell, rc::Rc};
+    let mut events = Scheduler::default();
+    let event = events.insert(
+        Event {
+            start: 50,
+            end: 100,
+            ..Default::default()
+        },
+        true,
+    );
+    let mut words = [0; 12];
+    words[0] = 0x20;
+    words[11] = 8;
+    let point = Rc::new(RefCell::new(
+        Point::new(&words, identity(), None, Some(event)).unwrap(),
+    ));
+    words[0] = 0x21;
+    words[4..7].fill(1f32.to_bits());
+    let body = Rc::new(RefCell::new(
+        BoxProjectile::new(&words, identity(), None, Some(event)).unwrap(),
+    ));
+    let mut hits = HitRegistry::default();
+    hits.time = 20;
+    hits.operators[0][0] = 19;
+    let prepared = prepare_projectiles(
+        &[point],
+        &[body.clone(), body.clone()],
+        5,
+        Some(3),
+        &events,
+        &mut hits,
+    )
+    .unwrap();
+    assert_eq!(prepared.points[0].particle, 5);
+    assert_eq!(prepared.boxes[0].particles, [6, 7, 8, 9, 10, 11, 12, 13]);
+    assert_eq!(prepared.boxes[0].particles, prepared.boxes[1].particles);
+    assert_eq!(prepared.boxes[0].skip_cell, Some(3));
+    assert_eq!(hits.shots.len(), 9);
+    let contact = ParticleContact {
+        cell: 0,
+        particle: 13,
+        kind: 8,
+        position: [0., 0., 0., 1.],
+        plane: [0., 1., 0., 0.],
+        monster: false,
+    };
+    let mut select = hits.first_particle(13).unwrap().shot_select;
+    hits.particle_hit(contact, &mut select);
+    for id in 5..14 {
+        assert_eq!(hits.first_particle(id).unwrap().shot_select, Some(1));
+    }
+    assert_eq!(hits.pending.len(), 1);
+    sync_hit_events(&events, &hits).unwrap();
+    assert_eq!(events.events[&event].borrow().shot_time, 20);
+    let guard = body.borrow();
+    assert!(
+        prepare_projectiles(
+            &[],
+            std::slice::from_ref(&body),
+            20,
+            None,
+            &events,
+            &mut hits
+        )
+        .is_err()
+    );
+    assert_eq!(hits.shots.len(), 9);
+    drop(guard);
+    assert!(
+        prepare_projectiles(
+            &[],
+            std::slice::from_ref(&body),
+            usize::MAX - 6,
+            None,
+            &events,
+            &mut hits
+        )
+        .is_err()
+    );
+    assert_eq!(hits.shots.len(), 9);
+    assert_eq!(hits.pending.len(), 1);
+    events.events.remove(&event);
+    assert!(
+        prepare_projectiles(
+            &[],
+            std::slice::from_ref(&body),
+            20,
+            None,
+            &events,
+            &mut hits
+        )
+        .is_err()
+    );
+    assert_eq!(hits.shots.len(), 9);
+    body.borrow_mut().event = None;
+    let last = prepare_projectiles(
+        &[],
+        &[body.clone(), body],
+        usize::MAX - 7,
+        None,
+        &events,
+        &mut hits,
+    )
+    .unwrap();
+    assert_eq!(last.boxes[0].particles[7], usize::MAX);
+    assert_eq!(last.boxes[0].particles, last.boxes[1].particles);
+    assert_eq!(hits.shots.len(), 8);
+    sync_hit_events(&events, &hits).unwrap();
+    assert_eq!(hits.pending.len(), 1);
+}

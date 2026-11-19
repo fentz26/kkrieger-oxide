@@ -1792,3 +1792,16 @@ replaced callees; 32 captures with one through four passes match every particle
 word. Checks also cover rejected identity/constraint registrations before
 mutation and skipped force addition after a dynamic-phase error. Integrating
 boxes with the interleaved scene roster and shared event aliases remains pending.
+
+### Shared point and box event preparation
+
+Projectile preparation can stage point and box registrations together, assigning
+eight consecutive identities per distinct box while retaining repeated box
+references as aliases. Every corner binds to the owning scene event through the
+same hit-state bridge as point projectiles, so an impact on any corner updates
+all aliases immediately. Staging commits only after borrow, event and identity
+range validation. Checks cover a point plus eight box corners sharing one event,
+a single queued effect, repeated box references, missing events, borrow failures,
+overflow and the last valid eight-ID range. Point-only callers delegate to this
+preparation path. The main loop still needs box roster scheduling and dynamic
+reconciliation before it can select combined point/box preparation.
