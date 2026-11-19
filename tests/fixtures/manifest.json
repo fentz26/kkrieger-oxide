@@ -714,6 +714,10 @@
     "beta-player-hit.bin": {
       "bytes": 58756,
       "sha256": "f87b694d206ccbc90a6c2e6c5bb61e703375caaa57162ea7f15253f3a4a72b5f"
+    },
+    "beta-player-control.bin": {
+      "bytes": 95748,
+      "sha256": "51aef56467870b1a802b0584f9ad0fd23523e4eb03fbca38e9279f804e8a394c"
     }
   }
 }

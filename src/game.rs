@@ -1,5 +1,6 @@
 //! Original gameplay state and operator parameter application.
 pub mod beta_monster;
+pub mod beta_player;
 pub mod checkpoint;
 pub mod event_runtime;
 pub mod frame;

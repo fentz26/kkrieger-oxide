@@ -1505,3 +1505,16 @@ the existing motion layer. Development placement retains its fallback. A check
 covers outside/inside placement, stable hit-cell identity and preserved movement
 timers. Released five-particle player stepping and hitbox registration remain
 pending; the current motion integration still uses the development collider.
+
+### Released pre-physics player input translation ported
+
+The released instructions at 0x81e399..0x81e4a1 now have a Rust counterpart in
+beta_player::Control::prepare. The function translates all five current particle
+positions using the authored side/forward axes, consumes speed-up, applies the
+released ground-height correction, updates air time and emits landing audio.
+A native oracle executes the original vector operations and body translation;
+128 captures cover different axes, gains, gravity, slice counts, ground/air
+conditions and unordered comparisons. Particle positions and control fields
+match exactly; histories, forces and constraints remain unchanged. This input
+stage is not yet wired into live Motion: player body persistence, shared physics
+ordering, ground queries and released hitbox registration remain necessary.
