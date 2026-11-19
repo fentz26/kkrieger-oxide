@@ -338,6 +338,23 @@ impl ActorFrame {
         registry: &Registry,
         prefix: &mut [(super::body::Body, BodyRegistration)],
     ) -> Result<(), &'static str> {
+        self.reconcile_all_stages(runtime, registry, prefix, None)
+    }
+    pub fn reconcile_all_with_roster(
+        &mut self,
+        runtime: &mut super::runtime::CollisionRuntime<'_, '_>,
+        roster: super::runtime::PhysicsRoster<'_>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+    ) -> Result<(), &'static str> {
+        self.reconcile_all_stages(runtime, roster.registry, prefix, Some(roster))
+    }
+    fn reconcile_all_stages(
+        &mut self,
+        runtime: &mut super::runtime::CollisionRuntime<'_, '_>,
+        registry: &Registry,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+        roster: Option<super::runtime::PhysicsRoster<'_>>,
+    ) -> Result<(), &'static str> {
         if runtime.candidates.dynamic_cells.len() != self.cells.len() + self.scene.len() {
             return Err("released dynamic registry count differs");
         }
@@ -373,13 +390,17 @@ impl ActorFrame {
                     interrupted: runtime.interrupted,
                     error: runtime.error,
                 };
-                let result = probe.reconcile_body_roster(
-                    index,
-                    &mut proposed,
-                    registry,
-                    &self.bodies,
-                    prefix,
-                );
+                let result = if let Some(roster) = roster {
+                    probe.reconcile_mixed_roster(index, &mut proposed, roster, prefix)
+                } else {
+                    probe.reconcile_body_roster(
+                        index,
+                        &mut proposed,
+                        registry,
+                        &self.bodies,
+                        prefix,
+                    )
+                };
                 runtime.interrupted = probe.interrupted;
                 runtime.error = probe.error;
                 for (target, source) in runtime.zones.iter_mut().zip(probe.zones.iter()) {

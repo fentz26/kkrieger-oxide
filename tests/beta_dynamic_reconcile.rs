@@ -136,3 +136,47 @@ fn probe_error_restores_position_and_blocks_cell() {
     assert_eq!(cell.confirmed, confirmed);
     assert_eq!(cell.mode, 0x21);
 }
+
+#[test]
+fn sequential_visits_can_probe_the_same_registered_particle_twice() {
+    let original = [
+        [1., 0., 0., 1.],
+        [-1., 0., 0., 1.],
+        [0., 1., 0., 1.],
+        [0., -1., 0., 1.],
+        [0., 0., 1., 1.],
+        [0., 0., -1., 1.],
+    ];
+    let confirmed = kkrieger_oxide::mesh::identity();
+    let mut current = confirmed;
+    current[3][0] = 0.2;
+    let mut cell = MovingCell {
+        original,
+        count: 6,
+        confirmed,
+        current,
+        mode: 0x21,
+        monster: true,
+        pose: Pose::apply(&original, confirmed).unwrap(),
+    };
+    let mut body = Body::new([0., 0., 0., 1.], Some(0), 8);
+    body.particles[0].vectors[0][3] = 1.;
+    let before = body.particles[0].vectors[0];
+    let mut trace = Vec::new();
+    cell.reconcile_visit(
+        |visit| {
+            visit(&mut body.particles[0], false, 0)?;
+            visit(&mut body.particles[0], false, 1)
+        },
+        |id, p| {
+            trace.push(id);
+            p.force[0] += 1.;
+            Ok(Completion::Clear)
+        },
+    )
+    .unwrap();
+    assert_eq!(trace, [0, 1]);
+    assert_eq!(body.particles[0].vectors[0], before);
+    assert_eq!(body.particles[0].force[0], 2.);
+    assert_eq!(cell.confirmed, current);
+}

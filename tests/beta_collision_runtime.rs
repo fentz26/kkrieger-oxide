@@ -286,6 +286,70 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
     assert_eq!(projectile.force[0], 0.01);
     projectile.apply_force();
     assert_eq!(projectile.force, [0.; 4]);
+    use kkrieger_oxide::game::beta_monster::{
+        projectile::{PhysicsSlot, Point},
+        runtime::{PhysicsRoster, RegisteredPoint},
+    };
+    let point = std::rc::Rc::new(std::cell::RefCell::new(Point {
+        flags: 0,
+        particle: projectile,
+        event: None,
+        skip_player: false,
+    }));
+    let points = [RegisteredPoint {
+        point: std::rc::Rc::clone(&point),
+        particle: 999,
+        skip_cell: None,
+    }];
+    let colliders = [];
+    let registrations = Default::default();
+    let order = [PhysicsSlot::Point(0)];
+    let roster = PhysicsRoster {
+        registry: &registry,
+        colliders: &colliders,
+        registrations: &registrations,
+        points: &points,
+        order: &order,
+    };
+    moving.monster = true;
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    let position = point.borrow().particle.vectors[0];
+    runtime
+        .reconcile_mixed_roster(0, &mut moving, roster, &mut [])
+        .unwrap();
+    assert!(
+        moving.pose.blocked,
+        "moving monster hull probes projectile particles"
+    );
+    assert_eq!(point.borrow().particle.vectors[0], position);
+    assert_eq!(runtime.particle_id, 999);
+    assert_eq!(runtime.skip_cell, Some(0));
+    let owned_points = [RegisteredPoint {
+        skip_cell: Some(0),
+        ..points[0].clone()
+    }];
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    runtime
+        .reconcile_mixed_roster(
+            0,
+            &mut moving,
+            PhysicsRoster {
+                points: &owned_points,
+                ..roster
+            },
+            &mut [],
+        )
+        .unwrap();
+    assert!(!moving.pose.blocked);
+    assert_eq!(moving.confirmed, moving.current);
+    let held = point.borrow();
+    assert_eq!(
+        runtime.reconcile_mixed_roster(0, &mut moving, roster, &mut []),
+        Err("released point already borrowed")
+    );
+    assert_eq!(held.particle.vectors[0], position);
 }
 
 #[test]
@@ -809,6 +873,13 @@ fn player_and_registered_actors_share_physics_phase_boundaries() {
     );
     assert_eq!(prefix[0].0, before);
     drop(borrowed);
+    let shared = point.borrow();
+    assert_eq!(
+        runtime.step_mixed_roster(roster, &mut prefix, settings, |_, _, _, _| Ok(())),
+        Err("released point already borrowed")
+    );
+    assert_eq!(prefix[0].0, before);
+    drop(shared);
     runtime
         .step_mixed_roster(
             roster,

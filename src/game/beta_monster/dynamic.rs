@@ -197,10 +197,31 @@ impl MovingCell {
     pub fn reconcile_with<'p, C, I, F>(
         &mut self,
         particles: I,
-        mut probe: F,
+        probe: F,
     ) -> Result<(), &'static str>
     where
         I: IntoIterator<Item = (&'p mut super::body::Particle, bool, C)>,
+        F: FnMut(
+            C,
+            &mut super::body::Particle,
+        ) -> Result<super::collision::Completion, &'static str>,
+    {
+        self.reconcile_visit(
+            |visit| {
+                for (particle, owned, context) in particles {
+                    visit(particle, owned, context)?;
+                }
+                Ok(())
+            },
+            probe,
+        )
+    }
+    /// Visit borrowed particle groups sequentially, including repeated identities.
+    pub fn reconcile_visit<C, V, F>(&mut self, visit: V, mut probe: F) -> Result<(), &'static str>
+    where
+        V: FnOnce(
+            &mut dyn FnMut(&mut super::body::Particle, bool, C) -> Result<(), &'static str>,
+        ) -> Result<(), &'static str>,
         F: FnMut(
             C,
             &mut super::body::Particle,
@@ -213,30 +234,37 @@ impl MovingCell {
         let proposed = Pose::apply(original, self.current)?;
         let delta = motion_delta(self.confirmed, self.current);
         let mut blocked = false;
-        for (particle, owned, context) in particles {
-            if owned || (self.monster && !(8..16).contains(&particle.flags[3])) {
-                continue;
-            }
-            let position = particle.vectors[0];
-            if super::hull::outside_mask(&proposed.planes[..self.count], position, 0.) != 0 {
-                continue;
-            }
-            let Some(target) = project_particle(position, delta, &proposed.planes[..self.count])
-            else {
-                blocked = true;
-                continue;
-            };
-            particle.vectors[0] = target;
-            let result = probe(context, particle);
-            particle.vectors[0] = position;
-            match result {
-                Ok(super::collision::Completion::Clear) => {}
-                Ok(_) => blocked = true,
-                Err(error) => {
-                    self.pose.blocked = true;
-                    return Err(error);
+        let result = visit(
+            &mut |particle: &mut super::body::Particle, owned, context| {
+                if owned || (self.monster && !(8..16).contains(&particle.flags[3])) {
+                    return Ok(());
                 }
-            }
+                let position = particle.vectors[0];
+                if super::hull::outside_mask(&proposed.planes[..self.count], position, 0.) != 0 {
+                    return Ok(());
+                }
+                let Some(target) =
+                    project_particle(position, delta, &proposed.planes[..self.count])
+                else {
+                    blocked = true;
+                    return Ok(());
+                };
+                particle.vectors[0] = target;
+                let result = probe(context, particle);
+                particle.vectors[0] = position;
+                match result {
+                    Ok(super::collision::Completion::Clear) => {}
+                    Ok(_) => blocked = true,
+                    Err(error) => {
+                        return Err(error);
+                    }
+                }
+                Ok(())
+            },
+        );
+        if let Err(error) = result {
+            self.pose.blocked = true;
+            return Err(error);
         }
         if blocked {
             self.pose.blocked = true;

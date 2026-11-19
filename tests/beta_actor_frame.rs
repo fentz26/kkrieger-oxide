@@ -237,3 +237,104 @@ fn released_player_particles_collide_with_scene_owned_wall() {
     assert_eq!(accepted.dynamic_views().unwrap().len(), 1);
     assert_eq!(source.borrow().cell.mode & 0x20, 0);
 }
+
+#[test]
+fn frame_reconciliation_includes_registered_point_projectiles() {
+    use kkrieger_oxide::{
+        collision::{Cell, DynamicCell},
+        game::beta_monster::{
+            hit::Shot,
+            projectile::{PhysicsSlot, Point},
+            registration::ActorFrame,
+            runtime::{CollisionRuntime, PhysicsRoster, RegisteredPoint},
+            scene_cells::SceneCell,
+            subtractive::CandidateWorld,
+        },
+    };
+    use std::{cell::RefCell, rc::Rc};
+    let mut simulation = ActorSimulation::new(StaticWorld::new([(
+        HitBox {
+            matrix: identity(),
+            scale: [20.; 3],
+        }
+        .vertices(),
+        0,
+    )]));
+    let source = Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [2.; 3], 1),
+        identity(),
+    )));
+    source.borrow_mut().cell.mode &= !0x20;
+    let registry = Registry::default();
+    let mut accepted = ActorFrame::capture(&registry, &[], 5).unwrap();
+    accepted
+        .attach_scene(vec![SceneCell::capture(Rc::clone(&source), false).unwrap()])
+        .unwrap();
+    accepted.scene[0].cell.current[3][0] = 0.2;
+    let captured = accepted.clone();
+    let mut views = captured.dynamic_views().unwrap();
+    let mut words = [0; 12];
+    words[10] = 1f32.to_bits();
+    words[11] = 8;
+    let point = Rc::new(RefCell::new(
+        Point::new(&words, identity(), Some(0), None).unwrap(),
+    ));
+    simulation.hits.shots.insert(
+        999,
+        Shot {
+            kind: 8,
+            event: None,
+        },
+    );
+    let points = [RegisteredPoint {
+        point: Rc::clone(&point),
+        particle: 999,
+        skip_cell: None,
+    }];
+    let registrations = Default::default();
+    let order = [PhysicsSlot::Point(0)];
+    let roster = PhysicsRoster {
+        registry: &registry,
+        colliders: &[],
+        registrations: &registrations,
+        points: &points,
+        order: &order,
+    };
+    let adds = simulation.world.additive_views();
+    let statics = simulation.world.static_views();
+    let lists: Vec<_> = simulation
+        .world
+        .subtractive_lists
+        .iter()
+        .map(Vec::as_slice)
+        .collect();
+    let zone_lists: Vec<_> = simulation
+        .world
+        .zone_lists
+        .iter()
+        .map(Vec::as_slice)
+        .collect();
+    let mut runtime = CollisionRuntime {
+        adds: &adds,
+        candidates: CandidateWorld {
+            static_cells: &statics,
+            lists: &lists,
+            dynamic_cells: &mut views,
+        },
+        zones: &mut [],
+        zone_lists: &zone_lists,
+        hits: &mut simulation.hits,
+        particle_id: 999,
+        skip_cell: None,
+        monster_mode: false,
+        interrupted: false,
+        error: None,
+    };
+    let before = point.borrow().particle.vectors[0];
+    accepted
+        .reconcile_all_with_roster(&mut runtime, roster, &mut [])
+        .unwrap();
+    assert!(accepted.scene[0].cell.pose.blocked);
+    assert_eq!(source.borrow().blocked, 1);
+    assert_eq!(point.borrow().particle.vectors[0], before);
+}

@@ -1663,3 +1663,16 @@ force application, missing identities, duplicate slots and conflicting point
 borrows, alongside existing native particle fixtures and actor frame tests.
 The main frame still needs point-event registration/synchronization and point
 participation in dynamic reconciliation before selecting this mixed path.
+
+### Point projectiles participate in moving-hull reconciliation
+
+MovingCell now supports sequential borrowed-particle visits, allowing repeated
+registrations of one particle without simultaneous mutable borrows. Existing
+iterator entry points use that same implementation and still match the native
+reconciliation fixtures. The runtime and actor frame can reconcile against a
+mixed actor/point roster, retaining probe order, owned-cell exclusions, position
+restoration and accepted/blocked publication. Checks include a point rejecting a
+moving hull, live scene blocked-state publication, repeated visits and shared/
+exclusive borrow rejection before mutation. Native registration append routines
+were inspected to confirm repeated pointers are retained. Main-tick point event
+registration/synchronization and end-to-end projectile impacts remain pending.

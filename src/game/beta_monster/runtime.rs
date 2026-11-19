@@ -701,21 +701,11 @@ impl CollisionRuntime<'_, '_> {
     }
     /// Player prefix bodies precede the mixed actor/point registration sequence.
     /// Dynamic processing runs after every particle step and before every force add.
-    pub fn step_mixed_roster<F>(
-        &mut self,
+    fn validate_roster(
+        &self,
         roster: PhysicsRoster<'_>,
-        prefix: &mut [(super::body::Body, BodyRegistration)],
-        settings: super::physics::Settings,
-        dynamic: F,
-    ) -> Result<(), &'static str>
-    where
-        F: FnOnce(
-            &mut Self,
-            &super::registry::Registry,
-            &mut [(super::body::Body, BodyRegistration)],
-            &[RegisteredPoint],
-        ) -> Result<(), &'static str>,
-    {
+        prefix: &[(super::body::Body, BodyRegistration)],
+    ) -> Result<(), &'static str> {
         use super::projectile::PhysicsSlot;
         let PhysicsRoster {
             registry,
@@ -756,7 +746,7 @@ impl CollisionRuntime<'_, '_> {
         for registration in points {
             let point = registration
                 .point
-                .try_borrow()
+                .try_borrow_mut()
                 .map_err(|_| "released point already borrowed")?;
             self.validate_particle_at(
                 &point.particle,
@@ -767,6 +757,32 @@ impl CollisionRuntime<'_, '_> {
                 return Err("five-particle group truncated");
             }
         }
+        Ok(())
+    }
+    pub fn step_mixed_roster<F>(
+        &mut self,
+        roster: PhysicsRoster<'_>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+        settings: super::physics::Settings,
+        dynamic: F,
+    ) -> Result<(), &'static str>
+    where
+        F: FnOnce(
+            &mut Self,
+            &super::registry::Registry,
+            &mut [(super::body::Body, BodyRegistration)],
+            &[RegisteredPoint],
+        ) -> Result<(), &'static str>,
+    {
+        use super::projectile::PhysicsSlot;
+        self.validate_roster(roster, prefix)?;
+        let PhysicsRoster {
+            registry,
+            colliders,
+            registrations,
+            points,
+            order,
+        } = roster;
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
             for (body, _) in prefix.iter_mut() {
@@ -892,6 +908,75 @@ impl AsMut<super::body::Body> for BorrowedBody<'_> {
     }
 }
 impl CollisionRuntime<'_, '_> {
+    /// Reconcile against the same mixed body order used by the particle phase.
+    pub fn reconcile_mixed_roster(
+        &mut self,
+        index: usize,
+        cell: &mut super::dynamic::MovingCell,
+        roster: PhysicsRoster<'_>,
+        prefix: &mut [(super::body::Body, BodyRegistration)],
+    ) -> Result<(), &'static str> {
+        use super::projectile::PhysicsSlot;
+        if index >= self.candidates.dynamic_cells.len() {
+            return Err("moving cell index out of range");
+        }
+        self.validate_roster(roster, prefix)?;
+        let previous = (self.particle_id, self.skip_cell);
+        let result = cell.reconcile_visit(
+            |visit| {
+                for (body, registration) in prefix.iter_mut() {
+                    for (particle, id) in body.particles.iter_mut().zip(registration.particles) {
+                        visit(
+                            particle,
+                            registration.skip_cell == Some(index),
+                            (id, registration.skip_cell),
+                        )?;
+                    }
+                }
+                for slot in roster.order {
+                    match *slot {
+                        PhysicsSlot::Actor(actor_index) => roster.registry.visit_tokens(
+                            &roster.colliders[actor_index..actor_index + 1],
+                            |token, actor| {
+                                let registration = &roster.registrations[&token];
+                                for (particle, id) in
+                                    actor.body.particles.iter_mut().zip(registration.particles)
+                                {
+                                    visit(
+                                        particle,
+                                        registration.skip_cell == Some(index),
+                                        (id, registration.skip_cell),
+                                    )?;
+                                }
+                                Ok(())
+                            },
+                        )?,
+                        PhysicsSlot::Point(point_index) => {
+                            let registration = &roster.points[point_index];
+                            let mut point = registration
+                                .point
+                                .try_borrow_mut()
+                                .map_err(|_| "released point already borrowed")?;
+                            visit(
+                                &mut point.particle,
+                                registration.skip_cell == Some(index),
+                                (registration.particle, registration.skip_cell),
+                            )?;
+                        }
+                    }
+                }
+                Ok(())
+            },
+            |(id, skip), particle| {
+                self.particle_id = id;
+                self.skip_cell = skip;
+                self.collide(particle, true)
+            },
+        );
+        self.particle_id = previous.0;
+        self.skip_cell = previous.1;
+        result
+    }
     pub fn reconcile_registered(
         &mut self,
         index: usize,
