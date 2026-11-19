@@ -32,7 +32,9 @@ support = support.replace('#define sGMI_UV0 4', '''#define sGMI_UV0 5
 #define sPLAYER 1
 #define __stdcall
 float sFAbs(float f){return fabsf(f);}
-void sFSinCos(float f,float&s,float&c){s=sinf(f);c=cosf(f);}
+// Source sFSinCos executes x87 fsincos, then stores its two float results.
+// Host sinf/cosf approximations can differ before those single-precision stores.
+void sFSinCos(float f,float&s,float&c){s=float(sin(double(f)));c=float(cos(double(f)));}
 void sSetMem4(uint32_t*p,uint32_t v,int n){for(int i=0;i<n;i++)p[i]=v;}
 ''')
 support = support.replace('struct sVector{float x=0,y=0,z=0,w=0;};', '''struct sVector{float x=0,y=0,z=0,w=0;

@@ -231,12 +231,7 @@ pub fn identity() -> Matrix {
 pub fn srt_matrix(srt: &[f32; 9]) -> Matrix {
     let mut m = identity();
     if srt[3..6].iter().any(|a| a.abs() >= 1e-6) {
-        let (sx, cx) = (srt[3] * std::f32::consts::TAU).sin_cos();
-        let (sy, cy) = (srt[4] * std::f32::consts::TAU).sin_cos();
-        let (sz, cz) = (srt[5] * std::f32::consts::TAU).sin_cos();
-        m[0] = [cy * cz, cy * sz, -sy, 0.];
-        m[1] = [-cx * sz + sx * sy * cz, cx * cz + sx * sy * sz, sx * cy, 0.];
-        m[2] = [sx * sz + cx * sy * cz, -sx * cz + cx * sy * sz, cx * cy, 0.];
+        m = euler_matrix_fsincos(std::array::from_fn(|i| srt[3 + i] * std::f32::consts::TAU));
     }
     for (column, scale) in m[..3].iter_mut().zip(srt) {
         for x in &mut column[..3] {
@@ -263,15 +258,7 @@ pub fn euler_matrix_fsincos(angles: [f32; 3]) -> Matrix {
 }
 
 pub fn euler_matrix(angles: [f32; 3]) -> Matrix {
-    let (sx, cx) = angles[0].sin_cos();
-    let (sy, cy) = angles[1].sin_cos();
-    let (sz, cz) = angles[2].sin_cos();
-    [
-        [cy * cz, cy * sz, -sy, 0.],
-        [-cx * sz + sx * sy * cz, cx * cz + sx * sy * sz, sx * cy, 0.],
-        [sx * sz + cx * sy * cz, -sx * cz + cx * sy * sz, cx * cy, 0.],
-        [0., 0., 0., 1.],
-    ]
+    euler_matrix_fsincos(angles)
 }
 
 impl Mesh {
