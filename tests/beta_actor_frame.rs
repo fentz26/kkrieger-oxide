@@ -54,8 +54,11 @@ fn actor_frame_runs_physics_then_ai_with_captured_scene_colliders() {
         player_cell: Some(0),
         first_particle: 100,
     };
+    let accepted = simulation.physics(&registry, &[], &settings).unwrap();
+    assert_eq!(inventory.amounts[0], 100);
+    assert!(!registry.get(token).unwrap().borrow().active);
     let sounds = simulation
-        .step(&registry, &[], &mut inventory, &settings)
+        .think(&registry, &accepted, &mut inventory, &settings)
         .unwrap();
     assert_eq!(sounds.len(), 1);
     assert_eq!(inventory.amounts[0], 90);

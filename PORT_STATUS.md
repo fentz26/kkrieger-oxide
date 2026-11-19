@@ -1424,3 +1424,11 @@ exercises active physics (two colliders observed) and verifies finite particle
 state. Its reproducible ignored test passes with the larger traversal stack.
 This is a short stationary integration run. Player/projectile stepping, main
 application invocation, visual parity and full playthrough remain pending.
+
+### Separate released physics and AI stages
+
+ActorSimulation exposes physics and think stages with accepted ActorFrame
+geometry passed between them. The combined step delegates to these stages. This
+allows the main loop to preserve intervening zone/player work. Integration checks
+verify physics does not activate or attack, followed by AI activation/damage.
+Main-loop invocation and player/projectile parity remain pending.

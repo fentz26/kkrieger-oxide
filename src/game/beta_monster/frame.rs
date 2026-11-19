@@ -32,6 +32,15 @@ impl ActorSimulation {
         inventory: &mut crate::game::Inventory,
         settings: &Settings,
     ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
+        let accepted = self.physics(registry, colliders, settings)?;
+        self.think(registry, &accepted, inventory, settings)
+    }
+    pub fn physics(
+        &mut self,
+        registry: &Registry,
+        colliders: &[u32],
+        settings: &Settings,
+    ) -> Result<ActorFrame, &'static str> {
         if self.zone_masks.len() != self.world.hulls.len() {
             return Err("released zone registry count differs");
         }
@@ -85,6 +94,42 @@ impl ActorSimulation {
                 |runtime, registry| accepted.reconcile_all(runtime, registry),
             )?;
         }
+        for (target, zone) in self.zone_masks.iter_mut().zip(zones) {
+            *target = [zone.enter, zone.leave, zone.collided];
+        }
+        Ok(accepted)
+    }
+    pub fn think(
+        &mut self,
+        registry: &Registry,
+        accepted: &ActorFrame,
+        inventory: &mut crate::game::Inventory,
+        settings: &Settings,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
+        if self.zone_masks.len() != self.world.hulls.len() {
+            return Err("released zone registry count differs");
+        }
+        let adds = self.world.additive_views();
+        let statics = self.world.static_views();
+        let lists: Vec<_> = self
+            .world
+            .subtractive_lists
+            .iter()
+            .map(Vec::as_slice)
+            .collect();
+        let zone_lists: Vec<_> = self.world.zone_lists.iter().map(Vec::as_slice).collect();
+        let mut zones: Vec<_> = self
+            .world
+            .hulls
+            .iter()
+            .zip(&self.zone_masks)
+            .map(|(hull, masks)| Zone {
+                planes: &hull.planes[..hull.count],
+                enter: masks[0],
+                leave: masks[1],
+                collided: masks[2],
+            })
+            .collect();
         let sounds = {
             let mut views = accepted.dynamic_views()?;
             let mut runtime = CollisionRuntime {
