@@ -257,12 +257,13 @@ impl Execution {
                 switches: &self.switches,
                 fps: rendering.fps,
             };
-            super::print::draw(
+            super::print::draw_for_layout(
                 words,
                 op.strings.first().copied(),
                 matrix,
                 &context,
                 &values,
+                doc.layout,
             )
             .map_err(fail)?
             .map(|draw| super::effects::Content::Print(Box::new(draw)))

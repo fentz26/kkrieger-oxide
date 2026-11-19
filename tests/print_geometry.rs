@@ -110,3 +110,45 @@ fn native_original_print_layout_matches_vertex_and_index_words() {
     }
     assert!(bytes.is_empty());
 }
+
+#[test]
+fn released_print_has_five_words_and_planar_geometry() {
+    let words = [
+        4,
+        2f32.to_bits(),
+        3f32.to_bits(),
+        0.5f32.to_bits(),
+        1f32.to_bits(),
+    ];
+    let layout =
+        Layout::from_words_for_layout(&words, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
+    assert_eq!(layout.flags, 4);
+    assert_eq!(layout.size, [2., 3.]);
+    assert_eq!(layout.space, [0.5, 1.]);
+    assert_eq!(layout.radius.to_bits(), 0);
+    assert!(Layout::from_words(&words).is_err());
+    assert!(
+        Layout::from_words_for_layout(&words[..4], kkrieger_oxide::kx::Layout::Beta2004).is_err()
+    );
+}
+
+#[test]
+fn released_print_parameter_layout_matches_native_captures() {
+    let fixture = include_bytes!("fixtures/beta-print-layout.bin");
+    assert_eq!(u32::from_le_bytes(fixture[..4].try_into().unwrap()), 64);
+    assert_eq!(fixture.len(), 4 + 64 * 20);
+    for row in fixture[4..].as_chunks::<20>().0 {
+        let words: Vec<_> = row
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .map(|word| u32::from_le_bytes(*word))
+            .collect();
+        let layout =
+            Layout::from_words_for_layout(&words, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
+        assert_eq!(layout.flags, words[0]);
+        assert_eq!(layout.size.map(f32::to_bits), [words[1], words[2]]);
+        assert_eq!(layout.space.map(f32::to_bits), [words[3], words[4]]);
+        assert_eq!(layout.radius.to_bits(), 0);
+    }
+}

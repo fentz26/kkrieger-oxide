@@ -19,7 +19,25 @@ pub fn draw(
     context: &Context<'_>,
     values: &Values<'_>,
 ) -> Result<Option<Draw>, &'static str> {
-    let layout = Layout::from_words(words)?;
+    draw_for_layout(
+        words,
+        text,
+        matrix,
+        context,
+        values,
+        crate::kx::Layout::Current,
+    )
+}
+
+pub fn draw_for_layout(
+    words: &[u32],
+    text: Option<&[u8]>,
+    matrix: crate::mesh::Matrix,
+    context: &Context<'_>,
+    values: &Values<'_>,
+    document_layout: crate::kx::Layout,
+) -> Result<Option<Draw>, &'static str> {
+    let layout = Layout::from_words_for_layout(words, document_layout)?;
     if context.material_passes.unwrap_or(0) == 0 {
         return Ok(None);
     }
@@ -186,12 +204,21 @@ pub struct Geometry {
 }
 impl Layout {
     pub fn from_words(words: &[u32]) -> Result<Self, &'static str> {
-        let p = words.get(..6).ok_or("truncated Print parameters")?;
+        Self::from_words_for_layout(words, crate::kx::Layout::Current)
+    }
+    pub fn from_words_for_layout(
+        words: &[u32],
+        layout: crate::kx::Layout,
+    ) -> Result<Self, &'static str> {
+        let released = layout == crate::kx::Layout::Beta2004;
+        let p = words
+            .get(..if released { 5 } else { 6 })
+            .ok_or("truncated Print parameters")?;
         Ok(Self {
             flags: p[0],
             size: [f32::from_bits(p[1]), f32::from_bits(p[2])],
             space: [f32::from_bits(p[3]), f32::from_bits(p[4])],
-            radius: f32::from_bits(p[5]),
+            radius: if released { 0. } else { f32::from_bits(p[5]) },
         })
     }
     pub fn environment(

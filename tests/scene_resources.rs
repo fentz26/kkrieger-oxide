@@ -130,8 +130,28 @@ fn released_beta_player_roots_prepare_render_resources() {
         .unwrap();
 }
 
+// Executes deferred controls and effect geometry in paint order without GPU submission.
+struct StartupEffects {
+    materials: std::collections::BTreeMap<usize, std::rc::Rc<kkrieger_oxide::material::Material>>,
+    pages: std::collections::BTreeMap<u8, kkrieger_oxide::bitmap::FontPage>,
+}
+impl kkrieger_oxide::scene::exec::Renderer for StartupEffects {
+    fn render(
+        &mut self,
+        execution: &mut kkrieger_oxide::scene::exec::Execution,
+        doc: &Document<'_>,
+        command: kkrieger_oxide::scene::exec::RenderCommand,
+    ) -> Result<(), kkrieger_oxide::scene::Error> {
+        if let kkrieger_oxide::scene::exec::RenderCommand::Scene(index) = command {
+            let pass = execution.render_passes[index].clone();
+            execution.draw_effect_pass(doc, &pass, &self.materials, &self.pages, 60.)?;
+        }
+        Ok(())
+    }
+}
+
 #[test]
-#[ignore = "requires extracted beta; complete deferred menu rendering remains pending"]
+#[ignore = "requires independently extracted beta; executes authored startup and deferred menu effects"]
 fn released_beta_player_startup_initializes_native_simulation() {
     std::thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
@@ -145,7 +165,21 @@ fn released_beta_player_startup_initializes_native_simulation() {
             let bytes = std::fs::read(".reference/verified-beta.kx").unwrap();
             let doc = Document::parse_layout(&bytes, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
             let root = doc.roots[0].unwrap();
+            let material_roots: Vec<_> = doc.operators.iter().enumerate()
+                .filter_map(|(index, _)| match kkrieger_oxide::scene::cached_object(&doc, index).ok()? {
+                    kkrieger_oxide::scene::CachedObject::Effect(owner) => doc.operators[owner].links.first().copied().flatten(),
+                    _ => None,
+                }).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+            let generated = kkrieger_oxide::material::generate_many(&doc, &material_roots).unwrap();
+            let font_roots: Vec<_> = doc.operators.iter().enumerate()
+                .filter(|(_, op)| doc.classes[op.class].id == 0x31 && op.parameters[5] & 0x70 != 0)
+                .map(|(index, _)| index).collect();
+            let fonts = kkrieger_oxide::texture::generate_many_with_fonts(&doc, &font_roots, 0).unwrap();
             let mut execution = Execution::new_player(&doc);
+            execution.renderer = Some(Box::new(StartupEffects {
+                materials: material_roots.into_iter().zip(generated).collect(),
+                pages: fonts.font_pages,
+            }));
             execution.prepare_game_operators(&doc, root).unwrap();
             let position = root::initial_player_position(&execution.game.parameters, doc.layout);
             assert_eq!(position, [0.; 4]);

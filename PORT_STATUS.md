@@ -2001,3 +2001,25 @@ Native beta paints before OnTick; the application adapter still needs that
 layout-specific ordering. Targeted startup, simulation, dispatch and resource
 tests pass (17 passed, 3 ignored), as does Clippy for those targets and the
 player binary. No released-content shipping or full-playthrough claim is made.
+
+### Deferred startup menu and released Print ABI
+
+The ignored released startup gate now installs a CPU effect renderer, prepares
+linked effect materials and font pages, and executes deferred effects in stable
+paint order. It reaches mode zero after Enter. The following gameplay frame
+fails at particle operator 4355 with truncated particle-system parameters; the
+gate remains failing and complete gameplay startup is still unverified.
+
+This exposed a released Print ABI difference: five parameter words, without
+the later radius parameter. The layout-specific decoder now accepts those five
+words and uses planar geometry. A new native oracle captures 64 Print parameter
+prefixes and separately executes the native glyph method, checking four zero-z
+vertices per case. Existing development six-word decoding remains intact.
+These captures do not establish full released glyph parity: the native method
+uses 16-byte UV records while the later source implementation includes additional
+metrics. Full glyph widths/placement and released font atlas parity remain open.
+The CPU renderer verifies effect execution only, without GPU submission, mesh
+rendering or pixels. Application frame ordering is still pending.
+
+Targeted Print/resource regressions: 14 passed, 3 ignored. Clippy for the
+player and those test targets, formatting and diff whitespace checks pass.
