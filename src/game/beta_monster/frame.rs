@@ -17,6 +17,24 @@ pub struct ActorSimulation {
     pub zone_masks: Vec<[u32; 3]>,
 }
 impl ActorSimulation {
+    /// Transfer source-indexed collision masks before the shared zone logic runs.
+    pub fn publish_zone_interactions(
+        &mut self,
+        world: &mut crate::collision::world::World,
+    ) -> Result<(), &'static str> {
+        if self.zone_masks.len() != self.world.hulls.len()
+            || self.zone_masks.len() != world.entries.len()
+        {
+            return Err("released zone registry count differs");
+        }
+        for (masks, entry) in self.zone_masks.iter_mut().zip(&mut world.entries) {
+            entry.cell.interactions.enter |= masks[0];
+            entry.cell.interactions.leave |= masks[1];
+            entry.cell.interactions.collided |= masks[2];
+            *masks = [0; 3];
+        }
+        Ok(())
+    }
     pub fn new(world: StaticWorld) -> Self {
         let zone_masks = vec![[0; 3]; world.hulls.len()];
         Self {

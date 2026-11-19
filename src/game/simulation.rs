@@ -323,6 +323,9 @@ impl Simulation {
                 None
             };
 
+            if let Some(released) = self.released_actors.as_mut() {
+                released.publish_zone_interactions(&mut world)?;
+            }
             let resets = self.zones.tick(
                 &mut execution.game,
                 &mut self.motion,

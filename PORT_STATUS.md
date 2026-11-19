@@ -1450,3 +1450,13 @@ scene publication path, and hurt sounds enter tick audio output. A beta main-tic
 check verifies activation and ranged publication. Existing simulation, scene and
 actor-frame tests pass. Player/projectile ABI parity, shared zone semantics and
 full released-game playthrough remain pending.
+
+### Released actor zone masks reach shared zone actions
+
+The main tick now transfers released actor enter/leave/collided masks into the
+source-indexed world entries before zone logic runs. The transfer preserves
+player masks, consumes actor masks once, and rejects mismatched world sizes
+before changing either side. A zone integration check covers an actor-entry
+switch action, repeat consumption, player-mask preservation and failed transfer.
+Full beta zone-logic parity and complete released-game playthrough remain
+unproven; this connects the released collision masks to the existing zone logic.

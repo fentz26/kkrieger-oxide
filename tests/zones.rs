@@ -151,3 +151,61 @@ fn original_zone_logic_respawn_countdowns_and_interaction_cleanup() {
     }
     assert!(r.0.is_empty());
 }
+
+#[test]
+fn released_actor_masks_reach_zone_actions_once_and_preserve_player_masks() {
+    use kkrieger_oxide::game::beta_monster::{frame::ActorSimulation, static_world::StaticWorld};
+    let cells = vec![
+        Cell::new(identity(), [20.; 3], 0),
+        Cell::new(identity(), [2.; 3], 4),
+    ];
+    let mut released =
+        ActorSimulation::new(StaticWorld::new(cells.iter().map(|c| (c.vertices, c.mode))));
+    let mut world = World {
+        connectivity: connectivity::connect(&cells),
+        entries: cells
+            .into_iter()
+            .map(|cell| Entry {
+                cell,
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0x93,
+                    condition: 0,
+                    value: 0,
+                    output: 7,
+                    events: [None, None],
+                },
+            })
+            .collect(),
+        adds: vec![0],
+        subs: vec![],
+        zones: vec![1],
+        faces: vec![None, None],
+    };
+    let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
+    let mut game = State::default();
+    let mut switches = [0; 256];
+    switches[0] = 1;
+    let mut runtime = Runtime::new(&world);
+    world.entries[1].cell.interactions.collided = 2;
+    released.zone_masks[1] = [0x100, 0x200, 0x400];
+    released.publish_zone_interactions(&mut world).unwrap();
+    assert_eq!(world.entries[1].cell.interactions.collided, 0x402);
+    assert_eq!(world.entries[1].cell.interactions.leave, 0x200);
+    assert!(released.zone_masks.iter().all(|m| *m == [0; 3]));
+    runtime
+        .tick(&mut game, &mut motion, &mut world, &[], &mut switches)
+        .unwrap();
+    assert_eq!(switches[7], 1);
+    released.publish_zone_interactions(&mut world).unwrap();
+    runtime
+        .tick(&mut game, &mut motion, &mut world, &[], &mut switches)
+        .unwrap();
+    assert_eq!(switches[7], 1);
+    released.zone_masks[1] = [0x100, 0, 0];
+    released.zone_masks.push([0; 3]);
+    assert!(released.publish_zone_interactions(&mut world).is_err());
+    assert_eq!(released.zone_masks[1][0], 0x100);
+    assert_eq!(world.entries[1].cell.interactions.enter, 0);
+}
