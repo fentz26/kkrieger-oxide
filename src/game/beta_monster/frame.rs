@@ -252,6 +252,7 @@ impl ActorSimulation {
             colliders,
             registrations: &captured.bodies,
             points,
+            boxes: &[],
             order: physics_order.unwrap_or(&fallback_order),
         };
         let mut accepted = captured.clone();

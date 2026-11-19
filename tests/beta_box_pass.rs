@@ -8,6 +8,13 @@ use kkrieger_oxide::game::beta_monster::{
 };
 #[test]
 fn box_pass_matches_complete_released_physics() {
+    run_box_pass(false);
+}
+#[test]
+fn mixed_box_roster_matches_complete_released_physics() {
+    run_box_pass(true);
+}
+fn run_box_pass(mixed: bool) {
     let bytes = include_bytes!("fixtures/beta-box-pass.bin");
     let mut words = bytes
         .as_chunks::<4>()
@@ -77,12 +84,50 @@ fn box_pass_matches_complete_released_physics() {
         };
         let mut dynamic_calls = 0;
         for _ in 0..passes {
-            runtime
-                .step_box(&mut body, [0, 1, 2, 3, 4, 5, 6, 7], settings, |_, _| {
-                    dynamic_calls += 1;
-                    Ok(())
-                })
-                .unwrap();
+            if mixed {
+                use kkrieger_oxide::game::beta_monster::{
+                    projectile::{BoxProjectile, PhysicsSlot},
+                    registry::Registry,
+                    runtime::{PhysicsRoster, RegisteredBox},
+                };
+                let projectile = std::rc::Rc::new(std::cell::RefCell::new(BoxProjectile {
+                    flags: 1,
+                    body: body.clone(),
+                    event: None,
+                    skip_player: false,
+                }));
+                let boxes = [RegisteredBox {
+                    projectile: projectile.clone(),
+                    particles: [0, 1, 2, 3, 4, 5, 6, 7],
+                    skip_cell: None,
+                }];
+                runtime
+                    .step_mixed_roster(
+                        PhysicsRoster {
+                            registry: &Registry::default(),
+                            colliders: &[],
+                            registrations: &Default::default(),
+                            points: &[],
+                            boxes: &boxes,
+                            order: &[PhysicsSlot::Box(0)],
+                        },
+                        &mut [],
+                        settings,
+                        |_, _, _, _| {
+                            dynamic_calls += 1;
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                body = projectile.borrow().body.clone();
+            } else {
+                runtime
+                    .step_box(&mut body, [0, 1, 2, 3, 4, 5, 6, 7], settings, |_, _| {
+                        dynamic_calls += 1;
+                        Ok(())
+                    })
+                    .unwrap();
+            }
             assert_eq!(runtime.particle_id, 99);
         }
         assert_eq!(dynamic_calls, passes);

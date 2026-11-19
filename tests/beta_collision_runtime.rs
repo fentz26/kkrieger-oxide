@@ -309,6 +309,7 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
         colliders: &colliders,
         registrations: &registrations,
         points: &points,
+        boxes: &[],
         order: &order,
     };
     moving.monster = true;
@@ -350,6 +351,85 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
         Err("released point already borrowed")
     );
     assert_eq!(held.particle.vectors[0], position);
+    drop(held);
+    use kkrieger_oxide::game::beta_monster::{
+        body::BoxBody, projectile::BoxProjectile, runtime::RegisteredBox,
+    };
+    let mut box_body = BoxBody::new(kkrieger_oxide::mesh::identity(), [1.; 3], [0.; 4], Some(0));
+    for (index, particle) in box_body.particles.iter_mut().enumerate() {
+        *particle = point.borrow().particle.clone();
+        runtime.hits.shots.insert(
+            1000 + index,
+            Shot {
+                kind: 8,
+                event: None,
+            },
+        );
+    }
+    let box_state = std::rc::Rc::new(std::cell::RefCell::new(BoxProjectile {
+        flags: 1,
+        body: box_body,
+        event: None,
+        skip_player: false,
+    }));
+    let boxes = [RegisteredBox {
+        projectile: box_state.clone(),
+        particles: [1000, 1001, 1002, 1003, 1004, 1005, 1006, 1007],
+        skip_cell: None,
+    }];
+    let box_roster = PhysicsRoster {
+        points: &[],
+        boxes: &boxes,
+        order: &[PhysicsSlot::Box(0)],
+        ..roster
+    };
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    runtime
+        .reconcile_mixed_roster(0, &mut moving, box_roster, &mut [])
+        .unwrap();
+    assert!(moving.pose.blocked);
+    for particle in &box_state.borrow().body.particles {
+        assert_eq!(particle.vectors[0], position);
+    }
+    let aliases = [boxes[0].clone(), boxes[0].clone()];
+    let duplicate_roster = PhysicsRoster {
+        boxes: &aliases,
+        order: &[PhysicsSlot::Box(0), PhysicsSlot::Box(1)],
+        ..box_roster
+    };
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    runtime
+        .reconcile_mixed_roster(0, &mut moving, duplicate_roster, &mut [])
+        .unwrap();
+    assert!(moving.pose.blocked);
+    let owned_boxes = [RegisteredBox {
+        skip_cell: Some(0),
+        ..boxes[0].clone()
+    }];
+    moving.confirmed = first;
+    moving.pose = Pose::apply(&planes, first).unwrap();
+    runtime
+        .reconcile_mixed_roster(
+            0,
+            &mut moving,
+            PhysicsRoster {
+                boxes: &owned_boxes,
+                ..box_roster
+            },
+            &mut [],
+        )
+        .unwrap();
+    assert!(!moving.pose.blocked);
+    let guard = box_state.borrow();
+    assert_eq!(
+        runtime.reconcile_mixed_roster(0, &mut moving, box_roster, &mut []),
+        Err("released box already borrowed")
+    );
+    assert_eq!(guard.body.particles[7].vectors[0], position);
+    assert_eq!(runtime.particle_id, 999);
+    assert_eq!(runtime.skip_cell, Some(0));
 }
 
 #[test]
@@ -841,6 +921,7 @@ fn player_and_registered_actors_share_physics_phase_boundaries() {
         colliders: &colliders,
         registrations: &registrations,
         points: &points,
+        boxes: &[],
         order: &order,
     };
     let before = prefix[0].0.clone();

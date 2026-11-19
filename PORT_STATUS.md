@@ -1805,3 +1805,16 @@ a single queued effect, repeated box references, missing events, borrow failures
 overflow and the last valid eight-ID range. Point-only callers delegate to this
 preparation path. The main loop still needs box roster scheduling and dynamic
 reconciliation before it can select combined point/box preparation.
+
+### Boxes join the mixed runtime roster
+
+PhysicsRoster accepts box registrations and PhysicsSlot::Box entries. Upfront
+validation covers roster completeness, box borrows, particle identities/kinds,
+cell exclusions and constraint indices. Constraint solving, particle stepping
+and deferred force addition follow the interleaved actor/point/box order within
+each phase. Moving-hull reconciliation visits all eight corners, retains repeated
+box registrations without overlapping RefMut borrows and honors owned-cell
+exclusions. The mixed runner matches all 32 complete native box-pass captures;
+checks also cover hull rejection, position restoration, repeated box references
+and borrow conflicts. ActorSimulation and the main scene tick still pass an
+empty box roster until their frame identity/order wiring is completed.

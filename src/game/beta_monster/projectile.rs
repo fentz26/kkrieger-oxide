@@ -5,6 +5,7 @@ use crate::{mesh::Matrix, scene::event::Id};
 pub enum PhysicsSlot {
     Actor(usize),
     Point(usize),
+    Box(usize),
 }
 #[derive(Clone, Debug)]
 pub struct Point {

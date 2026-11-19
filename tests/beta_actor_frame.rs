@@ -298,6 +298,7 @@ fn frame_reconciliation_includes_registered_point_projectiles() {
         colliders: &[],
         registrations: &registrations,
         points: &points,
+        boxes: &[],
         order: &order,
     };
     let adds = simulation.world.additive_views();

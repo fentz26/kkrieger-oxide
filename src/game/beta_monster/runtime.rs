@@ -296,6 +296,7 @@ pub struct PhysicsRoster<'a> {
     pub colliders: &'a [u32],
     pub registrations: &'a std::collections::BTreeMap<u32, BodyRegistration>,
     pub points: &'a [RegisteredPoint],
+    pub boxes: &'a [RegisteredBox],
     pub order: &'a [super::projectile::PhysicsSlot],
 }
 impl CollisionRuntime<'_, '_> {
@@ -698,6 +699,7 @@ impl CollisionRuntime<'_, '_> {
                 colliders,
                 registrations,
                 points: &[],
+                boxes: &[],
                 order: &order,
             },
             prefix,
@@ -718,20 +720,23 @@ impl CollisionRuntime<'_, '_> {
             colliders,
             registrations,
             points,
+            boxes,
             order,
         } = roster;
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
         }
-        if order.len() != colliders.len() + points.len() {
+        if order.len() != colliders.len() + points.len() + boxes.len() {
             return Err("released physics order differs from registry");
         }
         let mut seen_actors = vec![false; colliders.len()];
         let mut seen_points = vec![false; points.len()];
+        let mut seen_boxes = vec![false; boxes.len()];
         for slot in order {
             let seen = match *slot {
                 PhysicsSlot::Actor(index) => seen_actors.get_mut(index),
                 PhysicsSlot::Point(index) => seen_points.get_mut(index),
+                PhysicsSlot::Box(index) => seen_boxes.get_mut(index),
             }
             .ok_or("released physics order differs from registry")?;
             if std::mem::replace(seen, true) {
@@ -763,6 +768,17 @@ impl CollisionRuntime<'_, '_> {
                 return Err("five-particle group truncated");
             }
         }
+        for registration in boxes {
+            let projectile = registration
+                .projectile
+                .try_borrow_mut()
+                .map_err(|_| "released box already borrowed")?;
+            self.validate_box(
+                &projectile.body,
+                registration.particles,
+                registration.skip_cell,
+            )?;
+        }
         Ok(())
     }
     pub fn step_mixed_roster<F>(
@@ -787,6 +803,7 @@ impl CollisionRuntime<'_, '_> {
             colliders,
             registrations,
             points,
+            boxes,
             order,
         } = roster;
         let previous = (self.particle_id, self.skip_cell);
@@ -804,6 +821,15 @@ impl CollisionRuntime<'_, '_> {
                         }
                         Ok(())
                     })?;
+                }
+                if let PhysicsSlot::Box(index) = *slot {
+                    let mut projectile = boxes[index]
+                        .projectile
+                        .try_borrow_mut()
+                        .map_err(|_| "released box already borrowed")?;
+                    for index in 0..projectile.body.constraints.len() {
+                        projectile.body.solve_constraint(index)?;
+                    }
                 }
             }
             for (body, registration) in prefix.iter_mut() {
@@ -825,6 +851,23 @@ impl CollisionRuntime<'_, '_> {
                             }
                             Ok(())
                         })?
+                    }
+                    PhysicsSlot::Box(index) => {
+                        let registration = &boxes[index];
+                        let mut projectile = registration
+                            .projectile
+                            .try_borrow_mut()
+                            .map_err(|_| "released box already borrowed")?;
+                        self.skip_cell = registration.skip_cell;
+                        for (particle, id) in projectile
+                            .body
+                            .particles
+                            .iter_mut()
+                            .zip(registration.particles)
+                        {
+                            self.particle_id = id;
+                            self.step_single(particle, settings)?;
+                        }
                     }
                     PhysicsSlot::Point(index) => {
                         let registration = &points[index];
@@ -852,6 +895,15 @@ impl CollisionRuntime<'_, '_> {
                             actor.body.apply_forces();
                             Ok(())
                         })?
+                    }
+                    PhysicsSlot::Box(index) => {
+                        let mut projectile = boxes[index]
+                            .projectile
+                            .try_borrow_mut()
+                            .map_err(|_| "released box already borrowed")?;
+                        for particle in &mut projectile.body.particles {
+                            particle.apply_force();
+                        }
                     }
                     PhysicsSlot::Point(index) => points[index]
                         .point
@@ -957,6 +1009,25 @@ impl CollisionRuntime<'_, '_> {
                                 Ok(())
                             },
                         )?,
+                        PhysicsSlot::Box(box_index) => {
+                            let registration = &roster.boxes[box_index];
+                            let mut projectile = registration
+                                .projectile
+                                .try_borrow_mut()
+                                .map_err(|_| "released box already borrowed")?;
+                            for (particle, id) in projectile
+                                .body
+                                .particles
+                                .iter_mut()
+                                .zip(registration.particles)
+                            {
+                                visit(
+                                    particle,
+                                    registration.skip_cell == Some(index),
+                                    (id, registration.skip_cell),
+                                )?;
+                            }
+                        }
                         PhysicsSlot::Point(point_index) => {
                             let registration = &roster.points[point_index];
                             let mut point = registration
@@ -1045,6 +1116,27 @@ impl CollisionRuntime<'_, '_> {
 }
 
 impl CollisionRuntime<'_, '_> {
+    fn validate_box(
+        &self,
+        body: &super::body::BoxBody,
+        ids: [usize; 8],
+        skip_cell: Option<usize>,
+    ) -> Result<(), &'static str> {
+        for (particle, id) in body.particles.iter().zip(ids) {
+            self.validate_particle_at(particle, id, skip_cell)?;
+            if matches!(particle.flags[3], 1 | 3) {
+                return Err("five-particle group truncated");
+            }
+        }
+        if body
+            .constraints
+            .iter()
+            .any(|c| c.particles.iter().any(|&i| i >= 8))
+        {
+            return Err("constraint particle index out of range");
+        }
+        Ok(())
+    }
     /// Released box phase order: constraints, particles, dynamics, then forces.
     pub fn step_box<F>(
         &mut self,
@@ -1059,19 +1151,7 @@ impl CollisionRuntime<'_, '_> {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
         }
-        for (particle, id) in body.particles.iter().zip(ids) {
-            self.validate_particle_at(particle, id, self.skip_cell)?;
-            if matches!(particle.flags[3], 1 | 3) {
-                return Err("five-particle group truncated");
-            }
-        }
-        if body
-            .constraints
-            .iter()
-            .any(|c| c.particles.iter().any(|&i| i >= 8))
-        {
-            return Err("constraint particle index out of range");
-        }
+        self.validate_box(body, ids, self.skip_cell)?;
         let previous = (self.particle_id, self.skip_cell);
         let result = (|| {
             for index in 0..body.constraints.len() {
