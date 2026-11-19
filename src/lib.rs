@@ -35,6 +35,9 @@ pub mod vfx;
 
 pub mod sample_playback;
 
+#[cfg(any(target_os = "macos", test))]
+mod audio_pcm;
+
 #[cfg(target_os = "macos")]
 pub mod audio_output;
 
