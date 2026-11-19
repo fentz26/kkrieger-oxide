@@ -139,3 +139,45 @@ fn collision_weapon_bits_damage_shared_actors_once_in_weapon_order() {
     assert_eq!(registry.get(token).unwrap().borrow().initial.life, 0);
     assert_eq!(switches[9], 1);
 }
+
+#[test]
+fn mixed_collider_order_remaps_owned_cells_and_collision_masks() {
+    use kkrieger_oxide::{
+        collision::{Cell, DynamicCell},
+        game::beta_monster::{
+            registration::{ActorFrame, DynamicSlot},
+            scene_cells::SceneCell,
+        },
+    };
+    use std::{cell::RefCell, rc::Rc};
+    let mut registry = Registry::default();
+    let token = registry
+        .spawn(&[0; 26], identity(), 0, |_| Some(0))
+        .unwrap();
+    registry.register(token).unwrap();
+    let source = Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [1.; 3], 2),
+        identity(),
+    )));
+    let mut frame = ActorFrame::capture(&registry, &[token], 5).unwrap();
+    frame
+        .attach_scene(vec![SceneCell::capture(source, true).unwrap()])
+        .unwrap();
+    frame
+        .set_order(&[DynamicSlot::Scene(0), DynamicSlot::Actor(0)])
+        .unwrap();
+    assert_eq!(frame.bodies[&token].skip_cell, Some(1));
+    frame.save_collision_masks(&[0x100, 0x200]).unwrap();
+    let views = frame.dynamic_views().unwrap();
+    assert!(views[0].player);
+    assert_eq!(views[0].collided, 0x100);
+    assert_eq!(views[1].part_box, Some(token as usize));
+    assert_eq!(views[1].collided, 0x200);
+    drop(views);
+    assert!(
+        frame
+            .set_order(&[DynamicSlot::Actor(0), DynamicSlot::Actor(0)])
+            .is_err()
+    );
+    assert_eq!(frame.bodies[&token].skip_cell, Some(1));
+}

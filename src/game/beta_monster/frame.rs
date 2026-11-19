@@ -156,11 +156,25 @@ impl ActorSimulation {
         settings: &Settings,
         scene: Vec<super::scene_cells::SceneCell>,
     ) -> Result<ActorFrame, &'static str> {
+        self.physics_with_order(registry, colliders, prefix, settings, scene, None)
+    }
+    pub fn physics_with_order(
+        &mut self,
+        registry: &Registry,
+        colliders: &[u32],
+        prefix: &mut [(super::body::Body, super::runtime::BodyRegistration)],
+        settings: &Settings,
+        scene: Vec<super::scene_cells::SceneCell>,
+        order: Option<&[super::registration::DynamicSlot]>,
+    ) -> Result<ActorFrame, &'static str> {
         if self.zone_masks.len() != self.world.hulls.len() {
             return Err("released zone registry count differs");
         }
         let mut captured = ActorFrame::capture(registry, colliders, settings.first_particle)?;
         captured.attach_scene(scene)?;
+        if let Some(order) = order {
+            captured.set_order(order)?;
+        }
         let mut prefix_shots = std::collections::BTreeMap::new();
         for (body, registration) in prefix.iter() {
             for (particle, id) in body.particles.iter().zip(registration.particles) {

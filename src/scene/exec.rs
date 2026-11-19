@@ -5,6 +5,7 @@ use super::{
     instance::{Memory, Scope},
 };
 use crate::collision::DynamicCell;
+use crate::game::beta_monster::registration::DynamicSlot;
 use crate::{
     animation::Vm,
     kx::Document,
@@ -99,6 +100,7 @@ pub struct Execution {
     pub render_textures: std::collections::BTreeMap<usize, super::overlay::Viewport>,
     pub overlay_draws: Vec<super::overlay::Draw>,
     pub released_colliders: Vec<u32>,
+    pub released_order: Vec<DynamicSlot>,
     pub dynamic_cells: Vec<Rc<RefCell<DynamicCell>>>,
     pub event_monster: Option<usize>,
     pub event_spline: Option<usize>,
@@ -547,6 +549,7 @@ impl Execution {
             render_textures: std::collections::BTreeMap::new(),
             overlay_draws: Vec::new(),
             released_colliders: Vec::new(),
+            released_order: Vec::new(),
             dynamic_cells: Vec::new(),
             event_monster: None,
             event_spline: None,
@@ -809,10 +812,15 @@ impl Execution {
         self.render_commands.clear();
         self.dynamic_cells.clear();
         self.released_colliders.clear();
+        self.released_order.clear();
         self.game.monsters.begin_frame();
         self.game.released_monsters.begin_frame();
         self.next_monster_override = None;
         if let Some(hit) = self.actors.as_ref().and_then(|a| a.player_hit.as_ref()) {
+            if self.document_layout == crate::kx::Layout::Beta2004 {
+                self.released_order
+                    .push(DynamicSlot::Scene(self.dynamic_cells.len()));
+            }
             self.dynamic_cells.push(Rc::clone(hit));
         }
         self.current_clip = Rect::UNIT;
@@ -826,6 +834,7 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.released_colliders.clear();
+            self.released_order.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
         }
@@ -949,6 +958,7 @@ impl Execution {
             self.render_commands.clear();
             self.dynamic_cells.clear();
             self.released_colliders.clear();
+            self.released_order.clear();
             self.game.monsters.begin_frame();
             self.game.released_monsters.begin_frame();
             self.visibility_history.clear();
@@ -1743,6 +1753,10 @@ impl Execution {
                         if self.dynamic_cells.len() >= 512 {
                             return Err(fail("dynamic cell limit exceeded"));
                         }
+                        if self.document_layout == crate::kx::Layout::Beta2004 {
+                            self.released_order
+                                .push(DynamicSlot::Scene(self.dynamic_cells.len()));
+                        }
                         self.dynamic_cells.push(hit);
                         self.vm.variables[16..24].copy_from_slice(&legs);
                         self.vm.variables[27][0] = leg_time;
@@ -1883,6 +1897,10 @@ impl Execution {
                     cell.borrow_mut().matrix1 = parent;
                     if self.dynamic_cells.len() >= 512 {
                         return Err(fail("dynamic cell capacity exceeded"));
+                    }
+                    if self.document_layout == crate::kx::Layout::Beta2004 {
+                        self.released_order
+                            .push(DynamicSlot::Scene(self.dynamic_cells.len()));
                     }
                     self.dynamic_cells.push(Rc::clone(cell));
                 }
@@ -2213,6 +2231,8 @@ impl Execution {
                 .first()
                 .ok_or_else(|| fail("monster has no living input"))?;
             if actor.borrow().active {
+                self.released_order
+                    .push(DynamicSlot::Actor(self.released_colliders.len()));
                 self.released_colliders.push(token);
             }
             let collision_matrix = actor.borrow().initial.matrix;

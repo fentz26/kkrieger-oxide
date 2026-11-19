@@ -366,16 +366,19 @@ impl Simulation {
                         Ok(captured)
                     })
                     .collect::<Result<Vec<_>, &'static str>>()?;
-                player.physics[0].1.skip_cell = scene
-                    .iter()
-                    .position(|cell| cell.player)
-                    .map(|index| execution.released_colliders.len() + index);
-                let accepted = released.physics_with_scene(
+                player.physics[0].1.skip_cell =
+                    scene.iter().position(|cell| cell.player).and_then(|index| {
+                        execution.released_order.iter().position(|slot| {
+                            *slot == super::beta_monster::registration::DynamicSlot::Scene(index)
+                        })
+                    });
+                let accepted = released.physics_with_order(
                     &execution.game.released_monsters,
                     &execution.released_colliders,
                     &mut player.physics,
                     &released_settings,
                     scene,
+                    Some(&execution.released_order),
                 )?;
                 velocity = self.motion.publish_released(&world)?;
                 self.player_cell =

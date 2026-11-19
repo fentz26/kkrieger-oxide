@@ -7,11 +7,17 @@ use super::{
     subtractive::DynamicCell,
 };
 use std::collections::BTreeMap;
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum DynamicSlot {
+    Actor(usize),
+    Scene(usize),
+}
 #[derive(Clone)]
 pub struct ActorFrame {
     pub cells: Vec<(u32, MovingCell)>,
     pub scene: Vec<super::scene_cells::SceneCell>,
     collided: Vec<u32>,
+    order: Vec<DynamicSlot>,
     pub bodies: BTreeMap<u32, BodyRegistration>,
     pub particles: BTreeMap<usize, Shot>,
 }
@@ -122,8 +128,10 @@ impl ActorFrame {
             Ok(())
         })?;
         let collided = vec![0; cells.len()];
+        let order = (0..cells.len()).map(DynamicSlot::Actor).collect();
         Ok(Self {
             collided,
+            order,
             cells,
             scene: Vec::new(),
             bodies,
@@ -139,16 +147,43 @@ impl ActorFrame {
         }
         self.collided
             .extend(scene.iter().map(|cell| cell.interactions.collided));
+        self.order.extend((0..scene.len()).map(DynamicSlot::Scene));
         self.scene = scene;
+        Ok(())
+    }
+    pub fn set_order(&mut self, order: &[DynamicSlot]) -> Result<(), &'static str> {
+        let unique: std::collections::BTreeSet<_> = order.iter().copied().collect();
+        if order.len() != self.cells.len() + self.scene.len()
+            || unique.len() != order.len()
+            || order.iter().any(|slot| match slot {
+                DynamicSlot::Actor(index) => *index >= self.cells.len(),
+                DynamicSlot::Scene(index) => *index >= self.scene.len(),
+            })
+        {
+            return Err("released dynamic order differs from registry");
+        }
+        self.order = order.to_vec();
+        for (token, body) in &mut self.bodies {
+            body.skip_cell = self.order.iter().position(|slot| match slot {
+                DynamicSlot::Actor(index) => self.cells[*index].0 == *token,
+                DynamicSlot::Scene(_) => false,
+            });
+        }
         Ok(())
     }
     pub fn save_collision_masks(&mut self, masks: &[u32]) -> Result<(), &'static str> {
         if masks.len() != self.cells.len() + self.scene.len() {
             return Err("released collision mask count differs");
         }
-        self.collided.copy_from_slice(masks);
-        for (scene, &mask) in self.scene.iter_mut().zip(&masks[self.cells.len()..]) {
-            scene.interactions.collided = mask;
+        for (slot, &mask) in self.order.iter().zip(masks) {
+            let index = match slot {
+                DynamicSlot::Actor(index) => *index,
+                DynamicSlot::Scene(index) => {
+                    self.scene[*index].interactions.collided = mask;
+                    self.cells.len() + index
+                }
+            };
+            self.collided[index] = mask;
         }
         Ok(())
     }
@@ -184,22 +219,20 @@ impl ActorFrame {
     }
 
     pub fn dynamic_views(&self) -> Result<Vec<DynamicCell<'_>>, &'static str> {
-        self.cells
+        self.order
             .iter()
-            .enumerate()
-            .map(|(index, (token, cell))| {
-                cell.collision_view(CollisionProperties {
-                    only_for_shot: false,
-                    player: false,
-                    part_box: Some(*token as usize),
-                    collided: self.collided[index],
-                })
+            .map(|slot| match *slot {
+                DynamicSlot::Actor(index) => {
+                    let (token, cell) = &self.cells[index];
+                    cell.collision_view(CollisionProperties {
+                        only_for_shot: false,
+                        player: false,
+                        part_box: Some(*token as usize),
+                        collided: self.collided[index],
+                    })
+                }
+                DynamicSlot::Scene(index) => self.scene[index].collision_view(),
             })
-            .chain(
-                self.scene
-                    .iter()
-                    .map(super::scene_cells::SceneCell::collision_view),
-            )
             .collect()
     }
 }
@@ -229,11 +262,11 @@ impl ActorFrame {
             .map(|cell| cell.collided)
             .collect();
         self.save_collision_masks(&initial)?;
-        for index in 0..self.cells.len() + self.scene.len() {
-            let mut proposed = if index < self.cells.len() {
-                self.cells[index].1.clone()
-            } else {
-                self.scene[index - self.cells.len()].cell.clone()
+        for index in 0..self.order.len() {
+            let slot = self.order[index];
+            let mut proposed = match slot {
+                DynamicSlot::Actor(id) => self.cells[id].1.clone(),
+                DynamicSlot::Scene(id) => self.scene[id].cell.clone(),
             };
             let masks: Vec<u32> = {
                 let mut views = self.dynamic_views()?;
@@ -277,10 +310,9 @@ impl ActorFrame {
                     .collect()
             };
             self.save_collision_masks(&masks)?;
-            if index < self.cells.len() {
-                self.cells[index].1 = proposed;
-            } else {
-                self.scene[index - self.cells.len()].cell = proposed;
+            match slot {
+                DynamicSlot::Actor(id) => self.cells[id].1 = proposed,
+                DynamicSlot::Scene(id) => self.scene[id].cell = proposed,
             }
         }
         self.publish_geometry(registry)

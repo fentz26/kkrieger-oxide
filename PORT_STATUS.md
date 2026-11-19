@@ -1599,3 +1599,15 @@ check verifies that scene geometry stops released player particles, and the
 extracted root/main-tick check still passes four ticks. Exact interleaving of
 actor and scene registry entries, duplicate scene identities, part-box effects
 and player/scene-owner weapon damage dispatch still need parity work.
+
+### Mixed dynamic registration order retained by main beta physics
+
+Scene execution now records player/scene and active actor hull entries in their
+encounter order, including actor live-input geometry, and resets the roster on
+frame replay and error cleanup. Actor frames validate the mixed order, remap
+owned-cell indices and collision masks, and use it for casts and reconciliation.
+The main player selects its owned cell from that roster. Checks cover player →
+actor → live geometry, inactive/dead actor transitions, replay cleanup, ordered
+mask mapping and invalid order rejection. Duplicate pointer identities, complete
+native mixed-registry traces, part-box effects and weapon damage dispatch to
+player/scene-owned actor hulls remain unverified or incomplete.

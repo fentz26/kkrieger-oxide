@@ -773,3 +773,57 @@ fn original_beta_main_tick_advances_persistent_player_and_actors() {
         .join()
         .unwrap();
 }
+
+#[test]
+fn beta_scene_registration_interleaves_player_actor_and_live_geometry() {
+    use kkrieger_oxide::{collision::DynamicCell, game::beta_monster::registration::DynamicSlot};
+    let (mut doc, mut execution) = setup();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut data = vec![0; 26];
+    data[10] = 20;
+    data[20..23].fill(1f32.to_bits());
+    doc.operators[0].parameters = data;
+    doc.classes[1].id = 0xce;
+    doc.operators[1].parameters = vec![2, 0, 0, 0, 1f32.to_bits(), 1f32.to_bits(), 1f32.to_bits()];
+    let mut context = execution.actors.take().unwrap();
+    context.player_hit = Some(Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [1.; 3], 2),
+        identity(),
+    ))));
+    execution = Execution::new(&doc);
+    execution.actors = Some(context);
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(
+        execution.released_order,
+        [DynamicSlot::Scene(0), DynamicSlot::Scene(1)]
+    );
+    execution
+        .game
+        .released_monsters
+        .get(1)
+        .unwrap()
+        .borrow_mut()
+        .active = true;
+    for _ in 0..2 {
+        execution.frame(&doc, 0).unwrap();
+        assert_eq!(execution.released_colliders, [1]);
+        assert_eq!(
+            execution.released_order,
+            [
+                DynamicSlot::Scene(0),
+                DynamicSlot::Actor(0),
+                DynamicSlot::Scene(1)
+            ]
+        );
+    }
+    execution
+        .game
+        .released_monsters
+        .get(1)
+        .unwrap()
+        .borrow_mut()
+        .initial
+        .life = 0;
+    execution.frame(&doc, 0).unwrap();
+    assert_eq!(execution.released_order, [DynamicSlot::Scene(0)]);
+}
