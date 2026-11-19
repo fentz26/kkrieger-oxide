@@ -1586,3 +1586,16 @@ the native null-particle exclusion for player and monster hulls. Checks cover
 ordinary hull clearance, tagged exclusions, native plane capture and accepted/
 blocked publication. Scene hulls still need to join particle casts and native
 dynamic reconciliation; their interpolation remains on the development path.
+
+### Scene hulls participate in released particle physics
+
+Actor frames now retain scene-owned hull snapshots alongside actor geometry.
+Particle casts and dynamic reconciliation include both groups, write accepted
+scene planes/blocked state back to the live instances, and preserve their
+collision masks. Beta main ticks propose scene transforms with the released
+interpolator and select the player's owned scene cell; development interpolation
+is bypassed on that path. AI queries use the same accepted scene hulls. A wall
+check verifies that scene geometry stops released player particles, and the
+extracted root/main-tick check still passes four ticks. Exact interleaving of
+actor and scene registry entries, duplicate scene identities, part-box effects
+and player/scene-owner weapon damage dispatch still need parity work.

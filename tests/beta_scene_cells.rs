@@ -16,7 +16,10 @@ fn scene_cell_capture_preserves_identity_and_publishes_released_pose() {
         captured.cell.original[..captured.cell.count],
         hull.planes[..hull.count]
     );
-    captured.cell.current[3][0] = 1.;
+    source.borrow_mut().matrix1[3][0] = 2.;
+    captured.propose(0.5).unwrap();
+    assert_eq!(captured.cell.current[3][0], 1.);
+    assert_eq!(captured.cell.pose.matrix[3][0], 0.);
     captured
         .cell
         .reconcile(std::iter::empty(), |_| unreachable!())

@@ -6,6 +6,7 @@ use super::{
 use crate::collision::{DynamicCell, Interactions};
 use std::{cell::RefCell, rc::Rc};
 
+#[derive(Clone)]
 pub struct SceneCell {
     pub source: Rc<RefCell<DynamicCell>>,
     pub cell: MovingCell,
@@ -15,6 +16,14 @@ pub struct SceneCell {
     pub interactions: Interactions,
 }
 impl SceneCell {
+    pub fn propose(&mut self, fade: f32) -> Result<(), &'static str> {
+        let state = self
+            .source
+            .try_borrow()
+            .map_err(|_| "scene dynamic cell already borrowed")?;
+        self.cell.current = super::dynamic::interpolate(state.matrix0, state.matrix1, fade);
+        Ok(())
+    }
     pub fn collision_view(&self) -> Result<super::subtractive::DynamicCell<'_>, &'static str> {
         self.cell
             .collision_view(super::dynamic::CollisionProperties {

@@ -177,3 +177,63 @@ fn released_player_clearance_uses_native_downward_world_cast() {
             .is_err()
     );
 }
+
+#[test]
+fn released_player_particles_collide_with_scene_owned_wall() {
+    use kkrieger_oxide::{
+        collision::{Cell, DynamicCell},
+        game::beta_monster::{body::Body, runtime::BodyRegistration, scene_cells::SceneCell},
+    };
+    use std::{cell::RefCell, rc::Rc};
+    let world = StaticWorld::new([(
+        HitBox {
+            matrix: identity(),
+            scale: [20.; 3],
+        }
+        .vertices(),
+        0,
+    )]);
+    let mut simulation = ActorSimulation::new(world);
+    let registry = Registry::default();
+    let mut matrix = identity();
+    matrix[3][0] = 1.5;
+    let source = Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [1., 4., 4.], 1),
+        matrix,
+    )));
+    source.borrow_mut().cell.mode &= !0x20;
+    let scene = SceneCell::capture(Rc::clone(&source), false).unwrap();
+    let mut body = Body::new([0., 0., 0., 1.], Some(0), 1);
+    body.translate([2.5, 0., 0., 0.]);
+    let mut prefix = [(
+        body,
+        BodyRegistration {
+            particles: [0, 1, 2, 3, 4],
+            skip_cell: None,
+        },
+    )];
+    let settings = Settings {
+        physics: physics::Settings {
+            gravity: 0.,
+            gravity_player: 0.,
+            damping_player_air: 0.,
+            damping_player_ground: 0.,
+            fly_mode: 0,
+            on_ground: false,
+        },
+        ai: ai::Settings {
+            gravity: 0.,
+            height: 1.,
+            height_gain: 0.,
+        },
+        player: [0., 0., 0., 1.],
+        player_cell: Some(0),
+        first_particle: 5,
+    };
+    let accepted = simulation
+        .physics_with_scene(&registry, &[], &mut prefix, &settings, vec![scene])
+        .unwrap();
+    assert!(prefix[0].0.particles[0].vectors[0][0] < 1.);
+    assert_eq!(accepted.dynamic_views().unwrap().len(), 1);
+    assert_eq!(source.borrow().cell.mode & 0x20, 0);
+}

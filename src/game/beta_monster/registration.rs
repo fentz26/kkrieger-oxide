@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 #[derive(Clone)]
 pub struct ActorFrame {
     pub cells: Vec<(u32, MovingCell)>,
+    pub scene: Vec<super::scene_cells::SceneCell>,
     collided: Vec<u32>,
     pub bodies: BTreeMap<u32, BodyRegistration>,
     pub particles: BTreeMap<usize, Shot>,
@@ -26,7 +27,7 @@ impl ActorFrame {
     where
         F: FnMut([f32; 4]) -> Option<usize>,
     {
-        if self.collided.len() != self.cells.len() {
+        if self.collided.len() != self.cells.len() + self.scene.len() {
             return Err("released collision mask count differs");
         }
         let mut targets = Vec::<(u32, u32)>::new();
@@ -71,7 +72,7 @@ impl ActorFrame {
                 }
             }
         }
-        self.collided.fill(0);
+        self.collided[..self.cells.len()].fill(0);
         Ok(())
     }
     pub fn capture(
@@ -124,15 +125,31 @@ impl ActorFrame {
         Ok(Self {
             collided,
             cells,
+            scene: Vec::new(),
             bodies,
             particles,
         })
     }
+    pub fn attach_scene(
+        &mut self,
+        scene: Vec<super::scene_cells::SceneCell>,
+    ) -> Result<(), &'static str> {
+        if !self.scene.is_empty() {
+            return Err("released scene cells already attached");
+        }
+        self.collided
+            .extend(scene.iter().map(|cell| cell.interactions.collided));
+        self.scene = scene;
+        Ok(())
+    }
     pub fn save_collision_masks(&mut self, masks: &[u32]) -> Result<(), &'static str> {
-        if masks.len() != self.cells.len() {
+        if masks.len() != self.cells.len() + self.scene.len() {
             return Err("released collision mask count differs");
         }
         self.collided.copy_from_slice(masks);
+        for (scene, &mask) in self.scene.iter_mut().zip(&masks[self.cells.len()..]) {
+            scene.interactions.collided = mask;
+        }
         Ok(())
     }
     /// Commit accepted geometry only after all actor identities can be borrowed.
@@ -160,6 +177,9 @@ impl ActorFrame {
         for (actor, index) in actors.iter_mut().zip(latest.values()) {
             actor.hit_cell = self.cells[*index].1.clone();
         }
+        for scene in &self.scene {
+            scene.publish()?;
+        }
         Ok(())
     }
 
@@ -175,6 +195,11 @@ impl ActorFrame {
                     collided: self.collided[index],
                 })
             })
+            .chain(
+                self.scene
+                    .iter()
+                    .map(super::scene_cells::SceneCell::collision_view),
+            )
             .collect()
     }
 }
@@ -194,18 +219,23 @@ impl ActorFrame {
         registry: &Registry,
         prefix: &mut [(super::body::Body, BodyRegistration)],
     ) -> Result<(), &'static str> {
-        if runtime.candidates.dynamic_cells.len() != self.cells.len() {
+        if runtime.candidates.dynamic_cells.len() != self.cells.len() + self.scene.len() {
             return Err("released dynamic registry count differs");
         }
-        self.collided = runtime
+        let initial: Vec<_> = runtime
             .candidates
             .dynamic_cells
             .iter()
             .map(|cell| cell.collided)
             .collect();
-        for index in 0..self.cells.len() {
-            let mut proposed = self.cells[index].1.clone();
-            let masks = {
+        self.save_collision_masks(&initial)?;
+        for index in 0..self.cells.len() + self.scene.len() {
+            let mut proposed = if index < self.cells.len() {
+                self.cells[index].1.clone()
+            } else {
+                self.scene[index - self.cells.len()].cell.clone()
+            };
+            let masks: Vec<u32> = {
                 let mut views = self.dynamic_views()?;
                 let mut zones = runtime.zones.to_vec();
                 let mut probe = super::runtime::CollisionRuntime {
@@ -246,8 +276,12 @@ impl ActorFrame {
                     .map(|cell| cell.collided)
                     .collect()
             };
-            self.collided = masks;
-            self.cells[index].1 = proposed;
+            self.save_collision_masks(&masks)?;
+            if index < self.cells.len() {
+                self.cells[index].1 = proposed;
+            } else {
+                self.scene[index - self.cells.len()].cell = proposed;
+            }
         }
         self.publish_geometry(registry)
     }

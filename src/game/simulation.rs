@@ -323,7 +323,10 @@ impl Simulation {
             }
             self.player_cell =
                 (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
-            execution.physics((slice as f32 + 1.) / slices as f32);
+            let fade = (slice as f32 + 1.) / slices as f32;
+            if self.released_actors.is_none() {
+                execution.physics(fade);
+            }
             let parameters = &execution.game.parameters;
             let mut released_settings = super::beta_monster::frame::Settings {
                 physics: super::beta_monster::physics::Settings {
@@ -351,11 +354,28 @@ impl Simulation {
                     .released_player
                     .as_mut()
                     .ok_or("released player body missing")?;
-                let accepted = released.physics_with_bodies(
+                let scene = execution
+                    .dynamic_cells
+                    .iter()
+                    .map(|cell| {
+                        let mut captured = super::beta_monster::scene_cells::SceneCell::capture(
+                            Rc::clone(cell),
+                            Rc::ptr_eq(cell, &self.motion.hit_cell),
+                        )?;
+                        captured.propose(fade)?;
+                        Ok(captured)
+                    })
+                    .collect::<Result<Vec<_>, &'static str>>()?;
+                player.physics[0].1.skip_cell = scene
+                    .iter()
+                    .position(|cell| cell.player)
+                    .map(|index| execution.released_colliders.len() + index);
+                let accepted = released.physics_with_scene(
                     &execution.game.released_monsters,
                     &execution.released_colliders,
                     &mut player.physics,
                     &released_settings,
+                    scene,
                 )?;
                 velocity = self.motion.publish_released(&world)?;
                 self.player_cell =
