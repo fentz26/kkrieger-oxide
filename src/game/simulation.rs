@@ -28,6 +28,7 @@ pub struct Listener {
 #[derive(Default)]
 pub struct Tick {
     pub ran: bool,
+    pub quit: bool,
     pub options_changed: bool,
     pub continued: bool,
     pub sounds: Vec<Audio>,
@@ -181,6 +182,13 @@ impl Simulation {
         execution: &mut Execution,
         mouse: [i32; 2],
     ) -> Result<super::root::Selection, &'static str> {
+        if execution.document_layout == crate::kx::Layout::Beta2004 {
+            return Ok(super::root::Selection {
+                index: 0,
+                quit: false,
+                restart: false,
+            });
+        }
         let selection = super::root::select(&mut execution.switches);
         if selection.restart {
             self.restart(execution, mouse)?;
@@ -216,11 +224,38 @@ impl Simulation {
         let options = mode == 9 || mode == 1 && execution.switches[16] == 1;
         result.options_changed = self.was_options && !options;
         self.was_options = options;
-        if self.player_cell.is_none() || mode != 0 {
-            return Ok(result);
+        if execution.document_layout == crate::kx::Layout::Beta2004 {
+            use super::beta_player::{TickDispatch, dispatch_tick};
+            let particle_cell = self
+                .motion
+                .released_player
+                .as_ref()
+                .is_some_and(|player| player.physics[0].0.particles[0].cell.is_some());
+            match dispatch_tick(
+                self.player_cell.is_some(),
+                particle_cell,
+                mode,
+                &mut self.tick_count,
+                slices,
+            ) {
+                TickDispatch::Idle => return Ok(result),
+                TickDispatch::Restart => {
+                    self.restart(execution, mouse)?;
+                    return Ok(result);
+                }
+                TickDispatch::Quit => {
+                    result.quit = true;
+                    return Ok(result);
+                }
+                TickDispatch::Run => {}
+            }
+        } else {
+            if self.player_cell.is_none() || mode != 0 {
+                return Ok(result);
+            }
+            self.tick_count = self.tick_count.wrapping_add(slices);
         }
         result.ran = true;
-        self.tick_count = self.tick_count.wrapping_add(slices);
         let elapsed = self.input.look(
             now,
             mouse,

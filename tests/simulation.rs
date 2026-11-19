@@ -457,3 +457,91 @@ fn released_main_tick_steps_points_and_synchronizes_owning_events() {
         );
     }
 }
+
+#[test]
+fn released_restart_and_quit_dispatch_stay_on_the_single_authored_root() {
+    let mut doc = doc();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut execution = Execution::new_player(&doc);
+    execution.game.parameters.start_position = [0., 1.75, -2., 0.];
+    let mut simulation = Simulation::new(
+        world(),
+        &mut execution,
+        [-5., 0., 0., 1.],
+        0,
+        [0, 0],
+        Random::new(1),
+    )
+    .unwrap();
+    execution.switches[1] = 2;
+    let selection = simulation.select_root(&mut execution, [0, 0]).unwrap();
+    assert_eq!(selection.index, 0);
+    assert!(!selection.restart && !selection.quit);
+    assert_eq!(execution.switches[1], 2);
+    let tick = simulation
+        .tick(&mut execution, &doc, 3, 30, [0, 0])
+        .unwrap();
+    assert!(!tick.ran && !tick.quit);
+    assert_eq!(simulation.tick_count, 3);
+    assert_eq!(execution.switches[1], 0);
+    assert_eq!(&simulation.motion.collider.position[..3], &[0., 1.75, -2.]);
+    execution.switches[1] = 3;
+    let tick = simulation
+        .tick(&mut execution, &doc, 2, 50, [0, 0])
+        .unwrap();
+    assert!(tick.quit && !tick.ran);
+    assert_eq!(simulation.tick_count, 5);
+    assert_eq!(execution.switches[1], 3);
+    execution.switches[1] = 8;
+    assert!(
+        !simulation
+            .tick(&mut execution, &doc, 1, 60, [0, 0])
+            .unwrap()
+            .ran
+    );
+    assert_eq!(simulation.tick_count, 6);
+    simulation.motion.released_player.as_mut().unwrap().physics[0]
+        .0
+        .particles[0]
+        .cell = None;
+    execution.switches[1] = 2;
+    assert!(
+        !simulation
+            .tick(&mut execution, &doc, 1, 70, [0, 0])
+            .unwrap()
+            .ran
+    );
+    assert_eq!(simulation.tick_count, 6);
+    assert_eq!(execution.switches[1], 2);
+}
+
+#[test]
+fn released_restart_switches_match_native_and_preserve_only_the_first_switch() {
+    let bytes = include_bytes!("fixtures/beta-restart-switches.bin");
+    assert_eq!(bytes.len(), 4 + 32 * 520);
+    assert_eq!(u32::from_le_bytes(bytes[..4].try_into().unwrap()), 32);
+    let mut doc = doc();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    let mut execution = Execution::new_player(&doc);
+    execution.game.parameters.start_position = [1., 2., 3., 0.];
+    let mut simulation = Simulation::new(
+        world(),
+        &mut execution,
+        [-5., 0., 0., 1.],
+        0,
+        [0, 0],
+        Random::new(1),
+    )
+    .unwrap();
+    for case in bytes[4..].as_chunks::<520>().0 {
+        execution.switches.copy_from_slice(&case[..256]);
+        execution.game.reset_by_operator = false;
+        simulation.restart(&mut execution, [0, 0]).unwrap();
+        assert_eq!(execution.switches.as_slice(), &case[256..512]);
+        assert_eq!(
+            u32::from(execution.game.reset_by_operator),
+            u32::from_le_bytes(case[512..516].try_into().unwrap())
+        );
+        assert_eq!(u32::from_le_bytes(case[516..520].try_into().unwrap()), 2);
+    }
+}

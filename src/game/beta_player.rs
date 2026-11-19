@@ -91,3 +91,30 @@ impl Control {
         sound
     }
 }
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TickDispatch {
+    Idle,
+    Run,
+    Restart,
+    Quit,
+}
+/// Released OnTick prologue, before input, physics and scene execution.
+pub fn dispatch_tick(
+    player_cell: bool,
+    particle_cell: bool,
+    mode: u8,
+    counter: &mut i32,
+    slices: i32,
+) -> TickDispatch {
+    if !player_cell || !particle_cell {
+        return TickDispatch::Idle;
+    }
+    *counter = counter.wrapping_add(slices);
+    match mode {
+        0 => TickDispatch::Run,
+        2 => TickDispatch::Restart,
+        3 => TickDispatch::Quit,
+        _ => TickDispatch::Idle,
+    }
+}

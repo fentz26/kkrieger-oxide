@@ -35,7 +35,12 @@ impl State {
             monster.state = 0;
         }
         zones.respawn.fill(0);
-        switches[16..].fill(0);
+        if motion.document_layout == crate::kx::Layout::Beta2004 {
+            switches[2..].fill(0);
+            switches[1] = 0;
+        } else {
+            switches[16..].fill(0);
+        }
         Ok(world.zones.clone())
     }
 

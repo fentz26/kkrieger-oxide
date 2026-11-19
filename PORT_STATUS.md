@@ -1951,3 +1951,27 @@ tick still runs, but player startup is not yet resolved: the ignored startup
 gate expects authored coordinates after proper native initialization ordering,
 which the current Prepared-style startup has not implemented. Its expected
 parameter-vector w component is updated to the independently captured zero.
+
+### Released OnTick mode dispatch and single-root control
+
+A new native prologue oracle covers all 256 mode bytes under each combination
+of public/player-particle cell guards: 1,024 cases match dispatch and wrapping
+tick-counter writes. The beta increments its counter after both guards even
+when the mode is idle, handles mode 2 by restarting inside OnTick and handles
+mode 3 by requesting exit. Rust now follows that ordering and the window adapter
+consumes the exit request immediately. Beta root selection stays on slot zero
+instead of applying the development export's three-root selection.
+
+A second oracle executes released Restart with only player placement replaced.
+Its 32 captures verify operator-reset and all switch writes: switch zero is
+retained, mode becomes zero and switches 2 through 255 clear. Existing development
+restart tests retain their different option-preserving behavior. These captures
+do not verify complete zone/actor restart or the placement callee.
+
+The ignored player-startup gate now exercises an authored intro frame, a native
+restart request and the following authored game frame. Gameplay execution sets
+the correct parameter start [0,1.75,-21,0], but the player is still at [0,0,0]:
+the current Prepared-style world/placement ordering restarts before the gameplay
+parameters execute. That gate remains explicitly failing. Native active-painter/
+world setup and intro-to-new-game ordering require further tracing; no eager
+parameter copy is introduced to hide this difference.

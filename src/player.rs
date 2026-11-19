@@ -305,6 +305,10 @@ impl App {
             frame.time,
             mouse,
         )?;
+        if tick.quit {
+            window::quit();
+            return Ok(());
+        }
         if tick.options_changed {
             let settings = kkrieger_oxide::game::options::Settings::read(&self.execution.switches)?;
             let mut graphics = self.graphics.borrow_mut();

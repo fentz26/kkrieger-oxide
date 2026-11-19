@@ -131,7 +131,7 @@ fn released_beta_player_roots_prepare_render_resources() {
 }
 
 #[test]
-#[ignore = "requires extracted beta; native startup parameter ordering remains pending"]
+#[ignore = "requires extracted beta; native intro/new-game placement ordering remains pending"]
 fn released_beta_player_startup_initializes_native_simulation() {
     std::thread::Builder::new()
         .stack_size(32 * 1024 * 1024)
@@ -153,8 +153,41 @@ fn released_beta_player_startup_initializes_native_simulation() {
                 .unwrap();
             assert_eq!((root, scene), (4815, 4357));
             let parameter = &doc.operators[doc.operators[scene].inputs[0]];
+            let world = World::from_document(&doc, scene).unwrap();
+            let mut simulation =
+                Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1))
+                    .unwrap();
+            simulation.restart(&mut execution, [0, 0]).unwrap();
+            execution.switches[1] = 8;
+            execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new(
+                kkrieger_oxide::scene::overlay::Viewport {
+                    screen: 0,
+                    render_target: -1,
+                    window: [0, 0, 800, 600],
+                },
+                std::array::from_fn(|i| 100 + i as i32),
+            ));
+            simulation
+                .prepare_scene(&mut execution, 0, 0, 1., false)
+                .unwrap();
+            simulation
+                .execute_scene(&mut execution, &doc, root)
+                .unwrap();
+            execution.finish_events();
+            execution.switches[1] = 2;
+            let tick = simulation
+                .tick(&mut execution, &doc, 1, 10, [0, 0])
+                .unwrap();
+            assert!(!tick.ran && !tick.quit);
+            simulation
+                .prepare_scene(&mut execution, 0, 10, 1., false)
+                .unwrap();
+            simulation
+                .execute_scene(&mut execution, &doc, root)
+                .unwrap();
+            execution.finish_events();
             assert_eq!(
-                position,
+                execution.game.parameters.start_position,
                 [
                     parameter.float(29).unwrap(),
                     parameter.float(30).unwrap(),
@@ -162,12 +195,11 @@ fn released_beta_player_startup_initializes_native_simulation() {
                     0.
                 ]
             );
-            let world = World::from_document(&doc, scene).unwrap();
-            let mut simulation =
-                Simulation::new(world, &mut execution, position, 0, [0, 0], Random::new(1))
-                    .unwrap();
-            simulation.restart(&mut execution, [0, 0]).unwrap();
-            execution.switches[1] = 8;
+            assert_eq!(execution.switches[1], 0);
+            assert_eq!(
+                &simulation.motion.collider.position[..3],
+                &execution.game.parameters.start_position[..3]
+            );
             assert!(simulation.released_actors.is_some());
             assert!(simulation.motion.released_player.is_some());
             assert!(simulation.player_cell.is_some());
