@@ -1432,3 +1432,11 @@ geometry passed between them. The combined step delegates to these stages. This
 allows the main loop to preserve intervening zone/player work. Integration checks
 verify physics does not activate or attack, followed by AI activation/damage.
 Main-loop invocation and player/projectile parity remain pending.
+
+### Main simulation owns beta actor world
+
+Execution retains its document layout, and the main Simulation constructs a
+released actor world for beta documents. Root replacement rebuilds that world
+and clears its pending actor events. Checks cover layout selection and scene
+replacement, alongside existing simulation and monster-scene tests. Main tick
+stage invocation and player/projectile parity remain pending.

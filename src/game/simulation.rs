@@ -34,6 +34,7 @@ pub struct Tick {
     pub listeners: Vec<Listener>,
 }
 pub struct Simulation {
+    pub released_actors: Option<super::beta_monster::frame::ActorSimulation>,
     pub world: Rc<RefCell<World>>,
     pub motion: Motion,
     pub input: Input,
@@ -45,6 +46,21 @@ pub struct Simulation {
     was_options: bool,
 }
 impl Simulation {
+    fn released_world(
+        world: &World,
+        layout: crate::kx::Layout,
+    ) -> Option<super::beta_monster::frame::ActorSimulation> {
+        (layout == crate::kx::Layout::Beta2004).then(|| {
+            super::beta_monster::frame::ActorSimulation::new(
+                super::beta_monster::static_world::StaticWorld::new(
+                    world
+                        .entries
+                        .iter()
+                        .map(|entry| (entry.cell.vertices, entry.cell.mode)),
+                ),
+            )
+        })
+    }
     pub fn new(
         world: World,
         execution: &mut Execution,
@@ -58,7 +74,9 @@ impl Simulation {
         let player_cell = (motion.collider.cell != usize::MAX).then_some(motion.collider.cell);
         let zones = zones::Runtime::new(&world);
         let events = event_runtime::Runtime::new(&world, execution);
+        let released_actors = Self::released_world(&world, execution.document_layout);
         Ok(Self {
+            released_actors,
             world: Rc::new(RefCell::new(world)),
             motion,
             input: Input::new(now, mouse),
@@ -143,6 +161,7 @@ impl Simulation {
         self.events
             .replace_world(&world, execution, &mut self.motion);
         self.zones = zones::Runtime::new(&world);
+        self.released_actors = Self::released_world(&world, execution.document_layout);
         *self.world.borrow_mut() = world;
         self.restart(execution, mouse)?;
         if first_time {

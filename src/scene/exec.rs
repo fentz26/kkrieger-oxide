@@ -78,6 +78,7 @@ pub struct ActorContext {
 }
 
 pub struct Execution {
+    pub document_layout: crate::kx::Layout,
     pub vm: Vm,
     pub audio: Option<Box<dyn super::sample::Output>>,
     pub renderer: Option<Box<dyn Renderer>>,
@@ -552,6 +553,7 @@ impl Execution {
             current_event: None,
             events: super::event::Scheduler::from_document(doc),
             switches: [0; 256],
+            document_layout: doc.layout,
             game: crate::game::State::default(),
             splash: crate::game::splash::Splash::default(),
             actors: None,

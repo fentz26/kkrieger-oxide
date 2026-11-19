@@ -562,3 +562,58 @@ fn released_scene_actor_step_publishes_ranged_events_with_document_identities() 
         0
     );
 }
+
+#[test]
+fn game_simulation_owns_released_world_only_for_beta_documents() {
+    for beta in [false, true] {
+        let (mut doc, mut execution) = setup();
+        if beta {
+            doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+            let actors = execution.actors.take();
+            execution = Execution::new(&doc);
+            execution.actors = actors;
+        }
+        let context = execution.actors.take().unwrap();
+        let world = Rc::try_unwrap(context.world).ok().unwrap().into_inner();
+        let mut simulation = kkrieger_oxide::game::simulation::Simulation::new(
+            world,
+            &mut execution,
+            [0., 0., 0., 1.],
+            0,
+            [0, 0],
+            kkrieger_oxide::random::Random::new(1),
+        )
+        .unwrap();
+        assert_eq!(simulation.released_actors.is_some(), beta);
+        if beta {
+            simulation
+                .released_actors
+                .as_mut()
+                .unwrap()
+                .hits
+                .pending
+                .push([0; 45]);
+            let (_, mut replacement) = setup();
+            let world = Rc::try_unwrap(replacement.actors.take().unwrap().world)
+                .ok()
+                .unwrap()
+                .into_inner();
+            simulation
+                .reset_root(world, &mut execution, [0, 0], false)
+                .unwrap();
+            assert!(
+                simulation
+                    .released_actors
+                    .as_ref()
+                    .unwrap()
+                    .hits
+                    .pending
+                    .is_empty()
+            );
+        }
+
+        if let Some(released) = simulation.released_actors {
+            assert_eq!(released.world.adds.len(), 1);
+        }
+    }
+}
