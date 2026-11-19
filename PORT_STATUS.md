@@ -2127,3 +2127,24 @@ A scene integration test checks the ignored-click/child-execution boundary;
 a separate regression preserves development click activation. Ten targeted
 menu tests, player/menu Clippy, formatting and whitespace checks pass. This
 verifies State semantics, not the complete native menu scheduler or playthrough.
+
+### Full regular-suite audit after released startup/render/input changes
+
+At source commit be9595b68ae37dbc6c4587b8ea4701f1ca89f265, Rust 1.100.0 regular verification:
+
+- cargo test --tests --quiet: 495 passed, zero failed, 34 ignored, across 214
+  test-binary result blocks; command exited zero.
+- cargo clippy --all-targets -- -D warnings: exited zero.
+- cargo fmt --check and git diff --check: exited zero.
+- Native startup, Print ABI/metrics, State and particle-draw ABI tools reran;
+  all assertions passed and committed fixtures regenerated unchanged.
+
+The 34 ignored tests are excluded from this regular-suite total. Earlier
+explicit extracted-root and window smoke results retain their stated scopes;
+they are not a full native playthrough, pixel comparison or audio comparison.
+The default embedded document remains the development export, with the released
+beta available via build-time selection. Original-content default shipping,
+complete level traversal/ending, exact first-gameplay native pose, complete
+font/GPU rendering parity, Windows/Linux audio and full-song waveform parity,
+and final compactness/performance goals remain incomplete or unverified. This
+is an intermediate regression audit, not completion of the rewrite.
