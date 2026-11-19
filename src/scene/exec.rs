@@ -2265,18 +2265,19 @@ impl Execution {
             &self.released_colliders,
             settings,
         )?;
-        simulation.apply_weapon_hits(
+        let mut sounds = simulation.apply_weapon_hits(
             &mut accepted,
             &self.game.released_monsters,
+            &mut self.game.inventory,
             &self.game.parameters.weapon_hits,
             &mut self.switches,
         )?;
-        let sounds = simulation.think(
+        sounds.extend(simulation.think(
             &self.game.released_monsters,
             &accepted,
             &mut self.game.inventory,
             settings,
-        )?;
+        )?);
         self.publish_released_actor_events(doc, &mut simulation.hits.pending)?;
         Ok(sounds)
     }

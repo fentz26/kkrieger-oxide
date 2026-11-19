@@ -84,11 +84,12 @@ impl ActorSimulation {
         &self,
         accepted: &mut ActorFrame,
         registry: &Registry,
+        inventory: &mut crate::game::Inventory,
         damage: &[i32; 8],
         switches: &mut [u8; 256],
-    ) -> Result<(), &'static str> {
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str> {
         let adds = self.world.additive_views();
-        accepted.apply_weapon_hits(registry, damage, switches, |point| {
+        accepted.apply_damage(registry, inventory, damage, switches, |point| {
             super::hull::find_cell(
                 adds.iter().enumerate().map(|(id, cell)| (id, cell.planes)),
                 point,

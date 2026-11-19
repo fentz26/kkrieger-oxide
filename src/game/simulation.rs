@@ -413,12 +413,18 @@ impl Simulation {
             if let (Some(released), Some(accepted)) =
                 (self.released_actors.as_mut(), released_frame.as_mut())
             {
-                released.apply_weapon_hits(
+                for sound in released.apply_weapon_hits(
                     accepted,
                     &execution.game.released_monsters,
+                    &mut execution.game.inventory,
                     &execution.game.parameters.weapon_hits,
                     &mut execution.switches,
-                )?;
+                )? {
+                    result.sounds.push(Audio {
+                        sound,
+                        position: self.motion.collider.position,
+                    });
+                }
                 released_settings.player = self.motion.collider.position;
                 released_settings.player_cell = self
                     .player_cell

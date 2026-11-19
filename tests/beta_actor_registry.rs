@@ -181,3 +181,122 @@ fn mixed_collider_order_remaps_owned_cells_and_collision_masks() {
     );
     assert_eq!(frame.bodies[&token].skip_cell, Some(1));
 }
+
+#[test]
+fn weapon_masks_hit_player_then_distinct_actor_cells_without_alias_repeats() {
+    use kkrieger_oxide::{
+        collision::{Cell, DynamicCell},
+        game::{
+            Inventory,
+            beta_monster::{
+                registration::{ActorFrame, DynamicSlot},
+                scene_cells::SceneCell,
+            },
+        },
+    };
+    use std::{cell::RefCell, rc::Rc};
+    let mut registry = Registry::default();
+    let mut data = [0; 26];
+    data[10] = 100;
+    data[17] = 9;
+    let token = registry.spawn(&data, identity(), 0, |_| Some(0)).unwrap();
+    registry.register(token).unwrap();
+    let player = Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [1.; 3], 2),
+        identity(),
+    )));
+    player.borrow_mut().cell.interactions.enter = 0x100;
+    let player_source = Rc::clone(&player);
+    let actor = Rc::new(RefCell::new(DynamicCell::new(
+        Cell::new(identity(), [1.; 3], 1),
+        identity(),
+    )));
+    actor.borrow_mut().monster = Some(token as usize);
+    let mut frame = ActorFrame::capture(&registry, &[token], 5).unwrap();
+    frame
+        .attach_scene(vec![
+            SceneCell::capture(player, true).unwrap(),
+            SceneCell::capture(Rc::clone(&actor), false).unwrap(),
+            SceneCell::capture(actor, false).unwrap(),
+        ])
+        .unwrap();
+    frame
+        .set_order(&[
+            DynamicSlot::Scene(0),
+            DynamicSlot::Scene(1),
+            DynamicSlot::Actor(0),
+            DynamicSlot::Scene(2),
+        ])
+        .unwrap();
+    frame
+        .save_collision_masks(&[0x100, 0x200, 0x100, 0x200])
+        .unwrap();
+    let mut inventory = Inventory::default();
+    inventory.amounts[0] = 100;
+    let mut switches = [0; 256];
+    let damage = [10, 20, 0, 0, 0, 0, 0, 0];
+    let retained = registry.get(token).unwrap();
+    let borrowed = retained.borrow_mut();
+    assert_eq!(
+        frame.apply_damage(&registry, &mut inventory, &damage, &mut switches, |_| Some(
+            0
+        )),
+        Err("released actor already borrowed")
+    );
+    assert_eq!(inventory.amounts[0], 100);
+    drop(borrowed);
+    let source_borrow = player_source.borrow_mut();
+    assert_eq!(
+        frame.apply_damage(&registry, &mut inventory, &damage, &mut switches, |_| Some(
+            0
+        )),
+        Err("scene dynamic cell already borrowed")
+    );
+    assert_eq!(inventory.amounts[0], 100);
+    drop(source_borrow);
+    let sounds = frame
+        .apply_damage(&registry, &mut inventory, &damage, &mut switches, |_| {
+            Some(0)
+        })
+        .unwrap();
+    assert_eq!(inventory.amounts[0], 90);
+    assert_eq!(player_source.borrow().cell.interactions.enter, 0);
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 70);
+    assert_eq!(sounds.len(), 1);
+    assert!(
+        frame
+            .dynamic_views()
+            .unwrap()
+            .iter()
+            .all(|v| v.collided == 0)
+    );
+    assert!(
+        frame
+            .apply_damage(&registry, &mut inventory, &damage, &mut switches, |_| Some(
+                0
+            ))
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(inventory.amounts[0], 90);
+    assert_eq!(registry.get(token).unwrap().borrow().initial.life, 70);
+    registry.get(token).unwrap().borrow_mut().initial.life = 10;
+    frame
+        .save_collision_masks(&[0, 0x200, 0x100, 0x200])
+        .unwrap();
+    frame
+        .apply_damage(
+            &registry,
+            &mut inventory,
+            &[-100, 20, 0, 0, 0, 0, 0, 0],
+            &mut switches,
+            |_| Some(0),
+        )
+        .unwrap();
+    assert_eq!(
+        registry.get(token).unwrap().borrow().initial.life,
+        0,
+        "scene hit kills before the later healing hit"
+    );
+    assert_eq!(switches[9], 1);
+}

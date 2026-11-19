@@ -632,12 +632,14 @@ fn main_tick_advances_scene_owned_beta_actors() {
     data[20..23].fill(1f32.to_bits());
     doc.operators[0].parameters = data;
     doc.operators[0].links = vec![Some(2)];
+    doc.operators[1].parameters[0] = 0; // Isolate weapon masks from the live-input splash.
     let context = execution.actors.take().unwrap();
     let world = Rc::try_unwrap(context.world).ok().unwrap().into_inner();
     execution = Execution::new(&doc);
     execution.switches[1] = 0;
     execution.game.inventory.amounts[0] = 100;
     execution.game.inventory.maxima[0] = 100;
+    execution.game.parameters.weapon_hits[0] = 10;
     execution.game.parameters.gravity = 0.01;
     execution.game.parameters.stair_height = 0.55;
     execution.game.parameters.damp_camera = 0.25;
@@ -650,6 +652,13 @@ fn main_tick_advances_scene_owned_beta_actors() {
         kkrieger_oxide::random::Random::new(1),
     )
     .unwrap();
+    simulation
+        .motion
+        .hit_cell
+        .borrow_mut()
+        .cell
+        .interactions
+        .enter = 0x100;
     simulation.bind_scene(&mut execution, false);
     execution.frame(&doc, 0).unwrap();
     simulation.motion.released_player.as_mut().unwrap().physics[0]
@@ -660,6 +669,8 @@ fn main_tick_advances_scene_owned_beta_actors() {
         .tick(&mut execution, &doc, 1, 10, [0, 0])
         .unwrap();
     assert!(result.ran);
+    assert_eq!(execution.game.inventory.amounts[0], 90);
+    assert!(result.sounds.iter().any(|audio| audio.sound.slot == 10));
     let player = &simulation.motion.released_player.as_ref().unwrap().physics[0].0;
     assert_eq!(player.particles[0].force, [0.; 4]);
     assert_eq!(

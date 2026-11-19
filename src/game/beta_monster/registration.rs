@@ -22,64 +22,150 @@ pub struct ActorFrame {
     pub particles: BTreeMap<usize, Shot>,
 }
 impl ActorFrame {
-    /// Released zone tail: weapon bits 8..15 hit each shared dynamic actor.
     pub fn apply_weapon_hits<F>(
         &mut self,
         registry: &Registry,
         damage: &[i32; 8],
         switches: &mut [u8; 256],
-        mut find_cell: F,
+        find_cell: F,
     ) -> Result<(), &'static str>
+    where
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        self.dispatch_damage(registry, None, damage, switches, find_cell)
+            .map(|_| ())
+    }
+    pub fn apply_damage<F>(
+        &mut self,
+        registry: &Registry,
+        inventory: &mut crate::game::Inventory,
+        damage: &[i32; 8],
+        switches: &mut [u8; 256],
+        find_cell: F,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str>
+    where
+        F: FnMut([f32; 4]) -> Option<usize>,
+    {
+        self.dispatch_damage(registry, Some(inventory), damage, switches, find_cell)
+    }
+    /// Released zone tail: player first, then each distinct dynamic cell in roster order.
+    fn dispatch_damage<F>(
+        &mut self,
+        registry: &Registry,
+        inventory: Option<&mut crate::game::Inventory>,
+        damage: &[i32; 8],
+        switches: &mut [u8; 256],
+        mut find_cell: F,
+    ) -> Result<Vec<crate::game::player::Sound>, &'static str>
     where
         F: FnMut([f32; 4]) -> Option<usize>,
     {
         if self.collided.len() != self.cells.len() + self.scene.len() {
             return Err("released collision mask count differs");
         }
+        let player_mask = self
+            .scene
+            .iter()
+            .filter(|cell| cell.player)
+            .fold(0, |mask, cell| {
+                mask | cell.interactions.enter | cell.interactions.collided
+            });
         let mut targets = Vec::<(u32, u32)>::new();
-        let mut indices = BTreeMap::<u32, usize>::new();
-        for ((token, _), mask) in self.cells.iter().zip(&self.collided) {
-            if let Some(&index) = indices.get(token) {
+        let mut indices = BTreeMap::<(bool, usize), usize>::new();
+        for slot in &self.order {
+            let (identity, token, mask) = match *slot {
+                DynamicSlot::Actor(index) => {
+                    let token = self.cells[index].0;
+                    ((true, token as usize), Some(token), self.collided[index])
+                }
+                DynamicSlot::Scene(index) => {
+                    let cell = &self.scene[index];
+                    (
+                        (false, std::rc::Rc::as_ptr(&cell.source) as usize),
+                        cell.actor,
+                        cell.interactions.enter | cell.interactions.collided,
+                    )
+                }
+            };
+            let Some(token) = token else { continue };
+            if let Some(&index) = indices.get(&identity) {
                 targets[index].1 |= mask;
             } else {
-                indices.insert(*token, targets.len());
-                targets.push((*token, *mask));
+                indices.insert(identity, targets.len());
+                targets.push((token, mask));
             }
         }
         targets.retain(|(_, mask)| mask & 0xff00 != 0);
-        let handles = targets
-            .iter()
-            .map(|(token, _)| {
-                registry
-                    .get(*token)
-                    .ok_or("released collider identity missing")
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let mut handles = BTreeMap::new();
+        for &(token, _) in &targets {
+            if let std::collections::btree_map::Entry::Vacant(entry) = handles.entry(token) {
+                entry.insert(
+                    registry
+                        .get(token)
+                        .ok_or("released collider identity missing")?,
+                );
+            }
+        }
         let mut actors = handles
             .iter()
-            .map(|handle| {
-                handle
+            .map(|(&token, actor)| {
+                actor
                     .try_borrow_mut()
+                    .map(|actor| (token, actor))
                     .map_err(|_| "released actor already borrowed")
             })
-            .collect::<Result<Vec<_>, _>>()?;
-        for (actor, (_, mask)) in actors.iter().zip(&targets) {
-            if actor.initial.life > 0
-                && mask & 0xff00 != 0
-                && actor.initial.copied.parameters[11] as i32 > 255
-            {
+            .collect::<Result<BTreeMap<_, _>, _>>()?;
+        for actor in actors.values() {
+            if actor.initial.life > 0 && actor.initial.copied.parameters[11] as i32 > 255 {
                 return Err("monster kill switch out of range");
             }
         }
-        for (actor, (_, mask)) in actors.iter_mut().zip(targets) {
+        let consume_player = inventory.is_some();
+        let mut scene_handles = BTreeMap::new();
+        for cell in &self.scene {
+            if consume_player || !cell.player {
+                scene_handles
+                    .entry(std::rc::Rc::as_ptr(&cell.source) as usize)
+                    .or_insert_with(|| std::rc::Rc::clone(&cell.source));
+            }
+        }
+        let mut scene_states = scene_handles
+            .values()
+            .map(|source| {
+                source
+                    .try_borrow_mut()
+                    .map_err(|_| "scene dynamic cell already borrowed")
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut sounds = Vec::new();
+        if let Some(inventory) = inventory {
+            for (weapon, &hits) in damage.iter().enumerate() {
+                if player_mask & (1 << (weapon + 8)) != 0 {
+                    sounds.extend(inventory.hit(hits));
+                }
+            }
+        }
+        for (token, mask) in targets {
+            let actor = actors
+                .get_mut(&token)
+                .ok_or("released collider identity missing")?;
             for (weapon, &hits) in damage.iter().enumerate() {
                 if mask & (1 << (weapon + 8)) != 0 {
                     actor.hit(hits, switches, &mut find_cell)?;
                 }
             }
         }
+        for source in &mut scene_states {
+            source.cell.interactions = Default::default();
+        }
         self.collided[..self.cells.len()].fill(0);
-        Ok(())
+        for (index, cell) in self.scene.iter_mut().enumerate() {
+            if consume_player || !cell.player {
+                cell.interactions = Default::default();
+                self.collided[self.cells.len() + index] = 0;
+            }
+        }
+        Ok(sounds)
     }
     pub fn capture(
         registry: &Registry,

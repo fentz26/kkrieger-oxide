@@ -1611,3 +1611,16 @@ actor → live geometry, inactive/dead actor transitions, replay cleanup, ordere
 mask mapping and invalid order rejection. Duplicate pointer identities, complete
 native mixed-registry traces, part-box effects and weapon damage dispatch to
 player/scene-owned actor hulls remain unverified or incomplete.
+
+### Captured weapon masks dispatch to player and scene-owned actors
+
+The zone-tail dispatcher now applies player enter/collided weapon bits first,
+then visits actor and scene-owned actor hitboxes in mixed roster order. Repeated
+references to one physical cell combine masks and hit once; distinct hitboxes
+owned by the same actor remain separate hits. Actor and scene-instance borrows
+are validated before health changes, allowing retry without duplicate damage.
+Consumed masks clear both frame metadata and live scene instances. Main tick
+hurt sounds enter the audio result. Checks cover player damage/audio, alias
+suppression, distinct hitboxes, kill-before-heal ordering and borrow retries.
+Native player/actor damage primitives were independently verified earlier;
+released projectile registration and end-to-end impact parity remain pending.
