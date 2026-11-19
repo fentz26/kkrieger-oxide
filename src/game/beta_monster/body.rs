@@ -176,3 +176,84 @@ impl AsMut<Body> for Body {
         self
     }
 }
+
+/// Released PartBox: eight corner particles and sixteen bracing constraints.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BoxBody {
+    pub particles: [Particle; 8],
+    pub constraints: [Constraint; 16],
+}
+impl BoxBody {
+    pub fn new(
+        matrix: crate::mesh::Matrix,
+        scale: [f32; 3],
+        speed: [f32; 4],
+        cell: Option<usize>,
+    ) -> Self {
+        const CORNERS: [[f64; 3]; 8] = [
+            [-1., -1., -1.],
+            [-1., 1., -1.],
+            [1., 1., -1.],
+            [1., -1., -1.],
+            [-1., -1., 1.],
+            [-1., 1., 1.],
+            [1., 1., 1.],
+            [1., -1., 1.],
+        ];
+        const LINKS: [[usize; 2]; 16] = [
+            [0, 1],
+            [1, 2],
+            [2, 3],
+            [3, 0],
+            [4, 5],
+            [5, 6],
+            [6, 7],
+            [7, 4],
+            [0, 4],
+            [1, 5],
+            [2, 6],
+            [3, 7],
+            [0, 6],
+            [1, 7],
+            [2, 4],
+            [3, 5],
+        ];
+        let particles = std::array::from_fn(|index| {
+            let local = std::array::from_fn(|axis| {
+                let half = down(mul(CORNERS[index][axis], 0.5));
+                down(mul(f64::from(half), f64::from(scale[axis])))
+            });
+            let rotated = super::dynamic::rotate(local, matrix);
+            let mut position = [0.; 4];
+            for axis in 0..3 {
+                position[axis] = down(add(f64::from(rotated[axis]), f64::from(matrix[3][axis])));
+            }
+            position[3] = 1.;
+            let mut particle = Particle::new(position, speed, cell);
+            particle.flags[0] = u32::from(index == 7);
+            particle
+        });
+        let constraints = std::array::from_fn(|index| {
+            let [a, b] = LINKS[index];
+            let delta: [f64; 3] = std::array::from_fn(|axis| {
+                f64::from(down(add(
+                    f64::from(particles[a].vectors[0][axis]),
+                    -f64::from(particles[b].vectors[0][axis]),
+                )))
+            });
+            let squared = add(
+                add(mul(delta[2], delta[2]), mul(delta[1], delta[1])),
+                mul(delta[0], delta[0]),
+            );
+            Constraint {
+                flags: [u32::from(index == 15), 0],
+                particles: [a, b],
+                rest_length: down(precision24(squared.sqrt())),
+            }
+        });
+        Self {
+            particles,
+            constraints,
+        }
+    }
+}

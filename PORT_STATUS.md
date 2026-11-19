@@ -1735,3 +1735,14 @@ The Rust scene handler incorrectly inherited later-source flag-0x10 monster
 assignment. That assignment now applies only to the development layout. The
 scene regression checks native ownership and counts during live actor events
 and repeated frame replay. This does not implement the missing mode-1 box body.
+
+### Released eight-particle box initialization
+
+BoxBody now constructs the released PartBox's eight corner particles and sixteen
+edge/diagonal constraints using the native corner/link order and floating-point
+arithmetic. A new oracle executes PartBox::Init at 0x81aaa4 without replacing
+callees; 128 captures verify every particle word and normalized constraint word
+across varied transforms, velocity, nullable cell references, negative scales
+and degenerate zero axes. The Physic handler's mass/kind/event assignment, box
+registration, constraints/physics participation and child-pose reconstruction
+remain required before mode-1 box projectiles are functional in gameplay.
