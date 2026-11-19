@@ -625,7 +625,10 @@ impl Execution {
                 .get(index)
                 .ok_or_else(|| fail("particle precalc operator out of range"))?;
             if finish {
-                if initialize_start && doc.classes[op.class].id == 0x10 {
+                if initialize_start
+                    && doc.layout != crate::kx::Layout::Beta2004
+                    && doc.classes[op.class].id == 0x10
+                {
                     let p = op
                         .parameters
                         .get(29..32)
@@ -1866,7 +1869,9 @@ impl Execution {
                 Ok(())
             }
             0x10 => {
-                self.game.apply_parameters(&p).map_err(fail)?;
+                self.game
+                    .apply_parameters_for_layout(&p, doc.layout)
+                    .map_err(fail)?;
                 self.exec_inputs(doc, root, parent)
             }
             0x12 => {

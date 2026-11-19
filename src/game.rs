@@ -147,6 +147,13 @@ impl State {
     /// Original Exec_KKrieger_Para: maxima and tuning update every call; initial
     /// collectables and weapon ownership update only after a game reset.
     pub fn apply_parameters(&mut self, words: &[u32]) -> Result<(), &'static str> {
+        self.apply_parameters_for_layout(words, crate::kx::Layout::Current)
+    }
+    pub fn apply_parameters_for_layout(
+        &mut self,
+        words: &[u32],
+        layout: crate::kx::Layout,
+    ) -> Result<(), &'static str> {
         if words.len() < 57 {
             return Err("truncated gameplay parameters");
         }
@@ -174,12 +181,25 @@ impl State {
             accel_forward: f(26),
             accel_back: f(27),
             jump_force: f(28),
-            start_position: [f(29), f(30), f(31), 1.],
+            start_position: [
+                f(29),
+                f(30),
+                f(31),
+                if layout == crate::kx::Layout::Beta2004 {
+                    0.
+                } else {
+                    1.
+                },
+            ],
             damp_camera: f(56),
             weapon_hits: std::array::from_fn(|i| words[32 + i] as i32),
             weapon_cool: std::array::from_fn(|i| f(40 + i)),
             weapon_flags: std::array::from_fn(|i| words[48 + i] as i32),
-            camera_offset: f(22) - f(21),
+            camera_offset: if layout == crate::kx::Layout::Beta2004 {
+                beta_monster::down(beta_monster::add(f64::from(f(22)), -f64::from(f(21))))
+            } else {
+                f(22) - f(21)
+            },
         };
         Ok(())
     }

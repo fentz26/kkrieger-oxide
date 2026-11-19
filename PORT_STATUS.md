@@ -1932,3 +1932,22 @@ arbitrary precalculated parameter record is not a verified fix. Native startup
 execution ordering must be traced before switching the embedded player to beta
 content. Regular resource, Demo and startup tests pass; full startup parity is
 not claimed.
+
+### Released parameter execution and precalculation ABI
+
+A new oracle executes released Exec_KKrieger_Para at 0x81a35e, replacing only its
+child-execution callback. Across 192 updates it captures reset flags, inventory,
+weapon ownership, maxima and all tuning fields, and verifies parameter writes
+precede child execution. The Rust layout-specific path matches every captured
+word, including the zero start-vector w component and downward-rounded camera
+offset subtraction (negative zero on cancellation). The development parameter
+API retains its existing behavior and source-oracle tests.
+
+Beta scene parameter execution now selects that path. Beta precalculation no
+longer performs the later source's start-position copy: native initializer
+0x81a649 aliases/constructs a scene without accessing the game. A regular test
+checks the layout-dependent precalc/execute boundary. The extracted-root main
+tick still runs, but player startup is not yet resolved: the ignored startup
+gate expects authored coordinates after proper native initialization ordering,
+which the current Prepared-style startup has not implemented. Its expected
+parameter-vector w component is updated to the independently captured zero.

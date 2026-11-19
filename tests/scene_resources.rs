@@ -159,7 +159,7 @@ fn released_beta_player_startup_initializes_native_simulation() {
                     parameter.float(29).unwrap(),
                     parameter.float(30).unwrap(),
                     parameter.float(31).unwrap(),
-                    1.
+                    0.
                 ]
             );
             let world = World::from_document(&doc, scene).unwrap();

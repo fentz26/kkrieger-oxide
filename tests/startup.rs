@@ -147,3 +147,43 @@ fn authored_set_painter_follows_first_inputs_and_retains_world_for_menu_mesh() {
     );
     assert!(root::painter_scene(&d, d.operators.len()).is_err());
 }
+
+#[test]
+fn released_parameters_wait_for_execution_instead_of_precalculation() {
+    use kkrieger_oxide::kx::Layout;
+    for layout in [Layout::Legacy3383, Layout::Beta2004] {
+        let mut doc = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+        doc.layout = layout;
+        doc.operators.truncate(1);
+        doc.operators[0].class = doc
+            .classes
+            .iter()
+            .position(|class| class.id == 0x10)
+            .unwrap();
+        doc.operators[0].inputs.clear();
+        doc.operators[0].links.clear();
+        doc.operators[0].animation = &[1];
+        doc.operators[0].parameters = vec![0; 57];
+        doc.operators[0].parameters[29..32].copy_from_slice(&[
+            1f32.to_bits(),
+            2f32.to_bits(),
+            3f32.to_bits(),
+        ]);
+        let mut execution = Execution::new(&doc);
+        execution.game.parameters.start_position = [9., 8., 7., 6.];
+        execution.prepare_game_operators(&doc, 0).unwrap();
+        assert_eq!(
+            execution.game.parameters.start_position,
+            if layout == Layout::Beta2004 {
+                [9., 8., 7., 6.]
+            } else {
+                [1., 2., 3., 1.]
+            }
+        );
+        execution.frame(&doc, 0).unwrap();
+        assert_eq!(
+            execution.game.parameters.start_position,
+            [1., 2., 3., if layout == Layout::Beta2004 { 0. } else { 1. }]
+        );
+    }
+}
