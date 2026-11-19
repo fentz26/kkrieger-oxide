@@ -1556,3 +1556,20 @@ then copies landing/air/jump state back. Checks cover interleaved world indices,
 null cells, persistent force state, placement resets and pre-physics publication
 ordering. The main tick still invokes development player movement; released
 ground queries, post-physics publication and hitbox integration remain pending.
+
+### Main beta tick advances the released player body
+
+Beta ticks now use a released downward ground query, prepare player input,
+advance persistent player particles alongside scene actors, and publish the main
+particle position/cell before zone actions and AI. Publication validates local
+cell IDs before changing motion and converts them back to source-world indices.
+Player hit-cell matrices are prepared before physics using the released 0.85
+offset. Checks cover ground clearance including native hull overlap, null/error
+cells, publication validation and consumption of player forces by the main tick.
+The player ground query and released frame still lack ordinary scene dynamic
+hulls (doors/platforms), and full released player-hitbox/projectile registration,
+footstep/camera rounding and complete playthrough verification remain pending.
+An opt-in extracted-data check also ran full root 4815 and four main gameplay
+ticks at the authored start position, verifying finite player particles,
+published player state, registered player shots and active actor colliders.
+It forces the options switch off and does not establish a complete playthrough.

@@ -652,10 +652,30 @@ fn main_tick_advances_scene_owned_beta_actors() {
     .unwrap();
     simulation.bind_scene(&mut execution, false);
     execution.frame(&doc, 0).unwrap();
+    simulation.motion.released_player.as_mut().unwrap().physics[0]
+        .0
+        .particles[0]
+        .force[0] = 0.1;
     let result = simulation
         .tick(&mut execution, &doc, 1, 10, [0, 0])
         .unwrap();
     assert!(result.ran);
+    let player = &simulation.motion.released_player.as_ref().unwrap().physics[0].0;
+    assert_eq!(player.particles[0].force, [0.; 4]);
+    assert_eq!(
+        simulation.motion.collider.position,
+        player.particles[0].vectors[0]
+    );
+    assert!(simulation.motion.collider.position[0] > -5.);
+    assert!(
+        simulation
+            .released_actors
+            .as_ref()
+            .unwrap()
+            .hits
+            .shots
+            .contains_key(&0)
+    );
     assert!(
         execution
             .game
@@ -678,4 +698,78 @@ fn main_tick_advances_scene_owned_beta_actors() {
             .pending
             .is_empty()
     );
+}
+
+#[test]
+#[ignore = "requires independently extracted beta and full scene generation"]
+fn original_beta_main_tick_advances_persistent_player_and_actors() {
+    std::thread::Builder::new()
+        .stack_size(32 * 1024 * 1024)
+        .spawn(|| {
+            let bytes = std::fs::read(".reference/verified-beta.kx").unwrap();
+            let doc = Document::parse_layout(&bytes, kkrieger_oxide::kx::Layout::Beta2004).unwrap();
+            let world = World::from_document(&doc, 4357).unwrap();
+            let parameter = &doc.operators[doc.operators[4357].inputs[0]];
+            let position = [
+                parameter.float(29).unwrap(),
+                parameter.float(30).unwrap(),
+                parameter.float(31).unwrap(),
+                1.,
+            ];
+            let mut execution = Execution::new(&doc);
+            execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new(
+                kkrieger_oxide::scene::overlay::Viewport {
+                    screen: 0,
+                    render_target: -1,
+                    window: [0, 0, 800, 600],
+                },
+                std::array::from_fn(|i| 100 + i as i32),
+            ));
+            let mut simulation = kkrieger_oxide::game::simulation::Simulation::new(
+                world,
+                &mut execution,
+                position,
+                0,
+                [0, 0],
+                kkrieger_oxide::random::Random::new(1),
+            )
+            .unwrap();
+            let mut colliders = 0;
+            for tick in 1..=4 {
+                simulation.bind_scene(&mut execution, false);
+                execution.frame(&doc, 4815).unwrap();
+                execution.switches[1] = 0; // Exercise gameplay rather than the options screen.
+                let result = simulation
+                    .tick(&mut execution, &doc, tick, tick * 10, [0, 0])
+                    .unwrap();
+                assert!(result.ran);
+                let player = &simulation.motion.released_player.as_ref().unwrap().physics[0].0;
+                assert_eq!(
+                    simulation.motion.collider.position,
+                    player.particles[0].vectors[0]
+                );
+                assert!(
+                    player
+                        .particles
+                        .iter()
+                        .flat_map(|p| p.vectors)
+                        .flatten()
+                        .all(f32::is_finite)
+                );
+                assert!(
+                    simulation
+                        .released_actors
+                        .as_ref()
+                        .unwrap()
+                        .hits
+                        .shots
+                        .contains_key(&0)
+                );
+                colliders = colliders.max(execution.released_colliders.len());
+            }
+            assert!(colliders > 0);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
 }

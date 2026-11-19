@@ -151,3 +151,29 @@ fn owned_frame_advances_player_body_in_shared_physics() {
     assert_eq!(simulation.hits.shots[&5].kind, 3);
     assert!(registry.get(token).unwrap().borrow().body.particles[0].vectors[0][1] < 0.5);
 }
+
+#[test]
+fn released_player_clearance_uses_native_downward_world_cast() {
+    let world = StaticWorld::new([(
+        HitBox {
+            matrix: identity(),
+            scale: [2.; 3],
+        }
+        .vertices(),
+        0,
+    )]);
+    let mut simulation = ActorSimulation::new(world);
+    let base = simulation
+        .player_clearance([0., 0., 0., 1.], None, 0.01, 1.)
+        .unwrap();
+    assert!(base > 1. && base < 1.011);
+    let clearance = simulation
+        .player_clearance([0., -0.5, 0., 1.], Some(0), 0.01, 1.)
+        .unwrap();
+    assert!((clearance - 0.505).abs() < 0.00001); // Released hull includes 0.005 overlap.
+    assert!(
+        simulation
+            .player_clearance([0., 0., 0., 1.], Some(99), 0.01, 1.)
+            .is_err()
+    );
+}

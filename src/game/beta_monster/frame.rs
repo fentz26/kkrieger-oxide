@@ -17,6 +17,55 @@ pub struct ActorSimulation {
     pub zone_masks: Vec<[u32; 3]>,
 }
 impl ActorSimulation {
+    /// Released player ground ray has no particle, so actor hulls are excluded.
+    pub fn player_clearance(
+        &mut self,
+        position: [f32; 4],
+        cell: Option<usize>,
+        gravity: f32,
+        height: f32,
+    ) -> Result<f32, &'static str> {
+        use super::ai::World;
+        let base = super::down(super::add(f64::from(gravity), f64::from(height)));
+        if cell.is_none() {
+            return Ok(base);
+        }
+        let adds = self.world.additive_views();
+        let statics = self.world.static_views();
+        let lists: Vec<_> = self
+            .world
+            .subtractive_lists
+            .iter()
+            .map(Vec::as_slice)
+            .collect();
+        let mut runtime = CollisionRuntime {
+            adds: &adds,
+            candidates: CandidateWorld {
+                static_cells: &statics,
+                lists: &lists,
+                dynamic_cells: &mut [],
+            },
+            zones: &mut [],
+            zone_lists: &[],
+            hits: &mut self.hits,
+            particle_id: 0,
+            skip_cell: None,
+            monster_mode: false,
+            interrupted: false,
+            error: None,
+        };
+        let distance = super::runtime::AiWorld {
+            runtime: &mut runtime,
+            player_cell: cell,
+        }
+        .ground_distance(position, cell, base);
+        if let Some(error) = runtime.error.or(runtime.hits.error) {
+            return Err(error);
+        }
+        Ok(distance.map_or(base, |distance| {
+            super::down(super::add(f64::from(base), f64::from(distance)))
+        }))
+    }
     pub fn apply_weapon_hits(
         &self,
         accepted: &mut ActorFrame,

@@ -278,12 +278,32 @@ impl Simulation {
         let actors: Vec<_> = execution.game.monsters.active().collect();
         for slice in 0..slices {
             let sound_position = self.motion.collider.position;
-            let (sound, mut velocity) = self.motion.slice_with_velocity(
-                &execution.game.parameters,
-                &mut world,
-                slices,
-                &execution.dynamic_cells,
-            )?;
+            let (sound, mut velocity) = if let Some(released) = self.released_actors.as_mut() {
+                let player = self
+                    .motion
+                    .released_player
+                    .as_ref()
+                    .ok_or("released player body missing")?;
+                let main = &player.physics[0].0.particles[0];
+                let clearance = released.player_clearance(
+                    main.vectors[0],
+                    main.cell,
+                    execution.game.parameters.gravity,
+                    execution.game.parameters.stair_height,
+                )?;
+                (
+                    self.motion
+                        .prepare_released(&execution.game.parameters, slices, clearance)?,
+                    [0.; 4],
+                )
+            } else {
+                self.motion.slice_with_velocity(
+                    &execution.game.parameters,
+                    &mut world,
+                    slices,
+                    &execution.dynamic_cells,
+                )?
+            };
             if let Some(sound) = sound {
                 result.sounds.push(Audio {
                     sound,
@@ -315,11 +335,21 @@ impl Simulation {
                 first_particle: 5,
             };
             let mut released_frame = if let Some(released) = self.released_actors.as_mut() {
-                Some(released.physics(
+                let player = self
+                    .motion
+                    .released_player
+                    .as_mut()
+                    .ok_or("released player body missing")?;
+                let accepted = released.physics_with_bodies(
                     &execution.game.released_monsters,
                     &execution.released_colliders,
+                    &mut player.physics,
                     &released_settings,
-                )?)
+                )?;
+                velocity = self.motion.publish_released(&world)?;
+                self.player_cell =
+                    (self.motion.collider.cell != usize::MAX).then_some(self.motion.collider.cell);
+                Some(accepted)
             } else {
                 None
             };

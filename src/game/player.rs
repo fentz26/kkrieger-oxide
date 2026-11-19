@@ -38,6 +38,36 @@ pub struct Sound {
 }
 
 impl Motion {
+    /// Publish the main released particle after shared physics has finished.
+    pub fn publish_released(&mut self, world: &World) -> Result<[f32; 4], &'static str> {
+        let player = self
+            .released_player
+            .as_ref()
+            .ok_or("released player body missing")?;
+        let main = &player.physics[0].0.particles[0];
+        let source = main
+            .cell
+            .map(|local| {
+                world
+                    .adds
+                    .get(local)
+                    .copied()
+                    .ok_or("released player cell out of range")
+            })
+            .transpose()?;
+        let position = main.vectors[0];
+        let mut velocity = [0.; 4];
+        for axis in 0..3 {
+            velocity[axis] = super::beta_monster::down(super::beta_monster::add(
+                f64::from(position[axis]),
+                -f64::from(self.collider.position[axis]),
+            ));
+        }
+        self.old_position = self.collider.position;
+        self.collider.position = position;
+        self.collider.cell = source.unwrap_or(usize::MAX);
+        Ok(velocity)
+    }
     /// Translate released particles before their shared physics pass.
     pub fn prepare_released(
         &mut self,
@@ -78,6 +108,14 @@ impl Motion {
         self.off_ground_time = control.off_ground_time;
         self.step_timer = control.step_timer;
         self.step_foot = control.step_foot;
+        let mut hit = self.hit_cell.borrow_mut();
+        hit.matrix1 = orientation([0., self.direction, 0.]);
+        hit.matrix1[3] = self.collider.position;
+        hit.matrix1[3][1] = super::beta_monster::down(super::beta_monster::add(
+            f64::from(hit.matrix1[3][1]),
+            f64::from(0.85f32),
+        ));
+        hit.matrix0[3] = hit.matrix1[3];
         Ok(sound)
     }
     pub fn jump(&mut self, parameters: &Parameters) -> Option<Sound> {

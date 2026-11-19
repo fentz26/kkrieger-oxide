@@ -273,3 +273,60 @@ fn released_motion_input_updates_persistent_particles_and_control_fields() {
         "publication follows shared physics"
     );
 }
+
+#[test]
+fn released_particle_publication_validates_cell_before_updating_motion() {
+    let cells = vec![
+        Cell::new(identity(), [1.; 3], 1),
+        Cell::new(identity(), [10.; 3], 0),
+    ];
+    let world = World {
+        connectivity: connectivity::connect(&cells),
+        entries: cells
+            .into_iter()
+            .map(|cell| Entry {
+                cell,
+                sector: None,
+                events: [None, None],
+                logic: Logic {
+                    code: 0,
+                    condition: 0,
+                    value: 0,
+                    output: 0,
+                    events: [None, None],
+                },
+            })
+            .collect(),
+        adds: vec![1],
+        subs: vec![0],
+        zones: vec![],
+        faces: vec![None, None],
+    };
+    let mut motion = Motion::spawn_for_layout(
+        &world,
+        [2., 1., 0., 1.],
+        0.,
+        kkrieger_oxide::kx::Layout::Beta2004,
+    )
+    .unwrap();
+    let main = &mut motion.released_player.as_mut().unwrap().physics[0]
+        .0
+        .particles[0];
+    main.vectors[0] = [3., 2., 1., 0.];
+    main.cell = Some(99);
+    assert!(motion.publish_released(&world).is_err());
+    assert_eq!(motion.collider.position, [2., 1., 0., 1.]);
+    motion.released_player.as_mut().unwrap().physics[0]
+        .0
+        .particles[0]
+        .cell = Some(0);
+    assert_eq!(motion.publish_released(&world).unwrap(), [1., 1., 1., 0.]);
+    assert_eq!(motion.collider.position, [3., 2., 1., 0.]);
+    assert_eq!(motion.collider.cell, 1);
+    motion.released_player.as_mut().unwrap().physics[0]
+        .0
+        .particles[0]
+        .cell = None;
+    motion.publish_released(&world).unwrap();
+    assert_eq!(motion.collider.cell, usize::MAX);
+}
