@@ -153,3 +153,54 @@ fn scene_box_initializer_matches_released_physic_handler() {
     }
     assert!(words.next().is_none());
 }
+
+#[test]
+fn box_constraint_slots_match_native_physics() {
+    let mut words = include_bytes!("fixtures/beta-constraint.bin")
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|b| u32::from_le_bytes(*b));
+    assert_eq!(words.next(), Some(512));
+    for case in 0..512 {
+        let a = std::array::from_fn(|_| f32::from_bits(words.next().unwrap()));
+        let b = std::array::from_fn(|_| f32::from_bits(words.next().unwrap()));
+        let rest = f32::from_bits(words.next().unwrap());
+        let alias = words.next().unwrap() != 0;
+        let mut body = BoxBody::new(kkrieger_oxide::mesh::identity(), [1.; 3], [0.; 4], None);
+        let ai = case % 8;
+        let bi = (ai + 1 + case % 7) % 8;
+        let ci = case % 16;
+        body.particles[ai].vectors[0] = a;
+        body.particles[bi].vectors[0] = b;
+        body.constraints[ci].particles = [ai, if alias { ai } else { bi }];
+        body.constraints[ci].rest_length = rest;
+        body.solve_constraint(ci).unwrap();
+        for index in [ai, bi] {
+            for value in body.particles[index].vectors[0] {
+                assert_eq!(
+                    value.to_bits(),
+                    words.next().unwrap(),
+                    "case {case} particle {index}"
+                );
+            }
+        }
+    }
+    assert!(words.next().is_none());
+}
+
+#[test]
+fn box_constraint_validation_preserves_particle_state() {
+    let mut body = BoxBody::new(kkrieger_oxide::mesh::identity(), [1.; 3], [0.; 4], None);
+    let before = body.particles.clone();
+    assert_eq!(
+        body.solve_constraint(16),
+        Err("constraint index out of range")
+    );
+    body.constraints[15].particles = [7, 8];
+    assert_eq!(
+        body.solve_constraint(15),
+        Err("constraint particle index out of range")
+    );
+    assert_eq!(body.particles, before);
+}

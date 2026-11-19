@@ -1769,3 +1769,14 @@ nullable event ownership and player exclusion. Scene tests cover persistence
 and error cleanup. Box registrations do not yet join the mixed physics roster:
 constraints, particle stepping, force application, reconciliation and shared
 event binding for all eight particles are still required for box gameplay.
+
+### Box constraint solving shares released arithmetic
+
+The released PhysicCons implementation now operates on a particle slice and is
+shared by five-particle actor/player bodies and eight-particle BoxBody storage.
+Box constraint lookup validates both slot and particle indices before mutation.
+The box checks reuse all 512 native PhysicCons captures across all sixteen
+constraint slots and all eight particle indices, including aliased links and
+degenerate arithmetic. Existing collider and full body-pass fixtures remain
+passing. Mixed-roster box constraint scheduling and particle/event integration
+are still pending.

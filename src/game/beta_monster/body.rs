@@ -114,45 +114,45 @@ impl Body {
             .constraints
             .get(index)
             .ok_or("constraint index out of range")?;
-        let [a, b] = c.particles;
-        if a >= self.particles.len() || b >= self.particles.len() {
-            return Err("constraint particle index out of range");
-        }
-        let d: [f32; 3] = std::array::from_fn(|axis| {
-            down(add(
-                f64::from(self.particles[b].vectors[0][axis]),
-                -f64::from(self.particles[a].vectors[0][axis]),
-            ))
-        });
-        let d = d.map(f64::from);
-        let length2 = add(add(mul(d[2], d[2]), mul(d[1], d[1])), mul(d[0], d[0]));
-        let rest2 = mul(f64::from(c.rest_length), f64::from(c.rest_length));
-        let denominator = add(rest2, length2);
-        if rest2 == 0. && denominator == 0. {
-            // Every xyz result propagates x87's negative indefinite NaN.
-            // Preserve its bits explicitly across native floating-point APIs.
-            for axis in 0..3 {
-                self.particles[a].vectors[0][axis] = f32::from_bits(0xffc0_0000);
-                self.particles[b].vectors[0][axis] = f32::from_bits(0xffc0_0000);
-            }
-            return Ok(());
-        }
-        let q = rest2 / denominator;
-        let quotient = super::rounded_arithmetic(q, (-q).mul_add(denominator, rest2) / denominator);
-        let factor = f64::from(down(add(quotient, -0.5)));
-        for (axis, delta) in d.into_iter().enumerate() {
-            let correction = f64::from(down(mul(delta, factor)));
-            self.particles[b].vectors[0][axis] = down(add(
-                f64::from(self.particles[b].vectors[0][axis]),
-                correction,
-            ));
-            self.particles[a].vectors[0][axis] = down(add(
-                f64::from(self.particles[a].vectors[0][axis]),
-                -correction,
-            ));
-        }
-        Ok(())
+        solve_constraint(&mut self.particles, c)
     }
+}
+
+fn solve_constraint(particles: &mut [Particle], c: &Constraint) -> Result<(), &'static str> {
+    let [a, b] = c.particles;
+    if a >= particles.len() || b >= particles.len() {
+        return Err("constraint particle index out of range");
+    }
+    let d: [f32; 3] = std::array::from_fn(|axis| {
+        down(add(
+            f64::from(particles[b].vectors[0][axis]),
+            -f64::from(particles[a].vectors[0][axis]),
+        ))
+    });
+    let d = d.map(f64::from);
+    let length2 = add(add(mul(d[2], d[2]), mul(d[1], d[1])), mul(d[0], d[0]));
+    let rest2 = mul(f64::from(c.rest_length), f64::from(c.rest_length));
+    let denominator = add(rest2, length2);
+    if rest2 == 0. && denominator == 0. {
+        // Every xyz result propagates x87's negative indefinite NaN.
+        // Preserve its bits explicitly across native floating-point APIs.
+        for axis in 0..3 {
+            particles[a].vectors[0][axis] = f32::from_bits(0xffc0_0000);
+            particles[b].vectors[0][axis] = f32::from_bits(0xffc0_0000);
+        }
+        return Ok(());
+    }
+    let q = rest2 / denominator;
+    let quotient = super::rounded_arithmetic(q, (-q).mul_add(denominator, rest2) / denominator);
+    let factor = f64::from(down(add(quotient, -0.5)));
+    for (axis, delta) in d.into_iter().enumerate() {
+        let correction = f64::from(down(mul(delta, factor)));
+        particles[b].vectors[0][axis] =
+            down(add(f64::from(particles[b].vectors[0][axis]), correction));
+        particles[a].vectors[0][axis] =
+            down(add(f64::from(particles[a].vectors[0][axis]), -correction));
+    }
+    Ok(())
 }
 
 impl Body {
@@ -298,5 +298,16 @@ impl BoxBody {
         }
         matrix[3][3] = 1.;
         matrix
+    }
+}
+
+impl BoxBody {
+    /// One released PhysicCons operation on this box's constraint roster.
+    pub fn solve_constraint(&mut self, index: usize) -> Result<(), &'static str> {
+        let constraint = self
+            .constraints
+            .get(index)
+            .ok_or("constraint index out of range")?;
+        solve_constraint(&mut self.particles, constraint)
     }
 }
