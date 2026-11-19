@@ -157,9 +157,8 @@ fn original_game_event_registration_order_weapon_payload_and_shot_removal() {
             execution.game.parameters.camera_offset = r.float();
             motion.look = r.float();
             motion.direction = r.float();
-            let zones = zones::Runtime {
-                respawn: (0..3).map(|_| r.int()).collect(),
-            };
+            let mut zones = zones::Runtime::new(&world);
+            zones.respawn = (0..3).map(|_| r.int()).collect();
             let old = execution.game.weapon.current;
             execution.begin_events(0, false);
             runtime.add_events(&mut execution, &motion, &zones).unwrap();

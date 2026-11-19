@@ -33,11 +33,15 @@ below; those notes record the state when individual subsystems were ported.
   checker exercises compositing and captures the final target. Shadow disabling
   retains mesh draws and produces no shadow draws in the tested authored frame.
 - Build-time project packing decodes byte for byte to the original export. The
-  measured macOS ARM64 release executable after packing was 1,151,600 bytes,
-  66,048 bytes smaller than the preceding build. Later changes require remeasurement.
+  refreshed macOS ARM64 release executable is 1,300,656 bytes. One `--bench` run
+  precalculates the embedded development intro assets in 2,634.206 ms, producing
+  10 meshes, 138,690 vertices, 11 materials and 22 bitmaps (46,137,344 host pixel
+  bytes). This is an asset-preparation measurement, not gameplay frame timing
+  or a released-beta content benchmark. Further size optimization remains open.
 
-The current local audit passes 343 tests across 147 test binaries, with 28
-ignored checks. `cargo fmt --all --check` and Clippy across all targets pass.
+The refreshed local audit passes 479 tests across 210 test-binary result blocks,
+with 32 ignored checks (`cargo test --tests --quiet`, Rust 1.100.0).
+`cargo fmt --check` and Clippy across all targets with `-D warnings` pass.
 Ignored GPU/native/long-running checks require explicit execution; the count
 does not imply their requirements are complete.
 
@@ -1857,3 +1861,24 @@ attack-event isolation. The general scene-only synchronization entry point
 continues to support standalone registries. Full shared-allocation/event-VM
 parity beyond the hit fields and complete native mixed frame traces remain
 unverified.
+
+### Refreshed whole-project verification
+
+The full test build found an old game-event fixture constructing zone runtime
+state directly after its layout discriminator became private. The fixture now
+uses Runtime::new and supplies the captured respawn timers through the public
+field; its native event expectations remain unchanged. The complete non-ignored
+suite passes 479 tests with no failures and 32 ignored checks across 210 result
+blocks. Clippy with warnings denied passes across all targets. These checks
+do not verify ignored GPU/native/long-running gates or original-game completion.
+
+### Current release measurement after projectile integration
+
+The Rust 1.100.0 release build succeeds and its `--bench` path completes. The
+macOS ARM64 executable is 1,300,656 bytes (SHA-256
+`d24ea889e903d90ff57aabf028e74a60db35dc345e9cc6580d804342c97a514f`).
+A single asset-precalculation run reports 2,634.206 ms for the development intro.
+The executable is 149,056 bytes larger than the earlier recorded 1,151,600-byte
+build; the added released physics paths and intervening changes have not yet
+received a size comparison under the tiny profile. These measurements do not
+establish the requested distribution-size or runtime-performance outcome.
