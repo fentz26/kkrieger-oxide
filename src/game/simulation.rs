@@ -72,7 +72,7 @@ impl Simulation {
         let mut motion = Motion::spawn(&world, position, 0.)?;
         motion.matrix = crate::mesh::identity();
         let player_cell = (motion.collider.cell != usize::MAX).then_some(motion.collider.cell);
-        let zones = zones::Runtime::new(&world);
+        let zones = zones::Runtime::new_for_layout(&world, execution.document_layout);
         let events = event_runtime::Runtime::new(&world, execution);
         let released_actors = Self::released_world(&world, execution.document_layout);
         Ok(Self {
@@ -160,7 +160,7 @@ impl Simulation {
     ) -> Result<(), &'static str> {
         self.events
             .replace_world(&world, execution, &mut self.motion);
-        self.zones = zones::Runtime::new(&world);
+        self.zones = zones::Runtime::new_for_layout(&world, execution.document_layout);
         self.released_actors = Self::released_world(&world, execution.document_layout);
         *self.world.borrow_mut() = world;
         self.restart(execution, mouse)?;

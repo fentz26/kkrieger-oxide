@@ -6,11 +6,16 @@ use std::{cell::RefCell, rc::Rc};
 pub struct Runtime {
     /// Respawn countdown for each entry in World::zones, in source order.
     pub respawn: Vec<i32>,
+    released: bool,
 }
 impl Runtime {
     pub fn new(world: &World) -> Self {
+        Self::new_for_layout(world, crate::kx::Layout::Current)
+    }
+    pub fn new_for_layout(world: &World, layout: crate::kx::Layout) -> Self {
         Self {
             respawn: vec![0; world.zones.len()],
+            released: layout == crate::kx::Layout::Beta2004,
         }
     }
     /// Each returned world entry needs its second event's instance chain cleared.
@@ -32,7 +37,9 @@ impl Runtime {
             if *timer > 0 && *timer < 0x40000000 {
                 if *timer <= 10 {
                     *timer = 0;
-                    resets.push(entry);
+                    if !self.released {
+                        resets.push(entry);
+                    }
                 } else {
                     *timer -= 10;
                 }
@@ -82,7 +89,7 @@ impl Runtime {
                             6 => (*amount).max(logic.value),
                             7 => (*amount).min(logic.value),
                             8 => {
-                                if slot >= 8 {
+                                if slot >= 8 && (!self.released || *amount == 0) {
                                     game.weapon.next = slot - 8;
                                 }
                                 let max = if slot < 8 {
@@ -95,7 +102,17 @@ impl Runtime {
                             _ => amount.wrapping_sub(logic.value).max(0),
                         };
                     }
-                    10 if action => motion.speed_up += 0.001 * logic.value as f32,
+                    10 if action => {
+                        motion.speed_up = if self.released {
+                            use super::beta_monster::{add, down, mul};
+                            down(add(
+                                f64::from(motion.speed_up),
+                                mul(f64::from(logic.value), f64::from(0.001f32)),
+                            ))
+                        } else {
+                            motion.speed_up + 0.001 * logic.value as f32
+                        };
+                    }
                     11 if action => switches[32 + (logic.value & 15) as usize] = 1,
                     _ => {}
                 }

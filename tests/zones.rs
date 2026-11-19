@@ -209,3 +209,80 @@ fn released_actor_masks_reach_zone_actions_once_and_preserve_player_masks() {
     assert_eq!(released.zone_masks[1][0], 0x100);
     assert_eq!(world.entries[1].cell.interactions.enter, 0);
 }
+
+#[test]
+fn released_zone_actions_match_original_machine_code() {
+    let mut r = Reader(include_bytes!("fixtures/beta-zone-logic.bin"));
+    assert_eq!(r.word(), 1664);
+    for case in 0..1664 {
+        let logic = Logic {
+            code: r.word() as u8,
+            condition: r.word() as u8,
+            output: r.word() as u8,
+            value: r.int(),
+            events: [None, None],
+        };
+        let timer = r.int();
+        let masks = r.interactions();
+        let mut game = State::default();
+        game.weapon.use_key = r.word() != 0;
+        game.weapon.next = 3;
+        let mut switches = std::array::from_fn(|_| r.word() as u8);
+        for i in 0..16 {
+            let amount = r.int();
+            if i < 8 {
+                game.inventory.amounts[i] = amount;
+                game.inventory.maxima[i] = 100 + i as i32 * 10;
+            } else {
+                game.inventory.weapons[i - 8] = amount;
+            }
+        }
+        let cells = vec![
+            Cell::new(identity(), [20.; 3], 0),
+            Cell::new(identity(), [2.; 3], 2),
+        ];
+        let mut world = World {
+            connectivity: connectivity::connect(&cells),
+            entries: cells
+                .into_iter()
+                .map(|cell| Entry {
+                    cell,
+                    sector: None,
+                    events: [None, None],
+                    logic: logic.clone(),
+                })
+                .collect(),
+            adds: vec![0],
+            subs: vec![],
+            zones: vec![1],
+            faces: vec![None, None],
+        };
+        world.entries[1].cell.interactions = masks;
+        let mut motion = Motion::spawn(&world, [0., 0., 0., 1.], 0.).unwrap();
+        motion.speed_up = 0.25;
+        let mut runtime = Runtime::new_for_layout(&world, kkrieger_oxide::kx::Layout::Beta2004);
+        runtime.respawn[0] = timer;
+        assert!(
+            runtime
+                .tick(&mut game, &mut motion, &mut world, &[], &mut switches)
+                .unwrap()
+                .is_empty()
+        );
+        for (index, actual) in switches.iter().enumerate() {
+            assert_eq!(*actual, r.word() as u8, "switch case {case} index {index}");
+        }
+        assert_eq!(game.weapon.next, r.word() as usize, "weapon case {case}");
+        for i in 0..16 {
+            let actual = if i < 8 {
+                game.inventory.amounts[i]
+            } else {
+                game.inventory.weapons[i - 8]
+            };
+            assert_eq!(actual, r.int(), "inventory case {case} slot {i}");
+        }
+        assert_eq!(motion.speed_up.to_bits(), r.word(), "speed case {case}");
+        assert_eq!(world.entries[1].cell.interactions, r.interactions());
+        assert_eq!(runtime.respawn[0], r.int(), "timer case {case}");
+    }
+    assert!(r.0.is_empty());
+}

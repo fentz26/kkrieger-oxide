@@ -706,6 +706,10 @@
     "beta-ai-ranged.bin": {
       "bytes": 43908,
       "sha256": "477dc32b7dbb5f5df254bae622da04cba493000e86655384340b5089250bdd26"
+    },
+    "beta-zone-logic.bin": {
+      "bytes": 3720708,
+      "sha256": "62470aa74f589c1a7a43287c3006ac6cf9037ecaea25317c1bdf8adcf8de9c3e"
     }
   }
 }

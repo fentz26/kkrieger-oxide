@@ -1460,3 +1460,14 @@ before changing either side. A zone integration check covers an actor-entry
 switch action, repeat consumption, player-mask preservation and failed transfer.
 Full beta zone-logic parity and complete released-game playthrough remain
 unproven; this connects the released collision masks to the existing zone logic.
+
+### Released zone-action rules verified against machine code
+
+A Unicorn oracle runs the released executable's zone loop at 0x81cea2 through
+0x81d1e0, capturing 1,664 zone phases across action codes, switch conditions,
+interaction masks, inventory values and respawn timers. Beta documents now use
+the released timer behavior (no event-instance reset on expiry), select collected
+weapons only when their previous amount is zero, and apply the released x87
+round-down arithmetic to speed-up actions. The development rules remain covered
+by their existing C++ oracle. The released function's subsequent player/dynamic
+weapon-hit dispatch is outside this fixture and still needs integration.

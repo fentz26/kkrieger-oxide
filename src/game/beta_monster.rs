@@ -61,7 +61,7 @@ pub struct HitBox {
     pub matrix: crate::mesh::Matrix,
     pub scale: [f32; 3],
 }
-fn down(value: f64) -> f32 {
+pub(super) fn down(value: f64) -> f32 {
     let nearest = value as f32;
     if f64::from(nearest) > value {
         nearest.next_down()
@@ -95,11 +95,11 @@ fn rounded_arithmetic(value: f64, error: f64) -> f64 {
         rounded
     }
 }
-fn mul(a: f64, b: f64) -> f64 {
+pub(super) fn mul(a: f64, b: f64) -> f64 {
     let product = a * b;
     rounded_arithmetic(product, a.mul_add(b, -product))
 }
-fn add(a: f64, b: f64) -> f64 {
+pub(super) fn add(a: f64, b: f64) -> f64 {
     // Finite cancellation is negative zero under round-toward-negative.
     // Opposite infinities instead produce x87's negative indefinite NaN.
     if a == -b && (a.is_sign_negative() || b.is_sign_negative()) {
