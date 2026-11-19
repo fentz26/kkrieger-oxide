@@ -1700,3 +1700,13 @@ queued effects. The released general-particle gravity constant is restored from
 the native initializer. Main-tick point preparation, effect tables, time setup
 and event synchronization remain pending; these checks do not establish full
 projectile gameplay parity.
+
+### Point roster preparation validates before binding
+
+A frame-preparation helper assigns compact point identities after the caller's
+reserved body range, preserving repeated Rc registrations as one particle. It
+captures owning event state and player-cell exclusions in a staged registry,
+then replaces bindings only after all point/event borrows and identity arithmetic
+succeed. Tests cover aliasing, stale-event retirement, missing-event retries,
+exclusive-access conflicts and overflow without losing prior bindings or queued
+impact effects. Main-loop invocation and native hit-table/time setup remain pending.

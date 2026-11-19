@@ -171,3 +171,76 @@ fn run_wall_impact(reflect: bool) {
         "retiring particles preserves queued effects"
     );
 }
+
+#[test]
+fn point_roster_preparation_preserves_aliases_and_retries_missing_events() {
+    use kkrieger_oxide::game::beta_monster::{hit::HitRegistry, projectile::prepare_points};
+    let mut events = Scheduler::default();
+    let event = events.insert(
+        Event {
+            start: 70,
+            ..Default::default()
+        },
+        true,
+    );
+    let mut words = [0; 12];
+    words[0] = 0x20;
+    words[11] = 8;
+    let point = Rc::new(RefCell::new(
+        Point::new(&words, identity(), None, Some(event)).unwrap(),
+    ));
+    let mut hits = HitRegistry::default();
+    hits.time = 19;
+    hits.pending.push([7; 45]);
+    let points = prepare_points(
+        &[point.clone(), point.clone()],
+        15,
+        Some(3),
+        &events,
+        &mut hits,
+    )
+    .unwrap();
+    assert_eq!(
+        points
+            .iter()
+            .map(|p| (p.particle, p.skip_cell))
+            .collect::<Vec<_>>(),
+        [(15, Some(3)), (15, Some(3))]
+    );
+    assert_eq!(hits.shots.len(), 1);
+    assert_eq!(hits.shots[&15].event.unwrap()[2], 70);
+    assert_eq!(hits.time, 19);
+    assert_eq!(hits.pending, [[7; 45]]);
+    events.events.remove(&event);
+    assert!(prepare_points(&[point], 20, None, &events, &mut hits).is_err());
+    assert_eq!(hits.shots.len(), 1);
+    assert!(hits.shots.contains_key(&15));
+    prepare_points(&[], 20, None, &events, &mut hits).unwrap();
+    assert!(hits.shots.is_empty());
+    sync_hit_events(&events, &hits).unwrap();
+    assert_eq!(hits.pending, [[7; 45]]);
+}
+
+#[test]
+fn point_roster_checks_exclusive_access_and_identity_overflow() {
+    use kkrieger_oxide::game::beta_monster::{hit::HitRegistry, projectile::prepare_points};
+    let events = Scheduler::default();
+    let mut hits = HitRegistry::default();
+    let mut words = [0; 12];
+    words[11] = 8;
+    let point = Rc::new(RefCell::new(
+        Point::new(&words, identity(), None, None).unwrap(),
+    ));
+    let alias = [point.clone(), point.clone()];
+    let registered = prepare_points(&alias, usize::MAX, None, &events, &mut hits).unwrap();
+    assert_eq!(registered[0].particle, usize::MAX);
+    assert_eq!(registered[1].particle, usize::MAX);
+    let guard = point.borrow();
+    assert!(prepare_points(&alias, 0, None, &events, &mut hits).is_err());
+    assert!(hits.shots.contains_key(&usize::MAX));
+    drop(guard);
+    let other = Rc::new(RefCell::new(point.borrow().clone()));
+    assert!(prepare_points(&[point, other], usize::MAX, None, &events, &mut hits).is_err());
+    assert_eq!(hits.shots.len(), 1);
+    assert!(hits.shots.contains_key(&usize::MAX));
+}

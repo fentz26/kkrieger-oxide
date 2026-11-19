@@ -112,3 +112,41 @@ pub fn sync_hit_events(
     }
     Ok(())
 }
+
+/// Prepare one frame's point identities and event snapshots before physics.
+/// Repeated registrations retain the same particle identity and roster position.
+pub fn prepare_points(
+    points: &[std::rc::Rc<std::cell::RefCell<Point>>],
+    first_particle: usize,
+    player_cell: Option<usize>,
+    events: &crate::scene::event::Scheduler,
+    hits: &mut super::hit::HitRegistry,
+) -> Result<Vec<super::runtime::RegisteredPoint>, &'static str> {
+    let mut identities = std::collections::BTreeMap::new();
+    let mut staged = super::hit::HitRegistry::default();
+    let mut registrations = Vec::with_capacity(points.len());
+    for point in points {
+        let pointer = std::rc::Rc::as_ptr(point);
+        let particle = if let Some(&id) = identities.get(&pointer) {
+            id
+        } else {
+            let id = first_particle
+                .checked_add(identities.len())
+                .ok_or("released point particle identity overflow")?;
+            identities.insert(pointer, id);
+            id
+        };
+        // Physics needs exclusive access; detect outstanding shared borrows here too.
+        let state = point
+            .try_borrow_mut()
+            .map_err(|_| "released point already borrowed")?;
+        state.register_hit_state(particle, events, &mut staged)?;
+        registrations.push(super::runtime::RegisteredPoint {
+            point: std::rc::Rc::clone(point),
+            particle,
+            skip_cell: if state.skip_player { player_cell } else { None },
+        });
+    }
+    hits.replace_projectile_bindings(staged);
+    Ok(registrations)
+}

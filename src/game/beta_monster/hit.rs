@@ -128,6 +128,12 @@ impl HitRegistry {
             .event = Some(shared.words);
         Ok(())
     }
+    /// Commit a validated frame roster without discarding queued effects or settings.
+    pub(crate) fn replace_projectile_bindings(&mut self, staged: Self) {
+        self.shots = staged.shots;
+        self.event_bindings = staged.event_bindings;
+        self.shared_events = staged.shared_events;
+    }
     pub(crate) fn retain_particles<F, B>(&mut self, active: F, bound: B)
     where
         F: Fn(usize) -> bool,
