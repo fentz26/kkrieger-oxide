@@ -38,11 +38,16 @@ fn original_sphere_queries_and_response_preserve_all_output_writes() {
                 nan_responses += 1;
             }
             for (a, b) in response.into_iter().zip(r.vector()) {
-                assert_eq!(
-                    a.to_bits(),
-                    b.to_bits(),
-                    "response {case}/{query}: {a} vs {b}"
-                );
+                // The source oracle leaves invalid-operation NaN signs
+                // host-dependent; payloads and non-NaN words remain exact.
+                let bits = |value: f32| {
+                    if value.is_nan() {
+                        value.to_bits() & 0x7fff_ffff
+                    } else {
+                        value.to_bits()
+                    }
+                };
+                assert_eq!(bits(a), bits(b), "response {case}/{query}: {a} vs {b}");
             }
             let edge = r.word() as usize;
             nearest = [11., 12., 13.];

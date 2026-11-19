@@ -73,11 +73,11 @@ fn verify_mesh(r: &mut Reader, m: &Mesh, case: usize) {
         r.integers([v.next, v.first, v.temp, v.temp2, v.reindex]);
         r.integers(v.weight.map(i32::from));
         r.integers(v.matrix.map(i32::from));
-        for &actual in v.attributes.iter().flatten() {
+        for (attribute, &actual) in v.attributes.iter().flatten().enumerate() {
             let expected = r.float();
             assert!(
                 (actual - expected).abs() <= 2e-6,
-                "case {case}: {actual} != {expected}"
+                "case {case}, vertex {vertex_index}, attribute {attribute}: {actual} != {expected}"
             );
         }
     }

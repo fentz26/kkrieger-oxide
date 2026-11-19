@@ -88,7 +88,17 @@ fn original_complete_collider_movement_matches_faces_exclusions_and_zones() {
                 .unwrap();
             assert_eq!(result, r.word() != 0, "{case}/{query}");
             for (a, b) in collider.position.into_iter().zip(r.vector()) {
-                assert_eq!(a.to_bits(), b.to_bits(), "{case}/{query}: {a} vs {b}");
+                // This source-built oracle does not prescribe the sign of an
+                // invalid-operation NaN. Keep its payload, every finite value,
+                // infinities and signed zero bit-exact across host architectures.
+                let bits = |value: f32| {
+                    if value.is_nan() {
+                        value.to_bits() & 0x7fff_ffff
+                    } else {
+                        value.to_bits()
+                    }
+                };
+                assert_eq!(bits(a), bits(b), "{case}/{query}: {a} vs {b}");
             }
             assert_eq!(collider.radius.to_bits(), r.word());
             assert_eq!(collider.cell, r.word() as usize, "{case}/{query}");

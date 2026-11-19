@@ -40,8 +40,10 @@ pub fn upload(
     // The context owns this texture. Bind and restore the current unit without
     // changing Miniquad's cached binding or active texture-unit bookkeeping.
     let error = unsafe {
-        let RawId::OpenGl(raw) = ctx.texture_raw_id(texture) else {
-            unreachable!()
+        let raw = match ctx.texture_raw_id(texture) {
+            RawId::OpenGl(raw) => raw,
+            #[cfg(target_vendor = "apple")]
+            RawId::Metal(_) => unreachable!(),
         };
         let mut previous = 0;
         glGetIntegerv(0x8069, &mut previous);
@@ -142,8 +144,10 @@ pub fn depth_stencil_pass(
         ..Default::default()
     });
     unsafe {
-        let RawId::OpenGl(raw) = ctx.texture_raw_id(depth) else {
-            unreachable!()
+        let raw = match ctx.texture_raw_id(depth) {
+            RawId::OpenGl(raw) => raw,
+            #[cfg(target_vendor = "apple")]
+            RawId::Metal(_) => unreachable!(),
         };
         let mut previous = 0;
         glGetIntegerv(0x8069, &mut previous);
@@ -164,8 +168,10 @@ pub fn depth_stencil_pass(
     let pass = ctx.new_render_pass(color, Some(depth));
     ctx.begin_pass(Some(pass), PassAction::Nothing);
     let valid = unsafe {
-        let RawId::OpenGl(raw) = ctx.texture_raw_id(depth) else {
-            unreachable!()
+        let raw = match ctx.texture_raw_id(depth) {
+            RawId::OpenGl(raw) => raw,
+            #[cfg(target_vendor = "apple")]
+            RawId::Metal(_) => unreachable!(),
         };
         glFramebufferTexture2D(GL_FRAMEBUFFER, 0x8d20, GL_TEXTURE_2D, raw, 0);
         glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE

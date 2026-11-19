@@ -959,7 +959,9 @@ impl Mesh {
             if i != count - 1 || arc == 0 {
                 let angle = phase + i as f32 * std::f32::consts::TAU / segments as f32;
                 position[0] = angle.sin() * radius;
-                position[1] = -angle.cos() * radius;
+                // Evaluate cosine in double precision before storing the single
+                // result; host cosf implementations can differ by one ulp.
+                position[1] = -(f64::from(angle).cos() as f32) * radius;
             }
             position[3] = 1.;
             mesh.vertices[i].attributes[4][0] = i as f32 / count as f32;
