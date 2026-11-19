@@ -255,9 +255,9 @@ fn released_beta_player_startup_initializes_native_simulation() {
                 ]
             );
             let tick = simulation
-                .tick(&mut execution, &doc, 1, 10, [0, 0])
+                .tick(&mut execution, &doc, 1, 5020, [0, 0])
                 .unwrap();
-            assert!(!tick.ran && !tick.quit);
+            assert!(tick.ran && !tick.quit);
             assert_eq!(execution.switches[1], 0);
             assert!(simulation.motion.collider.position.iter().all(|value|value.is_finite()));
             assert!(simulation.released_actors.is_some());

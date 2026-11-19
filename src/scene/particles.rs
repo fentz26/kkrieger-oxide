@@ -27,8 +27,15 @@ pub struct DrawParameters {
 }
 impl DrawParameters {
     pub fn from_words(words: &[u32]) -> Result<(usize, Self), &'static str> {
+        Self::from_words_for_layout(words, crate::kx::Layout::Current)
+    }
+    pub fn from_words_for_layout(
+        words: &[u32],
+        layout: crate::kx::Layout,
+    ) -> Result<(usize, Self), &'static str> {
+        let released = layout == crate::kx::Layout::Beta2004;
         let p = words
-            .get(..12)
+            .get(..if released { 11 } else { 12 })
             .ok_or("truncated particle system parameters")?;
         Ok((
             p[0] as usize,
@@ -40,7 +47,7 @@ impl DrawParameters {
                     fade: f32::from_bits(p[9]),
                 },
                 gravity: f32::from_bits(p[10]),
-                flags: p[11],
+                flags: if released { 0 } else { p[11] },
             },
         ))
     }

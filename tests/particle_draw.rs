@@ -85,3 +85,31 @@ fn original_flag_selects_operator_axes_instead_of_modelview() {
         .unwrap();
     assert_eq!(&local[0][0][..3], &[0., -1., 0.]);
 }
+
+#[test]
+fn released_particle_draw_accepts_eleven_words_without_transform_flags() {
+    use kkrieger_oxide::{kx::Layout, scene::particles::DrawParameters};
+    let words = [
+        2,
+        128,
+        0xff112233,
+        0xff445566,
+        0xff778899,
+        1f32.to_bits(),
+        2f32.to_bits(),
+        3f32.to_bits(),
+        0.5f32.to_bits(),
+        0.25f32.to_bits(),
+        (-0.125f32).to_bits(),
+    ];
+    let (slot, p) = DrawParameters::from_words_for_layout(&words, Layout::Beta2004).unwrap();
+    assert_eq!(slot, 2);
+    assert_eq!(p.appearance.colors, words[2..5]);
+    assert_eq!(p.appearance.sizes, [1., 2., 3.]);
+    assert_eq!(p.appearance.middle, 0.5);
+    assert_eq!(p.appearance.fade, 0.25);
+    assert_eq!(p.gravity, -0.125);
+    assert_eq!(p.flags, 0);
+    assert!(DrawParameters::from_words(&words).is_err());
+    assert!(DrawParameters::from_words_for_layout(&words[..10], Layout::Beta2004).is_err());
+}

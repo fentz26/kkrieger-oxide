@@ -2023,3 +2023,24 @@ rendering or pixels. Application frame ordering is still pending.
 
 Targeted Print/resource regressions: 14 passed, 3 ignored. Clippy for the
 player and those test targets, formatting and diff whitespace checks pass.
+
+### Released particle draw ABI and CPU startup handoff
+
+Released PartSystem takes eleven parameter words, omitting the later source's
+transform-selection flags. Both deferred effect execution and direct particle
+job drawing now share the layout-aware decoder; beta uses flags zero while
+development retains the twelfth word. A new native check executes 64 calls with
+only material lookup replaced by null and verifies the actual 0x34 stack cleanup
+(op, environment and eleven words). It also checks the absent twelfth parameter
+access. This validates the ABI, not nonempty particle rendering parity.
+
+The extracted beta CPU startup gate now passes through deferred menu controls,
+mode zero, gameplay parameter execution, and a subsequent active physics tick.
+The final tick uses monotonic time rather than the obsolete pre-handoff time
+and correctly expects active simulation. Observed player position after the
+first gameplay tick is near origin, not the authored start vector; exact native
+first-gameplay placement remains unverified. This supersedes the previous
+particle truncation failure; it does not prove GPU pixels or complete gameplay.
+Sixteen targeted particle regressions pass, the explicitly invoked extracted
+startup gate passes (11.88 seconds), and Clippy for those targets, the resource
+test and player binary passes. Formatting and whitespace checks pass.

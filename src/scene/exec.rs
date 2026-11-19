@@ -269,7 +269,8 @@ impl Execution {
             .map(|draw| super::effects::Content::Print(Box::new(draw)))
         } else {
             let (slot, parameters) =
-                super::particles::DrawParameters::from_words(words).map_err(fail)?;
+                super::particles::DrawParameters::from_words_for_layout(words, doc.layout)
+                    .map_err(fail)?;
             let modelview = crate::material::uniforms::trans_r(rendering.camera.space);
             let quads = self
                 .particles
@@ -482,20 +483,9 @@ impl Execution {
             )
             .map_err(|_| fail("particle animation failed"))?;
         let result = (|| {
-            let p = words
-                .get(..12)
-                .ok_or_else(|| fail("truncated particle system parameters"))?;
-            let slot = p[0] as usize;
-            let parameters = super::particles::DrawParameters {
-                appearance: super::particles::Appearance {
-                    colors: [p[2], p[3], p[4]],
-                    sizes: std::array::from_fn(|i| f32::from_bits(p[5 + i])),
-                    middle: f32::from_bits(p[8]),
-                    fade: f32::from_bits(p[9]),
-                },
-                gravity: f32::from_bits(p[10]),
-                flags: p[11],
-            };
+            let (slot, parameters) =
+                super::particles::DrawParameters::from_words_for_layout(words, doc.layout)
+                    .map_err(fail)?;
             self.particles
                 .get_mut(slot)
                 .ok_or_else(|| fail("particle slot out of range"))?
