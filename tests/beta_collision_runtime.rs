@@ -259,6 +259,33 @@ fn adapter_casts_updates_zones_and_preserves_history_on_clear_move() {
     assert!(!moving.pose.blocked, "player excludes its own dynamic cell");
     assert_eq!(runtime.particle_id, 99);
     assert_eq!(runtime.skip_cell, None);
+    let mut projectile = kkrieger_oxide::game::beta_monster::body::Particle::new(
+        [-1., 0., 0., 1.],
+        [0.1, 0., 0., 0.],
+        Some(0),
+    );
+    projectile.flags[3] = 8;
+    projectile.force[0] = 0.01;
+    let before = projectile.clone();
+    runtime.particle_id = 999;
+    runtime.skip_cell = Some(0);
+    assert_eq!(
+        runtime.step_single(&mut projectile, settings),
+        Err("shot identity missing")
+    );
+    assert_eq!(projectile, before);
+    runtime.hits.shots.insert(
+        999,
+        Shot {
+            kind: 8,
+            event: None,
+        },
+    );
+    runtime.step_single(&mut projectile, settings).unwrap();
+    assert!(projectile.vectors[0][0] > -1. && projectile.vectors[0][0] < -0.89);
+    assert_eq!(projectile.force[0], 0.01);
+    projectile.apply_force();
+    assert_eq!(projectile.force, [0.; 4]);
 }
 
 #[test]

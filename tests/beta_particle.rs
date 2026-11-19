@@ -82,7 +82,13 @@ impl World for Boundary {
 }
 #[test]
 fn particle_step_matches_released_world_boundary_trace() {
-    let bytes = include_bytes!("fixtures/beta-particle.bin");
+    verify_particle_fixture(include_bytes!("fixtures/beta-particle.bin"), false);
+}
+#[test]
+fn standalone_projectile_step_and_force_match_released_code() {
+    verify_particle_fixture(include_bytes!("fixtures/beta-projectile-step.bin"), true);
+}
+fn verify_particle_fixture(bytes: &[u8], standalone: bool) {
     let mut words = bytes
         .as_chunks::<4>()
         .0
@@ -121,7 +127,11 @@ fn particle_step_matches_released_world_boundary_trace() {
             trace: Vec::new(),
             input: None,
         };
-        body.step_particle(index, settings, &mut world).unwrap();
+        if standalone {
+            body.particles[index].step(settings, &mut world).unwrap();
+        } else {
+            body.step_particle(index, settings, &mut world).unwrap();
+        }
         for (particle, state) in body.particles.iter().enumerate() {
             for (field, value) in encode(state).into_iter().enumerate() {
                 assert_eq!(
@@ -140,7 +150,13 @@ fn particle_step_matches_released_world_boundary_trace() {
             expected,
             "case {case} before collision"
         );
-        body.apply_forces();
+        if standalone {
+            for particle in &mut body.particles {
+                particle.apply_force();
+            }
+        } else {
+            body.apply_forces();
+        }
         for (particle, state) in body.particles.iter().enumerate() {
             for (field, value) in encode(state).into_iter().enumerate() {
                 assert_eq!(

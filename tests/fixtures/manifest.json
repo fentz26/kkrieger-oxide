@@ -718,6 +718,14 @@
     "beta-player-control.bin": {
       "bytes": 95748,
       "sha256": "51aef56467870b1a802b0584f9ad0fd23523e4eb03fbca38e9279f804e8a394c"
+    },
+    "beta-particle-init.bin": {
+      "bytes": 41988,
+      "sha256": "9c05965ef0a39b4f3ce632f287c747f380ce9750271efe87f47e38cae5a0c730"
+    },
+    "beta-projectile-step.bin": {
+      "bytes": 544772,
+      "sha256": "47ae4045d5941354bb38ead4b8dfb7ffe6f6dd7c0d89706ead4acff11e40158a"
     }
   }
 }

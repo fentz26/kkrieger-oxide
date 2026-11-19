@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Trace released PhysicPart, controlling only its three world boundaries."""
-import hashlib,pathlib,random,struct
+import hashlib,pathlib,random,struct,sys
 from unicorn import Uc,UC_ARCH_X86,UC_MODE_32,UC_HOOK_CODE
 from unicorn.x86_const import UC_X86_REG_ESP,UC_X86_REG_ECX,UC_X86_REG_EAX,UC_X86_REG_EIP,UC_X86_REG_FPCW
 root=pathlib.Path(__file__).resolve().parent.parent
@@ -41,10 +41,11 @@ def hook(u,address,size,user):
         result=collided;pop=8
     u.reg_write(UC_X86_REG_EAX,result);u.reg_write(UC_X86_REG_EIP,read(esp));u.reg_write(UC_X86_REG_ESP,esp+4+pop)
 u.hook_add(UC_HOOK_CODE,hook)
+projectiles = "--projectiles" in sys.argv
 out=bytearray(pack(256))
 for case in range(256):
     running=False
-    kind=[1,3,5][case%3];index=case%5;particle=body+index*128
+    kind=(8+case%8) if projectiles else [1,3,5][case%3];index=0 if projectiles else case%5;particle=body+index*128
     cell=0 if case%3==0 else 0x12345678
     u.mem_write(body,bytes([0xa5])*0x600);u.mem_write(point,struct.pack('<4f',0.,0.,0.,1.))
     u.mem_write(stack,pack(0x5000000,point,cell,kind))
@@ -89,5 +90,5 @@ for case in range(256):
     assert force_visits==[body+p*128 for p in range(5)]
     assert u.reg_read(UC_X86_REG_ESP)==stack+8
     out.extend(u.mem_read(body,640));force_only=False
-path=root/'tests/fixtures/beta-particle.bin';path.write_bytes(out)
+path=root/'tests/fixtures'/('beta-projectile-step.bin' if projectiles else 'beta-particle.bin');path.write_bytes(out)
 print(len(out),hashlib.sha256(out).hexdigest())

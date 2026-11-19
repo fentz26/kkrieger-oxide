@@ -13,6 +13,25 @@ pub struct Particle {
     /// Pos, OldCollPos, OldPos and NewPos at offsets 0x40..0x70.
     pub vectors: [[f32; 4]; 4],
 }
+impl Particle {
+    /// Released Particle::Init; callers assign kind, mass and end-marker afterward.
+    pub fn new(position: [f32; 4], speed: [f32; 4], cell: Option<usize>) -> Self {
+        let mut history = [0.; 4];
+        for axis in 0..3 {
+            history[axis] = down(add(f64::from(position[axis]), -f64::from(speed[axis])));
+        }
+        let mut flags = [0; 7];
+        flags[5] = 1;
+        Self {
+            flags,
+            cell,
+            weight: 0.,
+            damping: 0.,
+            force: [0.; 4],
+            vectors: [position, position, history, position],
+        }
+    }
+}
 #[derive(Clone, Debug, PartialEq)]
 pub struct Constraint {
     pub flags: [u32; 2],

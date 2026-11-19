@@ -187,19 +187,10 @@ impl ResponseWorld for CollisionRuntime<'_, '_> {
 impl CollisionRuntime<'_, '_> {
     /// Advance one particle through released integration and real collision.
     /// Caller selects the registered particle identity before each invocation.
-    pub fn step_particle(
-        &mut self,
-        body: &mut super::body::Body,
-        index: usize,
-        settings: super::physics::Settings,
-    ) -> Result<(), &'static str> {
+    fn validate_particle(&self, particle: &Particle) -> Result<(), &'static str> {
         if let Some(error) = self.error.or(self.hits.error) {
             return Err(error);
         }
-        let particle = body
-            .particles
-            .get(index)
-            .ok_or("particle index out of range")?;
         let identity = self.hits.first_particle(self.particle_id)?;
         if identity.kind != particle.flags[3] {
             return Err("particle kind differs from registry");
@@ -210,6 +201,32 @@ impl CollisionRuntime<'_, '_> {
         {
             return Err("skip cell out of range");
         }
+        Ok(())
+    }
+    pub fn step_single(
+        &mut self,
+        particle: &mut Particle,
+        settings: super::physics::Settings,
+    ) -> Result<(), &'static str> {
+        self.validate_particle(particle)?;
+        particle.step(settings, self)?;
+        if let Some(error) = self.error.or(self.hits.error) {
+            Err(error)
+        } else {
+            Ok(())
+        }
+    }
+    pub fn step_particle(
+        &mut self,
+        body: &mut super::body::Body,
+        index: usize,
+        settings: super::physics::Settings,
+    ) -> Result<(), &'static str> {
+        let particle = body
+            .particles
+            .get(index)
+            .ok_or("particle index out of range")?;
+        self.validate_particle(particle)?;
         body.step_particle(index, settings, self)?;
         if let Some(error) = self.error.or(self.hits.error) {
             Err(error)

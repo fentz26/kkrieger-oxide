@@ -1624,3 +1624,16 @@ hurt sounds enter the audio result. Checks cover player damage/audio, alias
 suppression, distinct hitboxes, kill-before-heal ordering and borrow retries.
 Native player/actor damage primitives were independently verified earlier;
 released projectile registration and end-to-end impact parity remain pending.
+
+### Standalone released projectile particle primitives
+
+Particle::new now matches the released initializer at 0x81a939, including copied
+positions, velocity-derived history and reset flags/mass. A no-stub native
+fixture covers 256 inputs, signed zeros and non-finite values. Particle::step
+and apply_force share the existing body arithmetic rather than duplicating it;
+a projectile variant of the native PhysicPart/force oracle covers 256 cases
+across kinds 8..15. The existing particle fixture regenerates with its original
+hash. CollisionRuntime::step_single validates registration before mutation and
+uses real world/zone/hit callbacks. Focused primitive and runtime tests pass.
+Scene Physic mode-0 particle ownership, registration order and projectile event
+lifecycle are not yet connected; eight-particle projectile boxes also remain.
