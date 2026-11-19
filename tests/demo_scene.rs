@@ -120,3 +120,20 @@ fn cache_alias_cycles_are_rejected_and_nonpresentation_input_is_not_executed() {
         "presentation cache alias cycle"
     );
 }
+
+#[test]
+fn released_demo_cache_class_exposes_its_painter_scene() {
+    use kkrieger_oxide::{
+        game::root::painter_scene,
+        kx::Layout,
+        scene::{PresentationKind, presentation_kind},
+    };
+    let (mut doc, _) = setup();
+    doc.classes[0].id = 0xe0;
+    doc.layout = Layout::Beta2004;
+    assert_eq!(presentation_kind(&doc, 0).unwrap(), PresentationKind::Demo);
+    assert_eq!(painter_scene(&doc, 0).unwrap(), Some(2));
+    doc.layout = Layout::Legacy3383;
+    assert_eq!(presentation_kind(&doc, 0).unwrap(), PresentationKind::Other);
+    assert_eq!(painter_scene(&doc, 0).unwrap(), None);
+}

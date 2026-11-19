@@ -368,6 +368,9 @@ pub fn presentation_kind(doc: &Document<'_>, operator: usize) -> Result<Presenta
             .id;
         match class {
             0x0d => return Ok(PresentationKind::Demo),
+            0xe0 if doc.layout == crate::kx::Layout::Beta2004 => {
+                return Ok(PresentationKind::Demo);
+            }
             0xe2..=0xeb | 0xf0 => return Ok(PresentationKind::Ipp),
             0x01 => {
                 let Some(link) = op.links.first().copied().flatten() else {

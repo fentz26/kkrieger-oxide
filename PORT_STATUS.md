@@ -33,14 +33,14 @@ below; those notes record the state when individual subsystems were ported.
   checker exercises compositing and captures the final target. Shadow disabling
   retains mesh draws and produces no shadow draws in the tested authored frame.
 - Build-time project packing decodes byte for byte to the original export. The
-  refreshed macOS ARM64 release executable is 1,300,656 bytes; the existing tiny
+  last measured macOS ARM64 release executable is 1,300,656 bytes; the existing tiny
   profile produces 1,154,816 bytes. Three alternating `--bench` samples give
   median asset-preparation times of 4,072.102 ms (release) and 7,075.031 ms (tiny), producing
   10 meshes, 138,690 vertices, 11 materials and 22 bitmaps (46,137,344 host pixel
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The refreshed local audit passes 479 tests across 210 test-binary result blocks,
+The last full local audit (dbfe0c8) passes 479 tests across 210 test-binary result blocks,
 with 32 ignored checks (`cargo test --tests --quiet`, Rust 1.100.0).
 `cargo fmt --check` and Clippy across all targets with `-D warnings` pass.
 Ignored GPU/native/long-running checks require explicit execution; the count
@@ -1907,3 +1907,28 @@ A simple one-byte-small-offset/escape encoding for the existing packed-project
 matches would add 549 offset bytes (3,435 short and 3,984 longer offsets); the
 current stream remains 46,343 bytes. Full-game fidelity and distribution-size
 optimization are still open.
+
+### Released root resource preparation and startup discovery
+
+An explicitly executed CPU resource gate prepares the beta's first three player
+root slots (which resolve to root 4815): 171 meshes, 75 materials, 113 bitmaps and
+one font page. It checks finite vertex positions, indexed mesh/shadow geometry
+and all material texture dependencies. The debug run completes in 152.18 s; it
+does not exercise GPU drawing or establish native pixel equality.
+
+The matching player-startup gate initially fails because painter discovery does
+not classify released 0xe0. Native initializer 0x815142 writes cache class 7 and
+its registered execution handler delegates to inputs. Beta 0xe0 now classifies
+as Demo, exposing scene 4357; a regular regression preserves the development
+layout's separate classification. The native inspection tool checks both the
+pinned image hash and cached-class write.
+
+The startup gate now reaches a second, unresolved assertion: root-wide precalc
+leaves PlayerStartPos at [0,0,0,1], while scene 4357's gameplay parameters specify
+[0,1.75,-21,1]. The new ignored startup gate intentionally retains this failing
+requirement. Released parameter initializer 0x81a649 aliases/constructs a scene
+and does not perform the later source's start-position copy, so copying an
+arbitrary precalculated parameter record is not a verified fix. Native startup
+execution ordering must be traced before switching the embedded player to beta
+content. Regular resource, Demo and startup tests pass; full startup parity is
+not claimed.
