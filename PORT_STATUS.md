@@ -2517,3 +2517,38 @@ CI release sizes for this change: Linux x86_64 1,562,448 bytes (+432), macOS
 ARM64 1,317,152 bytes (unchanged) and Windows x86_64 1,188,864 bytes (unchanged),
 relative to e0c5358. These size measurements do not establish a runtime speedup.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44794179270
+
+
+### Released GetCamera orientation and zoom placement
+
+`tools/verify_beta_get_camera.py` executes the complete released GetCamera
+routine (`0x819e7b`, reached from the main frame at `0x81e9a8`) with its real
+callees: the released Euler initializer at `0x805a9d` and AddScale3 at
+`0x80604f`. Three body hashes guard the extraction and nothing is substituted.
+The 512 cases cover both CamZoomPos branches, signed zero, tiny, quarter-turn
+and large angles, arbitrary w words and extreme positions. Sentinels confirm
+that only CameraSpace, ZoomX, ZoomY and Orthogonal are written.
+
+The released Euler initializer is not the published fsincos helper. It issues
+separate fsin and fcos instructions, keeps their results on the x87 stack under
+PC=24/RC=down, and reloads only cos(y), cos(z) and sin(z)*sin(y) from
+single-precision spills. Beta `Motion::camera` now follows that operation order
+and rounding, including the zoom-position displacement of -2 along k. The
+development path keeps the published routine. The regression first failed at
+case 0 (negative versus positive zero in the second row); all 512 matrices now
+match bit for bit. The 69,636-byte fixture SHA-256 is
+`e13f11ab991c74653be5f4f5bfdb9a5a6b37ba003310acbbf92dbf6e3a60f31d`.
+
+Limits of this evidence: the emulator evaluates fsin/fcos in double precision
+through its host library, as in the existing fsincos fixture, so this is not a
+bit-level claim about physical x87 transcendental results. The same released
+initializer has seven further call sites (`0x813092`, `0x8136c1`, `0x813c6e`,
+`0x81d8ef`, `0x81de9c`, `0x81e4bf` and the second GetCamera branch); the scene
+and tick callers still use the published arithmetic in Rust and remain open.
+Viewport projection, complete frame parity and a full playthrough are outside
+this capture.
+
+The full local macOS suite passes 520 tests with 36 ignored. All-target Clippy
+with `-D warnings`, formatting and whitespace checks pass, and the explicit
+extracted-beta release startup handoff passes. Platform CI remains pending for
+this change.

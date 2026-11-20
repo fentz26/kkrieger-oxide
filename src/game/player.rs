@@ -264,6 +264,24 @@ impl Motion {
     }
     /// Original GetCamera space; projection zoom is one on both axes.
     pub fn camera(&self, zoom_position: bool) -> Matrix {
+        if self.document_layout == crate::kx::Layout::Beta2004 {
+            use super::beta_monster::{add, down, mul};
+            let look = if zoom_position { 0. } else { self.look };
+            let mut matrix = released_orientation([look, self.direction, 0.]);
+            matrix[3] = if zoom_position {
+                self.collider.position
+            } else {
+                self.camera_position
+            };
+            matrix[3][3] = 1.;
+            if zoom_position {
+                for axis in 0..3 {
+                    let back = mul(-2., f64::from(matrix[2][axis]));
+                    matrix[3][axis] = down(add(back, f64::from(matrix[3][axis])));
+                }
+            }
+            return matrix;
+        }
         let mut matrix = orientation([
             if zoom_position { 0. } else { self.look },
             self.direction,
@@ -371,4 +389,33 @@ impl Motion {
         hit.matrix0[3] = hit.matrix1[3];
         Ok((sound, speed))
     }
+}
+
+/// Released InitEuler at `0x805a9d`: separate fsin/fcos results stay on the
+/// x87 stack under PC=24/RC=down; only cos(y), cos(z) and sin(z)*sin(y) are
+/// reloaded from single-precision spills.
+fn released_orientation(angles: [f32; 3]) -> Matrix {
+    use super::beta_monster::{add, down, mul};
+    let [(sx, cx), (sy, cy), (sz, cz)] = angles.map(|a| libm::sincos(f64::from(a)));
+    let cy = f64::from(down(cy));
+    let cz_spill = f64::from(down(cz));
+    let czsy = mul(cz, sy);
+    let szsy = mul(sz, sy);
+    let szsy_spill = f64::from(down(szsy));
+    [
+        [down(mul(cy, cz)), down(mul(sz, cy)), down(-sy), 0.],
+        [
+            down(add(mul(czsy, sx), -mul(sz, cx))),
+            down(add(mul(szsy, sx), mul(cz_spill, cx))),
+            down(mul(cy, sx)),
+            0.,
+        ],
+        [
+            down(add(mul(czsy, cx), mul(sz, sx))),
+            down(add(mul(szsy_spill, cx), -mul(cz_spill, sx))),
+            down(mul(cy, cx)),
+            0.,
+        ],
+        [0., 0., 0., 1.],
+    ]
 }
