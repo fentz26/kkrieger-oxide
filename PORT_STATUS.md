@@ -2592,3 +2592,39 @@ x86_64 1,562,592 bytes (+144), macOS ARM64 1,317,152 bytes (unchanged) and
 Windows x86_64 1,189,376 bytes (+512), relative to 5ec302f. No FPS or
 preparation-speed change is claimed.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44801243678
+
+
+### Released projection matrix
+
+`tools/verify_beta_projection.py` executes the complete released
+`sMaterialEnv::MakeProjectionMatrix` at `0x8022a7`, reached through the main
+frame's environment setup, with the system viewport read through the original
+global at `0x83f868`. A body hash guards the extraction and nothing is
+substituted. The 512 cases cover modes 0, 1, 2, 3 and -1, signed zero and
+extreme fields, and zero, one, negative and maximum viewport sizes. Destination
+words are pre-filled with sentinels.
+
+The released routine differs from the published intro build. Perspective
+(mode 0, which GetCamera selects) has no half-pixel offset: the translation row
+is `(0, 0, -NearClip, 0)` instead of `(-1/ViewportX, 1/ViewportY, -NearClip, 0)`.
+Mode 2 maps pixels as `2/ViewportX`, `-2/ViewportY` with a fixed `(-1, 1)`
+translation and no center terms, rounded downward. Mode 1 and unknown modes
+leave the destination unchanged. Rust adds
+`Environment::released_projection_into`, which matches all 512 cases bit for
+bit, including untouched destinations.
+
+Execution cameras now carry a `released_projection` flag set from the
+document layout, and viewport cameras inherit it from the game camera. Beta
+perspective projection therefore drops the half-pixel shift for portal culling
+and shader constants. Development projection is unchanged. The 51,204-byte
+fixture SHA-256 is `e384f86e34f7b0d34d4d8999dfe46bccb4d43a54c3bf10747533d49623821426`.
+
+Overlay draws still use the published mode-1 projection. Because the released
+routine ignores mode 1, released overlays must obtain their matrices another
+way. That path is not yet traced, so beta overlay projection is not claimed to
+match. GPU pixel comparison and complete frame parity remain open.
+
+The full local macOS suite passes 523 tests with 36 ignored. All-target Clippy
+with `-D warnings`, formatting and whitespace checks pass, and both explicit
+extracted-beta release checks pass (startup handoff and player-root render
+resource preparation).

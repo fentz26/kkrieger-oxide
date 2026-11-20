@@ -18,6 +18,8 @@ pub struct Environment {
     pub near_clip: f32,
     pub far_clip: f32,
     pub orthogonal: i32,
+    /// Select the released beta MakeProjectionMatrix for perspective cameras.
+    pub released_projection: bool,
 }
 impl Default for Environment {
     fn default() -> Self {
@@ -38,6 +40,7 @@ impl Default for Environment {
             near_clip: 0.125,
             far_clip: 4096.,
             orthogonal: 0,
+            released_projection: false,
         }
     }
 }
@@ -90,6 +93,13 @@ pub fn rotate(parent: Matrix, camera: Matrix, direction: [f32; 3], axis: i32) ->
 }
 
 impl Environment {
+    /// Default environment; beta documents use the released projection routine.
+    pub fn for_layout(layout: crate::kx::Layout) -> Self {
+        Self {
+            released_projection: layout == crate::kx::Layout::Beta2004,
+            ..Self::default()
+        }
+    }
     /// Feed the same camera transform into portal culling and shader constants.
     pub fn material_environment(
         &self,
@@ -114,6 +124,11 @@ impl Environment {
     /// Original intro-build projection. The renderer applies API clip-space
     /// conversion separately; these values also drive engine portal culling.
     pub fn projection(&self, viewport: [i32; 2]) -> Result<Matrix, &'static str> {
+        if self.released_projection && self.orthogonal == 0 {
+            let mut matrix = identity();
+            self.released_projection_into(viewport, &mut matrix);
+            return Ok(matrix);
+        }
         let shift_x = 1. / viewport[0] as f32;
         let shift_y = 1. / viewport[1] as f32;
         match self.orthogonal {
@@ -130,6 +145,33 @@ impl Environment {
                 [-shift_x, shift_y, 0., 1.],
             ]),
             _ => Err("projection mode not supported by the original intro build"),
+        }
+    }
+    /// Released MakeProjectionMatrix at `0x8022a7`. Perspective has no
+    /// half-pixel offset; mode 2 maps pixels without center terms; mode 1 and
+    /// unknown modes leave the destination unchanged, as the native switch does.
+    pub fn released_projection_into(&self, viewport: [i32; 2], matrix: &mut Matrix) {
+        match self.orthogonal {
+            0 => {
+                *matrix = [
+                    [self.zoom_x, 0., 0., 0.],
+                    [0., self.zoom_y, 0., 0.],
+                    [self.center_x, self.center_y, 1., 1.],
+                    [0., 0., -self.near_clip, 0.],
+                ];
+            }
+            2 => {
+                let scale = |numerator: f64, size: i32| {
+                    crate::game::beta_monster::down(numerator / f64::from(size))
+                };
+                *matrix = [
+                    [scale(2., viewport[0]), 0., 0., 0.],
+                    [0., scale(-2., viewport[1]), 0., 0.],
+                    [0., 0., 1., 0.],
+                    [-1., 1., 0., 1.],
+                ];
+            }
+            _ => {}
         }
     }
 }

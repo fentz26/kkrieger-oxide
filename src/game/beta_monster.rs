@@ -63,7 +63,7 @@ pub struct HitBox {
     pub matrix: crate::mesh::Matrix,
     pub scale: [f32; 3],
 }
-pub(super) fn down(value: f64) -> f32 {
+pub(crate) fn down(value: f64) -> f32 {
     let nearest = value as f32;
     if f64::from(nearest) > value {
         nearest.next_down()

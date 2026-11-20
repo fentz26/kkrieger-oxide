@@ -97,6 +97,7 @@ impl Parameters {
             center_y: self.center[1],
             zoom_x: self.zoom[0],
             zoom_y: self.zoom[1],
+            released_projection: game.released_projection,
             ..Environment::default()
         };
         if self.flags & 4 != 0 {

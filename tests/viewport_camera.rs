@@ -33,6 +33,7 @@ impl Reader<'_> {
             near_clip: self.float(),
             far_clip: self.float(),
             orthogonal: self.int(),
+            released_projection: false,
         }
     }
     fn int(&mut self) -> i32 {

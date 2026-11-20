@@ -531,8 +531,8 @@ impl Execution {
             renderer: None,
             particles: std::array::from_fn(|_| super::particles::System::default()),
             random: crate::random::Random::new(1),
-            game_camera: super::camera::Environment::default(),
-            current_camera: super::camera::Environment::default(),
+            game_camera: super::camera::Environment::for_layout(doc.layout),
+            current_camera: super::camera::Environment::for_layout(doc.layout),
             pass_adjust: 0,
             aspect: 1.,
             markers: [identity(); 32],
@@ -702,8 +702,8 @@ impl Execution {
     /// this call, after the previous frame's simulation has already run.
     pub fn init_frame(&mut self, beat: i32, milliseconds: i32, clear_instances: bool) {
         self.vm.begin_frame(beat);
-        self.game_camera = super::camera::Environment::default();
-        self.current_camera = super::camera::Environment::default();
+        self.game_camera = super::camera::Environment::for_layout(self.document_layout);
+        self.current_camera = super::camera::Environment::for_layout(self.document_layout);
         self.event_spline = None;
         self.event_monster = None;
         self.current_event = None;
