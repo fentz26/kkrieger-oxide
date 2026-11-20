@@ -121,7 +121,13 @@ if [ "$os" = Linux ]; then
         say "Arial and Times New Roman are not installed"
         if has apt-get && ask "install ttf-mscorefonts-installer with sudo (shows the Microsoft EULA)?"; then
             sudo apt-get update -qq || true
-            sudo apt-get install -y ttf-mscorefonts-installer || true
+            # The package asks the player to accept the EULA on the terminal,
+            # not on the piped script.
+            if [ -r /dev/tty ]; then
+                sudo apt-get install -y ttf-mscorefonts-installer </dev/tty || true
+            else
+                sudo apt-get install -y ttf-mscorefonts-installer || true
+            fi
         elif has dnf; then
             say "install the Microsoft core fonts (msttcore-fonts), then run this installer again"
         elif has pacman; then
