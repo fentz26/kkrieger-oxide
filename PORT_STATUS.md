@@ -40,8 +40,11 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The last full local audit (dbfe0c8) passes 479 tests across 210 test-binary result blocks,
-with 32 ignored checks (`cargo test --tests --quiet`, Rust 1.100.0).
+The last full local macOS ARM64 audit (through f48989c) passes 506 tests across
+215 test-binary result blocks, with 34 ignored checks
+(`cargo test --tests --quiet --no-fail-fast`, Rust 1.100.0).
+The external-font test is subsequently opt-in; this moves one check from passed
+to ignored in the normal suite, without adding font parity evidence.
 `cargo fmt --check` and Clippy across all targets with `-D warnings` pass.
 Ignored GPU/native/long-running checks require explicit execution; the count
 does not imply their requirements are complete.
@@ -2235,3 +2238,20 @@ a scene-cache alias, unlike the later published source initializer that also
 copies the authored start position. No eager parameter initialization was added.
 The capture is 9,988 bytes, SHA-256
 `62e498b3aff7ac47268237c7781d501c12262fb0809f2571f47ff4f33d0f0efa`.
+
+### Linux report and automated platform checks
+
+An independently supplied Linux x86_64 / Rust 1.100.0 report at 5584530 records
+a successful release build (1,418,616 bytes), formatting and all-target Clippy,
+with 503 tests passed, two failed and 29 ignored. The failures are an absent
+original Arial font and a composed-geometry mismatch at root 954, vertex 811,
+attribute 10 (about 2.4e-6). The geometry mismatch remains open; no tolerance was
+relaxed. These are reported results, not a local Linux rerun.
+
+`BUILDING.md` documents external fonts and platform limits while README retains
+its requested single line. The installed-font integration check is now explicitly
+opt-in on every platform; missing fonts still stop uncached runtime atlas
+generation with an actionable error. No substitute font is bundled. Cached font
+checks remain in the normal suite. CI now defines Linux, macOS and Windows
+format/lint/test/release jobs and explicit macOS/Windows font integration checks.
+Workflow definition alone is not evidence that those jobs have passed.

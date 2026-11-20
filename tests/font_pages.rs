@@ -69,6 +69,7 @@ fn authored_font_atlases_register_original_pages() {
 }
 
 #[test]
+#[ignore = "requires installed original Arial; see BUILDING.md"]
 fn authored_menu_font_packs_real_glyphs_with_windows_line_metrics() {
     let d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
     let roots: Vec<_> = d

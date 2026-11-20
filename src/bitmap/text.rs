@@ -78,7 +78,9 @@ impl FontBook {
             }
             self.fonts.insert(
                 name.clone(),
-                data.ok_or(Error("original requested font is not installed"))?,
+                data.ok_or(Error(
+                    "original requested font is not installed; set KKRIEGER_FONT_DIR (see BUILDING.md)",
+                ))?,
             );
         }
         Ok(&self.fonts[&name])
