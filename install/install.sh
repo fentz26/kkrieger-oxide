@@ -14,9 +14,10 @@ bin=${KKRIEGER_BIN:-$HOME/.local/bin}
 say() { printf 'kkrieger-oxide: %s\n' "$*" >&2; }
 die() { say "$*"; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }
+tty() { (exec </dev/tty) 2>/dev/null; }
 ask() {
     [ "${KKRIEGER_YES:-}" = 1 ] && return 0
-    [ -r /dev/tty ] || return 1
+    tty || return 1
     printf 'kkrieger-oxide: %s [y/N] ' "$1" >/dev/tty
     read -r reply </dev/tty || return 1
     case $reply in [Yy]*) return 0 ;; *) return 1 ;; esac
@@ -123,7 +124,8 @@ if [ "$os" = Linux ]; then
             sudo apt-get update -qq || true
             # The package asks the player to accept the EULA on the terminal,
             # not on the piped script.
-            if [ -r /dev/tty ]; then
+            if tty; then
+                # shellcheck disable=SC2024 # apt reads the EULA answer from the terminal
                 sudo apt-get install -y ttf-mscorefonts-installer </dev/tty || true
             else
                 sudo apt-get install -y ttf-mscorefonts-installer || true
