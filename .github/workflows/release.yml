@@ -42,7 +42,7 @@ jobs:
       - name: Install pinned toolchain
         run: rustup toolchain install 1.100.0 --profile minimal --component rust-src --target ${{ matrix.target }}
       - name: Build
-        run: cargo +1.100.0 build --locked --release -Zbuild-std=std,panic_abort --target ${{ matrix.target }}
+        run: cargo +1.100.0 build --locked --release -Zbuild-std=std,panic_abort -Zpanic-immediate-abort --target ${{ matrix.target }}
       - name: Package
         run: |
           mkdir -p dist
