@@ -103,7 +103,10 @@ jobs:
         run: |
           if [ "${{ runner.os }}" = Linux ]; then
             # Stand-in for the player accepting the Microsoft core fonts EULA.
-            echo 'ttf-mscorefonts-installer msttcorefonts/accept-mscorefonts-eula boolean true' | sudo debconf-set-selections
+            printf '%s\n' \
+              'ttf-mscorefonts-installer msttcorefonts/accept-mscorefonts-eula boolean true' \
+              'ttf-mscorefonts-installer msttcorefonts/accept-mscorefonts-eula seen true' |
+              sudo debconf-set-selections
           fi
           curl -fsSL "$BASE/install.sh" | KKRIEGER_BASE_URL="$BASE" sh
           ~/.local/bin/kkrieger-oxide --bench
