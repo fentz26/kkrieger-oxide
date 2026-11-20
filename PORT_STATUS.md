@@ -2387,3 +2387,25 @@ macOS and 1,558,280 bytes on Linux. Compared with the preceding 4fcf334 CI build
 Windows saves 77,824 bytes after replacing its outline/parser path with GDI.
 The portable refactor adds 1,328 bytes on Linux; its local 24-case pixel/metric
 audit remains byte-identical. No gameplay FPS claim follows from these results.
+
+
+### Released-beta text layout reference
+
+The released initializer at `0x80c951` is now captured in 96 deterministic
+ASCII cases by `tools/verify_beta_font_layout.py`. The fixture executes the
+original range parser, x87 coordinate conversion, FontWidth and FontPrint
+wrappers. Synthetic GDI text extents isolate layout: the Rust model matches
+every draw call and all 256 UV entries per case, including terminal ranges,
+negative positions, overflow beyond the canvas and raw internal-spacing words.
+The 413,761-byte fixture SHA-256 is
+`57db0856d3ba5c8160490990a0e050107a1432fa16063de364968fe21f48fde3`.
+
+This exposes released behavior that differs from the published source: full
+text advances replace ABC ink widths, padding omits the later eight pixels,
+coordinates round downward, and atlas layout continues beyond the lower edge.
+The model currently runs only in tests. Runtime integration remains open,
+including the released compatible-bitmap surface and antialiased GDI font
+settings. This fixture does not establish native glyph coverage or final
+bitmap-blend parity. Non-ASCII signed indexing outside the selected page is
+rejected by the model rather than reproducing an out-of-page write; authored
+beta bitmap text is ASCII.

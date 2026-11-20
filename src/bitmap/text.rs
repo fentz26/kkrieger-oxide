@@ -2,6 +2,8 @@
 //! Windows uses the published system-font settings. Other platforms rasterize
 //! the same named outlines; complete released pixel parity remains separate.
 use super::*;
+#[cfg(test)]
+mod beta;
 #[cfg(not(target_os = "windows"))]
 use std::{collections::HashMap, path::PathBuf};
 #[cfg(not(target_os = "windows"))]
@@ -92,6 +94,11 @@ impl FontBook {
     }
 }
 
+#[cfg(test)]
+trait RasterApi {
+    fn width(&self, text: &[u8]) -> Result<i32>;
+    fn print(&mut self, position: [i32; 2], text: &[u8]) -> Result<()>;
+}
 impl Bitmap {
     pub fn text(&mut self, p: Text<'_>, fonts: &mut FontBook) -> Result<()> {
         let page = ((p.flags & 0x70) >> 4) as u8;
