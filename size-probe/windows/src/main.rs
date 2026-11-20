@@ -53,6 +53,8 @@ struct WndClass { style: u32, proc_: unsafe extern "system" fn(H, u32, usize, is
 #[repr(C)]
 struct Msg { w: H, m: u32, wp: usize, lp: isize, t: u32, p: [i32; 2] }
 #[repr(C)]
+struct PresentParameters { width: u32, height: u32, format: u32, count: u32, multisample: u32, quality: u32, swap: u32, window: H, windowed: i32, depth: i32, depth_format: u32, flags: u32, refresh: u32, interval: u32 }
+#[repr(C)]
 struct WaveHdr { data: *mut i16, len: u32, rec: u32, user: usize, flags: u32, loops: u32, next: H, res: usize }
 
 static mut AUDIO: [i16; 2 * 4096] = [0; 2 * 4096];
@@ -93,12 +95,9 @@ pub unsafe extern "system" fn mainCRTStartup() -> ! {
         waveOutWrite(wave, &mut hdr, 32);
         // D3D9 device: create, then clear and present each frame.
         let d3d = Direct3DCreate9(32);
-        let mut pp = [0u32; 14];
-        pp[6] = 1; // discard
-        pp[7] = w as usize as u32;
-        pp[8] = 1; // windowed
+        let mut pp = PresentParameters { width: 0, height: 0, format: 0, count: 0, multisample: 0, quality: 0, swap: 1, window: w, windowed: 1, depth: 0, depth_format: 0, flags: 0, refresh: 0, interval: 0 };
         let mut device: *mut *const usize = null_mut();
-        com!(d3d, 16, unsafe extern "system" fn(*mut *const usize, u32, u32, H, u32, *mut [u32; 14], *mut *mut *const usize) -> i32, 0, 1, w, 0x20, &mut pp, &mut device);
+        com!(d3d, 16, unsafe extern "system" fn(*mut *const usize, u32, u32, H, u32, *mut PresentParameters, *mut *mut *const usize) -> i32, 0, 1, w, 0x20, &mut pp, &mut device);
         ShowCursor(0);
         let start = timeGetTime();
         let mut msg = core::mem::zeroed::<Msg>();
