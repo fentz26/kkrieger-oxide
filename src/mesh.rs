@@ -947,8 +947,9 @@ impl Mesh {
                 let angle = phase + i as f32 * std::f32::consts::TAU / segments as f32;
                 // Source sFSin/sFCos return double. Keep the radius multiply
                 // in that precision until the vertex attribute store.
-                position[0] = (libm::sin(f64::from(angle)) * f64::from(radius)) as f32;
-                position[1] = (-libm::cos(f64::from(angle)) * f64::from(radius)) as f32;
+                let (sine, cosine) = libm::sincos(f64::from(angle));
+                position[0] = (sine * f64::from(radius)) as f32;
+                position[1] = (-cosine * f64::from(radius)) as f32;
             }
             position[3] = 1.;
             mesh.vertices[i].attributes[4][0] = i as f32 / count as f32;

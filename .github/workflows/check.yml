@@ -46,3 +46,10 @@ jobs:
         run: cargo test --locked --test font_pages authored_menu_font_packs_real_glyphs_with_windows_line_metrics -- --ignored --exact
       - name: Release build
         run: cargo build --locked --release
+      - name: Release size
+        run: |
+          if [ -f target/release/kkrieger-oxide.exe ]; then
+            wc -c target/release/kkrieger-oxide.exe
+          else
+            wc -c target/release/kkrieger-oxide
+          fi

@@ -33,25 +33,26 @@ below; those notes record the state when individual subsystems were ported.
   checker exercises compositing and captures the final target. Shadow disabling
   retains mesh draws and produces no shadow draws in the tested authored frame.
 - Build-time project packing decodes byte for byte to the original export. The
-  last measured macOS ARM64 release executable is 1,300,656 bytes; the existing tiny
-  profile produces 1,154,816 bytes. Three alternating `--bench` samples give
-  median asset-preparation times of 4,072.102 ms (release) and 7,075.031 ms (tiny), producing
+  latest default macOS ARM64 release executable is 1,300,624 bytes (shared-trig
+  update below). A historical profile comparison measured 1,300,656 bytes for
+  release and 1,154,816 bytes for tiny; tiny has not been rebuilt at this revision.
+  In that comparison, three alternating `--bench` samples give median
+  asset-preparation times of 4,072.102 ms (release) and 7,075.031 ms (tiny), producing
   10 meshes, 138,690 vertices, 11 materials and 22 bitmaps (46,137,344 host pixel
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full local macOS ARM64 audit (mesh math update) passes 506 tests
-across 216 test-binary result blocks, with 35 ignored checks
-(`cargo test --tests --quiet --no-fail-fast`, Rust 1.100.0).
-The installed-font integration test is opt-in; its coverage remains separate
-from the normal suite.
-`cargo fmt --check` and Clippy across all targets with `-D warnings` pass.
-Ignored GPU/native/long-running checks require explicit execution; the count
-does not imply their requirements are complete.
+The latest full platform CI audit at 1b02c51 passes formatting, all-target Clippy
+with `-D warnings`, the regular test suite and release builds on Linux, macOS
+and Windows with Rust 1.100.0. The normal suite passes 515 checks on macOS and
+Windows, and 516 on Linux, with 35 ignored checks on each platform. Linux also
+passes five explicit native ALSA null-device integration checks; macOS and Windows
+pass their explicit installed-font check. These checks do not prove physical
+speaker playback or original-game completion.
 
 Remaining completion gates include released-beta ABI/content differences,
 original-executable pixel and full-gameplay comparisons, complete level traversal
-and ending, cross-platform audio, and further size/performance measurement.
+and ending, physical-device audio/driver comparisons, and further size/performance measurement.
 The runtime currently mixes some verified released light ordering with published
 source geometry; that combination must not be presented as released-binary parity.
 
@@ -2313,5 +2314,33 @@ recovery, sticky failures, invalid driver counts, panic containment and cleanup.
 All 39 host library checks pass, including 24 direct resume/prepare combinations. A native Linux null-PCM unit check and five
 explicit music/effect/queue integration checks are added to CI. All-target Clippy passes on macOS and for Linux ARM64 and Windows x64 targets;
 formatting and whitespace checks pass. Independent code review found no remaining
-issues. Native Linux CI results remain pending; physical Linux playback, driver waveform/routing parity
-and latency remain unverified. `BUILDING.md` documents runtime prerequisites.
+issues. Linux CI at 1b02c51 passes the native null-PCM unit check and all five
+explicit queue/music/effect integration tests. Physical Linux playback, driver
+waveform/routing parity and latency remain unverified. `BUILDING.md` documents runtime prerequisites.
+
+
+### Shared mesh trigonometry and measured release size
+
+Ring generation and bending now use one `libm::sincos` evaluation per angle.
+Cylindrical collision cells evaluate their two angle pairs once before the
+eight-vertex loop, retaining the same indexing, arithmetic and conversion points.
+No fixture or tolerance changed. Sixteen focused original geometry, prepared
+buffer, x87 ring and Euler checks pass, with six explicitly ignored external-data
+checks. Independent review found no precision or hoisting regression.
+
+For the default development data, Rust 1.100.0 on macOS ARM64, the release
+executable shrinks from 1,317,152 bytes (1b02c51) to 1,300,624 bytes: 16,528 bytes
+saved. The new SHA-256 is
+`cf0da99706cf937eaa451412a94787f58011645044c9a5e4dc080a85bb0b924d`.
+After one warmup per binary, three alternating preparation samples have medians
+3,688.432 ms before and 2,445.049 ms after. Their ranges overlap (2,331.214–5,542.668
+and 2,413.845–2,529.677 ms); this noisy sample does not establish a preparation
+speedup or gameplay FPS change. Both report 10 meshes, 138,690 vertices, 11
+materials, 22 bitmaps and 46,137,344 host pixel bytes. CI now logs executable
+sizes on each platform for subsequent comparisons.
+
+The source animation audit also confirms that published `GenMesh::Bones` is
+inside a disabled `#if 0` block. The separate GenMesh-to-GenMinMesh conversion
+clears bone counts and sets clusters static, while the legacy EngMesh conversion
+builds its own vertex/job buffers. This supports keeping the two paths separate;
+it does not resolve released-binary animated-rendering or pixel parity.

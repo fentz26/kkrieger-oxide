@@ -237,19 +237,24 @@ impl Mesh {
                         (iz + 1) as f32 * std::f32::consts::TAU / tz as f32,
                         iz as f32 * std::f32::consts::TAU / tz as f32,
                     ];
+                    let trig = if mode & 16 != 0 {
+                        angles.map(|angle| libm::sincos(f64::from(angle)))
+                    } else {
+                        [(0., 0.); 2]
+                    };
                     let mut vertices = [0; 8];
                     for (i, index) in vertices.iter_mut().enumerate() {
                         *index = mesh.add_vertex();
                         let position = if mode & 16 != 0 {
                             [
                                 (f64::from(origin[0])
-                                    + libm::sin(f64::from(angles[i & 1]))
+                                    + trig[i & 1].0
                                         * f64::from(scale[0])
                                         * (ix + ((i >> 2) & 1)) as f64)
                                     as f32,
                                 origin[1] + scale[1] * (iy + ((i >> 1) & 1)) as f32,
                                 (f64::from(origin[2])
-                                    + libm::cos(f64::from(angles[i & 1]))
+                                    + trig[i & 1].1
                                         * f64::from(scale[2])
                                         * (ix + ((i >> 2) & 1)) as f64)
                                     as f32,
