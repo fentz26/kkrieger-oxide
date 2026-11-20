@@ -44,10 +44,10 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at 5ec302f passes formatting, all-target Clippy
+The latest full platform CI audit at 78ef76b passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 519 checks on macOS and
-520 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+and Windows with Rust 1.100.0. The normal suite passes 521 checks on macOS and
+522 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
 also passes five explicit native ALSA null-device integration checks. macOS and
 Windows pass both the published-menu and beta-layout installed-font integration
 checks. Windows additionally passes the published-source GDI atlas reference
@@ -2550,8 +2550,7 @@ this capture.
 
 The full local macOS suite passes 520 tests with 36 ignored. All-target Clippy
 with `-D warnings`, formatting and whitespace checks pass, and the explicit
-extracted-beta release startup handoff passes. Platform CI remains pending for
-this change.
+extracted-beta release startup handoff passes.
 
 
 ### Released tick player matrix and hit-cell orientation
@@ -2584,5 +2583,12 @@ remaining callers (`0x813092`, `0x8136c1`, `0x813c6e`) are mesh generators.
 
 The full local macOS suite passes 521 tests with 36 ignored. All-target Clippy
 with `-D warnings`, formatting and whitespace checks pass, and the explicit
-extracted-beta release startup handoff passes. Platform CI remains pending for
-this change.
+extracted-beta release startup handoff passes.
+
+Linux, macOS and Windows CI at 78ef76b pass both new capture tests, their full
+regular suites (522, 521 and 522 checks), all-target Clippy, formatting,
+platform audio/font integrations and release builds. CI release sizes are Linux
+x86_64 1,562,592 bytes (+144), macOS ARM64 1,317,152 bytes (unchanged) and
+Windows x86_64 1,189,376 bytes (+512), relative to 5ec302f. No FPS or
+preparation-speed change is claimed.
+Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44801243678
