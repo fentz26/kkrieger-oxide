@@ -2444,3 +2444,34 @@ render-resource preparation check after this change. CI release executables at
 x86_64 1,188,352 bytes. Relative to 70d0db6 this parity correction costs 3,200,
 16,528 and 3,584 bytes respectively; no preparation-speed or FPS gain is claimed.
 CI evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44789546004
+
+
+### Released player placement and hit-cell construction
+
+A new native capture executes SetPlayer (`0x81cb71`), FindCell, particle and
+constraint initialization, hit-box construction and the subsequent ApplyMatrix.
+Only host mouse-input retrieval is replaced. The 64 cases include empty worlds,
+overlapping additive cells, outside positions, zero/nonzero vector w, signed
+zero, arbitrary direction/look and retained control/matrix state. The Rust test
+compares player pose and containing-cell selection, every particle/constraint
+word, local/original planes, all four hit-cell matrices and the projected scene
+collision planes bit for bit. It also checks stable hit-cell ownership and
+placement mouse counters while preserving the input tick clock.
+
+This found a runtime mismatch: beta placement reused the published source's
+0.75 x 2.5 x 0.75 box, local y offset -0.25 and mode 2. The released initializer
+uses an unshifted 0.5 x 1.5 x 0.5 box in mode 1. Beta now selects that box and
+released hull arithmetic, including downward-rounded y + 0.85. Development
+placement retains its existing geometry. The test first failed at hit-cell mode
+34 versus native 33; after the fix all 64 cases pass, including scene-cell
+collision-plane projection. Development nullable placement/checkpoint checks
+also pass. The 107,268-byte fixture SHA-256 is
+`fc88a699b078994da978cfb7076c905de16389dfbce7434519de4addadaec69c`.
+
+This is bounded placement and hit-cell evidence. Actual native menu-to-game
+scheduling, mixed-world collisions and complete traversal/ending remain open.
+
+Local macOS regular verification passes 518 tests with 36 ignored. All-target
+Clippy with `-D warnings`, formatting and whitespace checks pass. Independent
+review found no material issues. Cross-platform CI and the extracted startup
+check are still pending for this placement change.

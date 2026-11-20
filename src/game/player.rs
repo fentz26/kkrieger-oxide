@@ -168,10 +168,28 @@ impl Motion {
             usize::MAX
         };
         let mut matrix = identity();
-        matrix[3] = [0., -0.25, 0., 1.];
-        let hit = Cell::new(matrix, [0.75, 2.5, 0.75], 2);
+        let hit = if released {
+            // Released SetPlayer -> PartBox::Init constructs an unshifted
+            // 0.5 x 1.5 x 0.5 box in mode 1, using the released hull arithmetic.
+            let mut hit = Cell::new(matrix, [0.5, 1.5, 0.5], 1);
+            let hull = super::beta_monster::hull::Hull::from_vertices(hit.vertices, 1);
+            hit.planes = hull.planes[..hull.count].to_vec();
+            hit.bounds = hull.bounds;
+            hit.center = hull.center;
+            hit
+        } else {
+            matrix[3] = [0., -0.25, 0., 1.];
+            Cell::new(matrix, [0.75, 2.5, 0.75], 2)
+        };
         matrix[3] = position;
-        matrix[3][1] += 0.85;
+        matrix[3][1] = if released {
+            super::beta_monster::down(super::beta_monster::add(
+                f64::from(position[1]),
+                f64::from(0.85f32),
+            ))
+        } else {
+            matrix[3][1] + 0.85
+        };
         Ok(Self {
             document_layout: layout,
             released_player: released.then(|| {
