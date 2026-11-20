@@ -44,6 +44,11 @@ jobs:
       - name: System font integration
         if: runner.os != 'Linux'
         run: cargo test --locked --test font_pages authored_menu_font_packs_real_glyphs_with_windows_line_metrics -- --ignored --exact
+      - name: Windows original GDI reference
+        if: runner.os == 'Windows'
+        run: |
+          python tools/verify_gdi_font.py
+          cargo test --locked --test gdi_text_reference -- --ignored --exact atlas_metrics_and_pixels_match_published_gdi_routines
       - name: Release build
         run: cargo build --locked --release
       - name: Release size
