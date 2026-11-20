@@ -44,10 +44,10 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at e34000b passes formatting, all-target Clippy
+The latest full platform CI audit at 5ec302f passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 518 checks on macOS and
-519 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+and Windows with Rust 1.100.0. The normal suite passes 519 checks on macOS and
+520 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
 also passes five explicit native ALSA null-device integration checks. macOS and
 Windows pass both the published-menu and beta-layout installed-font integration
 checks. Windows additionally passes the published-source GDI atlas reference
@@ -2507,5 +2507,13 @@ Placement, development movement and checkpoint regressions remain green.
 Independent review found no material issues. The full local suite passes 519
 tests with 36 ignored. After expanding the fixture's ordinary trajectories with
 quarter-scale gains, its focused check also passes. All-target Clippy, formatting
-and whitespace checks pass. Platform CI remains pending for this change. View-matrix generation, complete frame parity
+and whitespace checks pass. Linux, macOS and Windows CI at 5ec302f pass the
+camera capture test, their full regular suites, all-target Clippy, formatting,
+platform integrations and release builds. The explicit extracted-beta release
+startup handoff also passes after the camera change. View-matrix generation, complete frame parity
 and full playthrough are outside this camera-tail capture.
+
+CI release sizes for this change: Linux x86_64 1,562,448 bytes (+432), macOS
+ARM64 1,317,152 bytes (unchanged) and Windows x86_64 1,188,864 bytes (unchanged),
+relative to e0c5358. These size measurements do not establish a runtime speedup.
+Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44794179270
