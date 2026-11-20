@@ -2217,3 +2217,21 @@ and mock results. Linux native output and complete audio parity remain open.
 The Windows target lint check also exposed single-variant RawId matching in
 texture upload/test helpers. Per-platform destructuring now handles the Apple
 Metal alternative while compiling without infallible-pattern warnings elsewhere.
+
+### Released restart parameter ordering
+
+The released OnTick mode-2 branch now runs through the original Restart code in
+`tools/verify_beta_restart_order.py`, around an original parameter-executor call.
+For 32 cases (64 restarts), placement receives the stored start vector from the
+last parameter execution, with zero direction/look. Restart returns to mode 0,
+sets the operator-reset flag, and advances the tick counter with wrapping
+arithmetic. The Rust simulation matches the captured sequence, including a
+zero-initialized first vector and counters crossing the signed boundary.
+
+The harness replaces player placement and parameter-child execution. It does
+not establish native collision resolution or the first menu-to-gameplay pose;
+its initial storage is explicitly zeroed. The released parameter initializer is
+a scene-cache alias, unlike the later published source initializer that also
+copies the authored start position. No eager parameter initialization was added.
+The capture is 9,988 bytes, SHA-256
+`62e498b3aff7ac47268237c7781d501c12262fb0809f2571f47ff4f33d0f0efa`.

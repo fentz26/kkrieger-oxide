@@ -575,3 +575,55 @@ fn released_frame_preparation_releases_cached_viewport_owners() {
         assert_eq!(pool.last_output, None);
     }
 }
+
+#[test]
+fn released_tick_restart_uses_the_last_executed_parameters() {
+    let mut r = Reader(include_bytes!("fixtures/beta-restart-order.bin"));
+    assert_eq!(r.word(), 32);
+    let mut doc = doc();
+    doc.layout = kkrieger_oxide::kx::Layout::Beta2004;
+    for case in 0..32 {
+        let mut execution = Execution::new_player(&doc);
+        execution.game.parameters.start_position = std::array::from_fn(|_| r.float());
+        let parameters: [u32; 57] = std::array::from_fn(|_| r.word());
+        let counter = r.word() as i32;
+        let mut simulation = Simulation::new(
+            world(),
+            &mut execution,
+            [-5., 0., 0., 1.],
+            0,
+            [0, 0],
+            Random::new(1),
+        )
+        .unwrap();
+        simulation.tick_count = counter;
+        for phase in 0..2 {
+            if phase == 1 {
+                execution
+                    .game
+                    .apply_parameters_for_layout(&parameters, doc.layout)
+                    .unwrap();
+            }
+            let requested: [f32; 4] = std::array::from_fn(|_| r.float());
+            let direction = r.float();
+            let look = r.float();
+            execution.switches[1] = 2;
+            let tick = simulation
+                .tick(&mut execution, &doc, 3, 30, [0, 0])
+                .unwrap();
+            assert!(!tick.ran && !tick.quit, "{case}/{phase}");
+            assert_eq!(execution.switches[1], 0, "{case}/{phase}");
+            assert_eq!(execution.game.parameters.start_position, requested);
+            assert_eq!(
+                &simulation.motion.collider.position[..3],
+                &requested[..3],
+                "{case}/{phase}"
+            );
+            assert_eq!(simulation.motion.direction, direction);
+            assert_eq!(simulation.motion.look, look);
+            assert_eq!(simulation.tick_count as u32, r.word(), "{case}/{phase}");
+            assert_eq!(u32::from(execution.game.reset_by_operator), r.word());
+        }
+    }
+    assert!(r.0.is_empty());
+}
