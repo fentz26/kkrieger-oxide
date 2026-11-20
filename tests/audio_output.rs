@@ -1,4 +1,4 @@
-#![cfg(target_os = "macos")]
+#![cfg(any(target_os = "macos", target_os = "windows"))]
 use kkrieger_oxide::audio_output::Queue;
 use std::sync::{
     Arc,
@@ -25,8 +25,12 @@ fn native_queue_refills_and_stops_before_releasing_callback() {
         callback_calls.fetch_add(1, Ordering::SeqCst);
     })
     .expect("open native output");
+    #[cfg(target_os = "windows")]
+    let mut queue = queue;
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
     while calls.load(Ordering::SeqCst) <= 3 && std::time::Instant::now() < deadline {
+        #[cfg(target_os = "windows")]
+        queue.pump().expect("refill native output");
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
     assert!(
@@ -42,7 +46,7 @@ fn native_queue_refills_and_stops_before_releasing_callback() {
 }
 
 #[test]
-#[ignore = "opens a native Audio Queue; run explicitly"]
+#[ignore = "opens native audio output; run explicitly"]
 fn renderer_panic_is_contained_and_releases_state() {
     struct Lifetime(Arc<AtomicBool>);
     impl Drop for Lifetime {

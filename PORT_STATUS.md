@@ -2189,3 +2189,31 @@ those catalogues using a system EGL provider without opening a display. The
 tester is separate from the game executable. These results establish shader
 compatibility and a basic device readback, not authored game-frame pixel parity,
 mesh/texture submission, full playthrough or frame-rate performance.
+
+### Windows native audio queue implementation
+
+The player now includes Windows music/effect output through WinMM, using the
+shared PCM16 conversion, 44,100 Hz stereo and three pinned 1,024-frame buffers.
+The existing audio worker renders and refills returned buffers every 5 ms;
+native completion uses an event and does not invoke a Rust renderer callback.
+Aligned atomic DWORD reads observe the completion flags. Shutdown resets,
+unprepares and closes before releasing native-visible storage; failed release
+aborts rather than freeing memory the driver might still reference.
+
+Nine mocked queue-driver tests pass: ABI/format checks, priming/refill order,
+partial initialization failures, renderer failures during priming and refill,
+spurious/coalesced notifications, sticky API errors and retained storage across
+failed shutdown/retry. Native ABI assertions also evaluate during cross-builds.
+Existing music, effects, sample-playback and shared PCM regressions pass.
+All-target Clippy with warnings denied passes for macOS ARM64 and the
+x86_64-pc-windows-msvc target. Formatting and whitespace checks pass.
+
+The five explicit native-device audio tests now compile for Windows as well as
+macOS, with Windows pumping on its owning test thread. They remain ignored in
+regular checks. No Windows device playback, driver timing, full-song waveform
+comparison or linked Windows executable run is claimed by these cross-target
+and mock results. Linux native output and complete audio parity remain open.
+
+The Windows target lint check also exposed single-variant RawId matching in
+texture upload/test helpers. Per-platform destructuring now handles the Apple
+Metal alternative while compiling without infallible-pattern warnings elsewhere.

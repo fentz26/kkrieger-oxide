@@ -160,14 +160,25 @@ fn run(
             }
         })?
     };
+    #[cfg(target_os = "windows")]
+    let mut queue = queue;
     if failed.load(Ordering::Acquire) {
         return Err("music rendering failed during startup".into());
     }
     ready.send(Ok(()))?;
     loop {
-        match stop.recv_timeout(Duration::from_millis(100)) {
+        match stop.recv_timeout(Duration::from_millis(if cfg!(target_os = "windows") {
+            5
+        } else {
+            100
+        })) {
             Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
+        }
+        #[cfg(target_os = "windows")]
+        if queue.pump().is_err() {
+            failed.store(true, Ordering::Release);
+            break;
         }
         if queue.status() != 0 || failed.load(Ordering::Acquire) {
             failed.store(true, Ordering::Release);
