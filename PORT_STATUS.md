@@ -2575,6 +2575,13 @@ movement directions, so this changes beta movement arithmetic; no visible or
 gameplay difference has been measured. Input handling, physics, the following
 cell update, the four remaining Euler callers and full-game parity remain open.
 
+The monster hit-box decoder already carried a private copy of this initializer
+(the `0x81d8ef` caller) that used the platform sine and cosine. Player, camera
+and monster code now share one routine built on the in-crate `libm`, so these
+released matrices no longer depend on the host math library. The existing
+monster geometry and spawn fixtures still match bit for bit. The three
+remaining callers (`0x813092`, `0x8136c1`, `0x813c6e`) are mesh generators.
+
 The full local macOS suite passes 521 tests with 36 ignored. All-target Clippy
 with `-D warnings`, formatting and whitespace checks pass, and the explicit
 extracted-beta release startup handoff passes. Platform CI remains pending for

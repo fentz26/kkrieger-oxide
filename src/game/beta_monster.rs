@@ -117,36 +117,40 @@ pub(super) fn add(a: f64, b: f64) -> f64 {
         rounded_arithmetic(sum, error)
     }
 }
+/// Released InitEuler at `0x805a9d`: separate fsin/fcos results stay on the
+/// x87 stack under PC=24/RC=down; only cos(y), cos(z) and sin(z)*sin(y) are
+/// reloaded from single-precision spills.
+pub(super) fn euler(angles: [f32; 3]) -> crate::mesh::Matrix {
+    let [(sx, cx), (sy, cy), (sz, cz)] = angles.map(|a| libm::sincos(f64::from(a)));
+    let cy = f64::from(down(cy));
+    let cz_spill = f64::from(down(cz));
+    let czsy = mul(cz, sy);
+    let szsy = mul(sz, sy);
+    let szsy_spill = f64::from(down(szsy));
+    [
+        [down(mul(cy, cz)), down(mul(sz, cy)), down(-sy), 0.],
+        [
+            down(add(mul(czsy, sx), -mul(sz, cx))),
+            down(add(mul(szsy, sx), mul(cz_spill, cx))),
+            down(mul(cy, sx)),
+            0.,
+        ],
+        [
+            down(add(mul(czsy, cx), mul(sz, sx))),
+            down(add(mul(szsy_spill, cx), -mul(cz_spill, sx))),
+            down(mul(cy, cx)),
+            0.,
+        ],
+        [0., 0., 0., 1.],
+    ]
+}
 impl HitBox {
     pub fn decode(words: &[u32]) -> Result<Self, &'static str> {
         let p = words
             .get(..26)
             .ok_or("truncated released monster parameters")?;
         let f = |i| f32::from_bits(p[i]);
-        let (sx, cx) = f64::from(f(0)).sin_cos();
-        let (sy, cy) = f64::from(f(1)).sin_cos();
-        let (sz, cz) = f64::from(f(2)).sin_cos();
-        // InitEuler spills cy and cz to f32 but retains cz on the x87 stack.
-        let cy = f64::from(down(cy));
-        let stored_cz = f64::from(down(cz));
-        let cz_sy = mul(cz, sy);
-        let sz_sy = mul(sz, sy);
-        let mut matrix = [
-            [down(mul(cy, cz)), down(mul(sz, cy)), down(-sy), 0.],
-            [
-                down(add(mul(cz_sy, sx), -mul(sz, cx))),
-                down(add(mul(sz_sy, sx), mul(stored_cz, cx))),
-                down(mul(cy, sx)),
-                0.,
-            ],
-            [
-                down(add(mul(cz_sy, cx), mul(sz, sx))),
-                down(add(mul(f64::from(down(sz_sy)), cx), -mul(stored_cz, sx))),
-                down(mul(cy, cx)),
-                0.,
-            ],
-            [0., 0., 0., 1.],
-        ];
+        let mut matrix = euler([f(0), f(1), f(2)]);
         for axis in 0..3 {
             let a = f64::from(down(mul(f64::from(f(23)), f64::from(matrix[0][axis]))));
             let b = mul(f64::from(f(24)), f64::from(matrix[1][axis]));

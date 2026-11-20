@@ -6,6 +6,7 @@ use crate::{
 };
 use std::{cell::RefCell, rc::Rc};
 
+use super::beta_monster::euler as released_orientation;
 pub(super) use crate::mesh::euler_matrix_fsincos as orientation;
 
 pub struct Motion {
@@ -394,33 +395,4 @@ impl Motion {
         hit.matrix0[3] = hit.matrix1[3];
         Ok((sound, speed))
     }
-}
-
-/// Released InitEuler at `0x805a9d`: separate fsin/fcos results stay on the
-/// x87 stack under PC=24/RC=down; only cos(y), cos(z) and sin(z)*sin(y) are
-/// reloaded from single-precision spills.
-fn released_orientation(angles: [f32; 3]) -> Matrix {
-    use super::beta_monster::{add, down, mul};
-    let [(sx, cx), (sy, cy), (sz, cz)] = angles.map(|a| libm::sincos(f64::from(a)));
-    let cy = f64::from(down(cy));
-    let cz_spill = f64::from(down(cz));
-    let czsy = mul(cz, sy);
-    let szsy = mul(sz, sy);
-    let szsy_spill = f64::from(down(szsy));
-    [
-        [down(mul(cy, cz)), down(mul(sz, cy)), down(-sy), 0.],
-        [
-            down(add(mul(czsy, sx), -mul(sz, cx))),
-            down(add(mul(szsy, sx), mul(cz_spill, cx))),
-            down(mul(cy, sx)),
-            0.,
-        ],
-        [
-            down(add(mul(czsy, cx), mul(sz, sx))),
-            down(add(mul(szsy_spill, cx), -mul(cz_spill, sx))),
-            down(mul(cy, cx)),
-            0.,
-        ],
-        [0., 0., 0., 1.],
-    ]
 }
