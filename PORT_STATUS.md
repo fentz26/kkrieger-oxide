@@ -2403,9 +2403,28 @@ The 413,761-byte fixture SHA-256 is
 This exposes released behavior that differs from the published source: full
 text advances replace ABC ink widths, padding omits the later eight pixels,
 coordinates round downward, and atlas layout continues beyond the lower edge.
-The model currently runs only in tests. Runtime integration remains open,
-including the released compatible-bitmap surface and antialiased GDI font
-settings. This fixture does not establish native glyph coverage or final
-bitmap-blend parity. Non-ASCII signed indexing outside the selected page is
+Beta document texture generation now selects this layout and preserves the raw
+internal-spacing float word. The Windows beta path uses a screen-compatible
+bitmap and ANTIALIASED_QUALITY, while published-source text retains its DIB
+section and PROOF_QUALITY. SetDIBits/GetDIBits transfers occur while deselected.
+The installed-font integration regression passes on macOS, including the
+texture-generator dispatch. This layout fixture does not establish native
+glyph coverage or final bitmap-blend parity. Non-ASCII signed indexing outside the selected page is
 rejected by the model rather than reproducing an out-of-page write; authored
 beta bitmap text is ASCII.
+
+
+`tools/verify_beta_gdi_font.py` adds an independent Windows differential check:
+24 cases execute the released initializer, FontBegin, layout, FontWidth,
+FontPrint, FontBitmap, downsampling, color conversion and MMX blend in Unicorn.
+GDI calls use the installed Windows fonts through a handle-translating bridge;
+only allocation and bitmap ownership checks are substituted. GdiFlush provides
+an observation barrier before readback. The Rust check compares final 15-bit
+pixels and all 256 UV entries. Captures remain local and font-dependent.
+A synthetic-service smoke check verifies the emulator reaches the original
+return in all cases; actual Windows results remain pending CI for this change.
+
+Local macOS checks for the runtime integration: `cargo test --tests
+--no-fail-fast` passes 517 tests with 36 ignored; the explicit beta installed-font
+regression also passes. Formatting and Clippy pass, including Windows MSVC
+cross-checking. No source fixture or parity tolerance was loosened.

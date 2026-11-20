@@ -2,7 +2,6 @@
 //! Windows uses the published system-font settings. Other platforms rasterize
 //! the same named outlines; complete released pixel parity remains separate.
 use super::*;
-#[cfg(test)]
 mod beta;
 #[cfg(not(target_os = "windows"))]
 use std::{collections::HashMap, path::PathBuf};
@@ -94,13 +93,39 @@ impl FontBook {
     }
 }
 
-#[cfg(test)]
 trait RasterApi {
     fn width(&self, text: &[u8]) -> Result<i32>;
     fn print(&mut self, position: [i32; 2], text: &[u8]) -> Result<()>;
 }
+#[cfg(not(target_os = "windows"))]
+impl RasterApi for outline::Raster<'_> {
+    fn width(&self, text: &[u8]) -> Result<i32> {
+        self.width(text)
+    }
+    fn print(&mut self, position: [i32; 2], text: &[u8]) -> Result<()> {
+        self.print(position, text)
+    }
+}
+#[cfg(target_os = "windows")]
+impl RasterApi for windows::Raster {
+    fn width(&self, text: &[u8]) -> Result<i32> {
+        self.width(text)
+    }
+    fn print(&mut self, position: [i32; 2], text: &[u8]) -> Result<()> {
+        self.print(position, text)
+    }
+}
 impl Bitmap {
     pub fn text(&mut self, p: Text<'_>, fonts: &mut FontBook) -> Result<()> {
+        self.text_for_layout(p, fonts, crate::kx::Layout::Current)
+    }
+    pub fn text_for_layout(
+        &mut self,
+        p: Text<'_>,
+        fonts: &mut FontBook,
+        layout: crate::kx::Layout,
+    ) -> Result<()> {
+        let released = layout == crate::kx::Layout::Beta2004;
         let page = ((p.flags & 0x70) >> 4) as u8;
         let width = self
             .width
@@ -122,7 +147,7 @@ impl Bitmap {
             && p.blob[1] == u8::from(page != 0)
             && u16::from_le_bytes([p.blob[2], p.blob[3]]) as usize == self.width
             && u16::from_le_bytes([p.blob[4], p.blob[5]]) as usize == self.height;
-        if p.flags & 0x80 != 0 && header_valid {
+        if !released && p.flags & 0x80 != 0 && header_valid {
             line_height = u16::from_le_bytes([p.blob[6], p.blob[7]]) as i32;
             let mut offset = 8;
             if page != 0 {
@@ -148,50 +173,68 @@ impl Bitmap {
                 .map(|&v| (v << 5) | (v << 2) | (v >> 1))
                 .collect::<Vec<_>>();
         } else {
-            let vertical = (height as f32 * p.width) as i32;
-            let horizontal = (width as f32 * p.height) as i32;
+            let setup = beta::Setup::new([width, height], p);
+            let [vertical, horizontal] = if released {
+                setup.font_size
+            } else {
+                [
+                    (height as f32 * p.width) as i32,
+                    (width as f32 * p.height) as i32,
+                ]
+            };
             #[cfg(not(target_os = "windows"))]
             let mut raster =
                 outline::Raster::new(fonts.get(p.font)?, [width, height], vertical, horizontal)?;
             #[cfg(target_os = "windows")]
-            let mut raster = windows::Raster::new(p.font, [width, height], vertical, horizontal)?;
+            let mut raster = windows::Raster::new_for_layout(
+                p.font,
+                [width, height],
+                vertical,
+                horizontal,
+                released,
+            )?;
             #[cfg(target_os = "windows")]
             let _ = fonts;
             line_height = raster.line_height;
-            let es = p.external_space * 4 + 8;
-            let origin = (p.position[0] * width as f32) as i32 + es;
-            let mut x = origin;
-            let mut y = (p.position[1] * height as f32) as i32 + es;
-            if page != 0 {
-                for byte in expanded_range(p.text) {
-                    let abc = raster.metrics(byte)?;
-                    if x + abc[1] + es + 2 * spacing >= width as i32 {
-                        y = (y + line_height + 2 * spacing + 3) & !3;
-                        y += es;
-                        x = origin;
-                        if y + line_height + es + 2 * spacing >= height as i32 {
-                            break;
-                        }
-                    }
-                    letters[byte as usize].origin = [x as u16, y as u16];
-                    letters[byte as usize].abc = abc.map(|v| v as i16);
-                    raster.print([x + spacing - abc[0], y + spacing], &[byte])?;
-                    x = (x + abc[1] + 2 * spacing + 3) & !3;
-                    x += es;
-                }
+            if released {
+                letters = beta::paint(p, setup, line_height, &mut raster)?;
             } else {
-                if p.flags & 2 != 0 {
-                    y -= line_height * (p.text.iter().filter(|&&b| b == b'\n').count() as i32 + 1)
-                        / 2;
-                }
-                for line in p.text.split(|&b| b == b'\n') {
-                    let cursor = if p.flags & 1 != 0 {
-                        x - raster.width(line)? / 2
-                    } else {
-                        x
-                    };
-                    raster.print([cursor, y], line)?;
-                    y += (p.line_skip * line_height as f32) as i32;
+                let es = p.external_space * 4 + 8;
+                let origin = (p.position[0] * width as f32) as i32 + es;
+                let mut x = origin;
+                let mut y = (p.position[1] * height as f32) as i32 + es;
+                if page != 0 {
+                    for byte in expanded_range(p.text) {
+                        let abc = raster.metrics(byte)?;
+                        if x + abc[1] + es + 2 * spacing >= width as i32 {
+                            y = (y + line_height + 2 * spacing + 3) & !3;
+                            y += es;
+                            x = origin;
+                            if y + line_height + es + 2 * spacing >= height as i32 {
+                                break;
+                            }
+                        }
+                        letters[byte as usize].origin = [x as u16, y as u16];
+                        letters[byte as usize].abc = abc.map(|v| v as i16);
+                        raster.print([x + spacing - abc[0], y + spacing], &[byte])?;
+                        x = (x + abc[1] + 2 * spacing + 3) & !3;
+                        x += es;
+                    }
+                } else {
+                    if p.flags & 2 != 0 {
+                        y -= line_height
+                            * (p.text.iter().filter(|&&b| b == b'\n').count() as i32 + 1)
+                            / 2;
+                    }
+                    for line in p.text.split(|&b| b == b'\n') {
+                        let cursor = if p.flags & 1 != 0 {
+                            x - raster.width(line)? / 2
+                        } else {
+                            x
+                        };
+                        raster.print([cursor, y], line)?;
+                        y += (p.line_skip * line_height as f32) as i32;
+                    }
                 }
             }
             let canvas = raster.finish()?;
@@ -213,17 +256,20 @@ impl Bitmap {
             *pixel = fade64(*pixel, color, coverage as i32 * 257);
         }
         if page != 0 {
-            for letter in &mut letters {
-                let [x, y] = letter.origin;
-                let [a, b, c] = letter.abc;
-                letter.uv = [
-                    x as f32 / width as f32,
-                    y as f32 / height as f32,
-                    (x as i32 + b as i32 + 2 * spacing) as f32 / width as f32,
-                    (y as i32 + line_height + 2 * spacing) as f32 / height as f32,
-                ];
-                letter.pre_space = (a as i32 - spacing) as f32 / width as f32;
-                letter.width = (a as i32 + b as i32 + c as i32 + 2 * spacing) as f32 / width as f32;
+            if !released {
+                for letter in &mut letters {
+                    let [x, y] = letter.origin;
+                    let [a, b, c] = letter.abc;
+                    letter.uv = [
+                        x as f32 / width as f32,
+                        y as f32 / height as f32,
+                        (x as i32 + b as i32 + 2 * spacing) as f32 / width as f32,
+                        (y as i32 + line_height + 2 * spacing) as f32 / height as f32,
+                    ];
+                    letter.pre_space = (a as i32 - spacing) as f32 / width as f32;
+                    letter.width =
+                        (a as i32 + b as i32 + c as i32 + 2 * spacing) as f32 / width as f32;
+                }
             }
             self.font_page = Some(Box::new(FontPage {
                 page,

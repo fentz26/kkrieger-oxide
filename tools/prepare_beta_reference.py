@@ -55,7 +55,7 @@ for name, sha in helpers.items():
         text = text.replace(original, "mu.emu_start(base + entry, 0, timeout=20_000_000, count=200_000_000)")
         b = text.encode()
     (directory / name).write_bytes(b)
-python = ref / "venv" / "bin" / "python"
+python = ref / "venv" / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 if not python.exists():
     subprocess.run([sys.executable, "-m", "venv", str(ref / "venv")], check=True)
 check = subprocess.run([str(python), "-c", "import unicorn; assert unicorn.__version__ == '2.1.4'"], capture_output=True)

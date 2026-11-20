@@ -63,6 +63,25 @@ unsafe extern "system" {
         section: Handle,
         offset: u32,
     ) -> Handle;
+    fn CreateCompatibleBitmap(dc: Handle, width: i32, height: i32) -> Handle;
+    fn SetDIBits(
+        dc: Handle,
+        bitmap: Handle,
+        start: u32,
+        lines: u32,
+        pixels: *const c_void,
+        info: *const Info,
+        usage: u32,
+    ) -> i32;
+    fn GetDIBits(
+        dc: Handle,
+        bitmap: Handle,
+        start: u32,
+        lines: u32,
+        pixels: *mut c_void,
+        info: *mut Info,
+        usage: u32,
+    ) -> i32;
     fn SelectObject(dc: Handle, object: Handle) -> Handle;
     fn DeleteObject(object: Handle) -> i32;
     fn CreateFontA(
@@ -122,10 +141,22 @@ pub(super) struct Raster {
     old_memory_font: Handle,
     pixels: *mut u32,
     size: [usize; 2],
+    info: Info,
+    released: bool,
     pub line_height: i32,
 }
 impl Raster {
+    #[cfg(test)]
     pub fn new(name: &[u8], size: [usize; 2], vertical: i32, horizontal: i32) -> Result<Self> {
+        Self::new_for_layout(name, size, vertical, horizontal, false)
+    }
+    pub fn new_for_layout(
+        name: &[u8],
+        size: [usize; 2],
+        vertical: i32,
+        horizontal: i32,
+        released: bool,
+    ) -> Result<Self> {
         let name = CString::new(if name.is_empty() {
             b"arial".as_slice()
         } else {
@@ -142,6 +173,8 @@ impl Raster {
             old_memory_font: ptr::null_mut(),
             pixels: ptr::null_mut(),
             size,
+            info: Info::default(),
+            released,
             line_height: 0,
         };
         r.screen = unsafe { GetDC(ptr::null_mut()) };
@@ -163,26 +196,55 @@ impl Raster {
             },
             color: 0,
         };
-        let mut pixels = ptr::null_mut();
-        r.bitmap = unsafe { CreateDIBSection(r.screen, &info, 0, &mut pixels, ptr::null_mut(), 0) };
-        r.pixels = pixels.cast();
-        if r.bitmap.is_null() || r.pixels.is_null() {
-            return Err(Error("GDI bitmap creation failed"));
-        }
-        let pixels = size[0]
+        let count = size[0]
             .checked_mul(size[1])
             .filter(|&count| count <= isize::MAX as usize / size_of::<u32>())
             .ok_or(Error("GDI canvas overflow"))?;
-        // Define the background before any native drawing or Rust pixel reads.
-        unsafe {
-            ptr::write_bytes(r.pixels, 0, pixels);
+        r.info = info;
+        if released {
+            // Released FontBegin uses a screen-compatible DDB initialized
+            // from a top-down 32-bit DIB. Transfer before selecting the bitmap.
+            r.bitmap = unsafe {
+                CreateCompatibleBitmap(r.screen, r.info.header.width, -r.info.header.height)
+            };
+            if r.bitmap.is_null() {
+                return Err(Error("GDI bitmap creation failed"));
+            }
+            let pixels = vec![0u32; count];
+            if unsafe {
+                SetDIBits(
+                    r.memory,
+                    r.bitmap,
+                    0,
+                    size[1] as u32,
+                    pixels.as_ptr().cast(),
+                    &r.info,
+                    0,
+                )
+            } != size[1] as i32
+            {
+                return Err(Error("GDI bitmap initialization failed"));
+            }
+        } else {
+            let mut pixels = ptr::null_mut();
+            r.bitmap =
+                unsafe { CreateDIBSection(r.screen, &r.info, 0, &mut pixels, ptr::null_mut(), 0) };
+            r.pixels = pixels.cast();
+            if r.bitmap.is_null() || r.pixels.is_null() {
+                return Err(Error("GDI bitmap creation failed"));
+            }
+            // Define the background before native drawing or Rust pixel reads.
+            unsafe {
+                ptr::write_bytes(r.pixels, 0, count);
+            }
         }
         r.old_bitmap = selected(r.memory, r.bitmap)?;
         let font_height = vertical
             .checked_neg()
             .ok_or(Error("GDI font height overflow"))?;
         // Original style 4: normal weight, DEFAULT_CHARSET, OUT_TT_PRECIS,
-        // CLIP_DEFAULT_PRECIS, PROOF_QUALITY, DEFAULT_PITCH|FF_DONTCARE.
+        // CLIP_DEFAULT_PRECIS, DEFAULT_PITCH|FF_DONTCARE. The released
+        // routine requests ANTIALIASED_QUALITY; later source uses PROOF_QUALITY.
         r.font = unsafe {
             CreateFontA(
                 font_height,
@@ -196,7 +258,7 @@ impl Raster {
                 1,
                 4,
                 0,
-                2,
+                if released { 4 } else { 2 },
                 0,
                 name.as_ptr(),
             )
@@ -269,7 +331,7 @@ impl Raster {
         }
         Ok(())
     }
-    pub fn finish(self) -> Result<Vec<u8>> {
+    pub fn finish(mut self) -> Result<Vec<u8>> {
         // Required synchronization before accessing CreateDIBSection memory.
         if unsafe { GdiFlush() } == 0 {
             return Err(Error("GDI text flush failed"));
@@ -277,7 +339,33 @@ impl Raster {
         let count = self.size[0]
             .checked_mul(self.size[1])
             .ok_or(Error("GDI canvas overflow"))?;
-        let pixels = unsafe { std::slice::from_raw_parts(self.pixels, count) };
+        let owned;
+        let pixels = if self.released {
+            // GetDIBits requires the bitmap to be absent from any DC.
+            selected(self.memory, self.old_bitmap)?;
+            self.old_bitmap = ptr::null_mut();
+            owned = {
+                let mut pixels = vec![0u32; count];
+                if unsafe {
+                    GetDIBits(
+                        self.memory,
+                        self.bitmap,
+                        0,
+                        self.size[1] as u32,
+                        pixels.as_mut_ptr().cast(),
+                        &mut self.info,
+                        0,
+                    )
+                } != self.size[1] as i32
+                {
+                    return Err(Error("GDI bitmap readback failed"));
+                }
+                pixels
+            };
+            owned.as_slice()
+        } else {
+            unsafe { std::slice::from_raw_parts(self.pixels, count) }
+        };
         Ok(pixels.iter().map(|&pixel| pixel as u8).collect())
     }
 }

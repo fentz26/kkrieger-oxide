@@ -2,7 +2,7 @@
 //! they never become placeholder textures. Consumed intermediates are released.
 use crate::{
     bitmap::{self, Bitmap, Bump, Cell, FontBook, GlowRect, Text, Transform, Twirl},
-    kx::{Document, Layout},
+    kx::Document,
     random::Noise,
 };
 use std::{collections::BTreeMap, fmt, rc::Rc};
@@ -304,17 +304,13 @@ pub fn generate_many_with_fonts(
                     color: int(4)? as u32,
                     flags: int(5)? as u32,
                     external_space: int(6)?,
-                    internal_space: if doc.layout == Layout::Beta2004 {
-                        0.
-                    } else {
-                        op.float(7).unwrap_or(0.)
-                    },
+                    internal_space: op.float(7).unwrap_or(0.),
                     line_skip: op.float(8).unwrap_or(1.),
                     text,
                     font,
                     blob: op.blob,
                 };
-                with_first(&mut |b| b.text(p, &mut fonts))?
+                with_first(&mut |b| b.text_for_layout(p, &mut fonts, doc.layout))?
             }
             0x32 => Rc::new(
                 Bitmap::cell(

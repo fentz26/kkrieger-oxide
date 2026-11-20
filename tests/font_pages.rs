@@ -92,3 +92,90 @@ fn authored_menu_font_packs_real_glyphs_with_windows_line_metrics() {
     assert!(letter.uv[3] > letter.uv[1] && letter.uv[3] <= 1.0);
     assert!(letter.width > 0.0);
 }
+
+#[test]
+#[ignore = "requires installed original Arial; see BUILDING.md"]
+fn released_beta_font_layout_reaches_bitmap_and_texture_generation() {
+    use kkrieger_oxide::{
+        bitmap::{Bitmap, FontBook, Text},
+        kx::Layout,
+    };
+    let mut fonts = FontBook::new();
+    let p = Text {
+        position: [0., 0.],
+        width: 0.1,
+        height: 0.,
+        color: 0xffffffff,
+        flags: 0x10,
+        external_space: 1,
+        internal_space: f32::from_bits(163),
+        line_skip: 1.,
+        text: b"a-c",
+        font: b"Arial",
+        blob: &[],
+    };
+    let mut bitmap = Bitmap::flat(5, 5, 0xff000000, 0);
+    bitmap
+        .text_for_layout(p, &mut fonts, Layout::Beta2004)
+        .unwrap();
+    let page = bitmap.font_page.as_ref().unwrap();
+    assert_eq!(page.letters[b'a' as usize].uv[0], 4. / 128.);
+    assert_eq!(page.letters[b'a' as usize].uv[1], 4. / 128.);
+    assert!(page.letters[b'b' as usize].uv[2] > page.letters[b'b' as usize].uv[0]);
+    assert_eq!(page.letters[b'c' as usize].uv, [0.; 4]);
+    assert!(
+        page.letters
+            .iter()
+            .all(|l| l.width == 0. && l.pre_space == 0. && l.abc == [0; 3])
+    );
+    assert!(bitmap.pixels.iter().any(|p| p[0] > 0));
+
+    // The released entry has no operator/cache argument; a later-source blob
+    // must not replace its native metrics, even when the cache flag is set.
+    let mut blob = vec![7; 8 + 2560 + 32 * 32];
+    blob[..8].copy_from_slice(&[3, 1, 32, 0, 32, 0, 0xff, 0x03]);
+    let mut cached = Bitmap::flat(5, 5, 0xff000000, 0);
+    cached
+        .text_for_layout(
+            Text {
+                flags: 0x90,
+                blob: &blob,
+                ..p
+            },
+            &mut fonts,
+            Layout::Beta2004,
+        )
+        .unwrap();
+    assert_eq!(cached.pixels, bitmap.pixels);
+    assert_eq!(
+        cached.font_page.as_ref().unwrap().letters[b'a' as usize].uv,
+        page.letters[b'a' as usize].uv
+    );
+
+    let mut d = Document::parse(include_bytes!("../assets/kkrieger3383.kx")).unwrap();
+    d.layout = Layout::Beta2004;
+    d.operators.truncate(2);
+    let flat = d.classes.iter().position(|c| c.id == 0x21).unwrap();
+    let text = d.classes.iter().position(|c| c.id == 0x31).unwrap();
+    d.operators[0].class = flat;
+    d.operators[0].inputs.clear();
+    d.operators[0].links.clear();
+    d.operators[0].parameters = vec![5, 5, 0xff000000];
+    d.operators[1].class = text;
+    d.operators[1].inputs = vec![0];
+    d.operators[1].links.clear();
+    d.operators[1].parameters = vec![0, 0, 0.1f32.to_bits(), 0, 0xffffffff, 0x10, 1, 163];
+    d.operators[1].strings = vec![b"a-c", b"Arial"];
+    d.operators[1].blob = &[];
+    let generated = texture::generate_many_with_fonts(&d, &[1], 0).unwrap();
+    assert_eq!(
+        generated.font_pages[&1].letters[b'a' as usize].uv,
+        page.letters[b'a' as usize].uv
+    );
+    d.operators[1].parameters[7] = 0.02f32.to_bits();
+    let spaced = texture::generate_many_with_fonts(&d, &[1], 0).unwrap();
+    assert_eq!(
+        spaced.font_pages[&1].letters[b'a' as usize].uv[2],
+        page.letters[b'a' as usize].uv[2] + 4. / 128.
+    );
+}
