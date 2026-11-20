@@ -1,0 +1,159 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+    # Path filters apply to branch pushes; tag pushes always run.
+    paths:
+      - 'install/**'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  CARGO_INCREMENTAL: '0'
+  # Size-tuned distribution build on the pinned toolchain: std rebuilt with
+  # immediate-abort panics, opt-level z, fat LTO.
+  RUSTC_BOOTSTRAP: '1'
+  CARGO_PROFILE_RELEASE_OPT_LEVEL: z
+  CARGO_PROFILE_RELEASE_PANIC: immediate-abort
+  RUSTFLAGS: -Zlocation-detail=none -Zfmt-debug=none
+jobs:
+  build:
+    name: build ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, pack: 'xz gz' }
+          - { os: ubuntu-22.04-arm, target: aarch64-unknown-linux-gnu, pack: 'xz gz' }
+          - { os: macos-latest, target: aarch64-apple-darwin, pack: xz }
+          - { os: macos-latest, target: x86_64-apple-darwin, pack: xz }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, pack: gz, exe: .exe }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install pinned toolchain
+        run: rustup toolchain install 1.100.0 --profile minimal --component rust-src --target ${{ matrix.target }}
+      - name: Build
+        run: cargo +1.100.0 build --locked --release -Zbuild-std=std,panic_abort --target ${{ matrix.target }}
+      - name: Package
+        run: |
+          mkdir -p dist
+          bin=target/${{ matrix.target }}/release/kkrieger-oxide${{ matrix.exe }}
+          wc -c "$bin"
+          if [ "${{ runner.os }}" = Linux ]; then
+            objdump -T "$bin" | grep -o 'GLIBC_[0-9.]*' | sort -uV | tail -n 1
+          fi
+          for kind in ${{ matrix.pack }}; do
+            python3 install/pack.py $kind "$bin" dist/kkrieger-oxide-${{ matrix.target }}${{ matrix.exe }}.$kind
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ matrix.target }}
+          path: dist/
+          if-no-files-found: error
+
+  install:
+    name: install ${{ matrix.os }}
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist
+      - name: Assemble release directory
+        run: |
+          cp install/install.sh install/install.ps1 dist/
+          cd dist && python3 -c "
+          import hashlib, pathlib
+          lines = [f'{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}' for p in sorted(pathlib.Path('.').iterdir()) if p.name != 'SHA256SUMS']
+          pathlib.Path('SHA256SUMS').write_text(chr(10).join(lines) + chr(10))
+          "
+          ls -l
+      - name: Serve release directory
+        run: |
+          port=$(python3 -c "import socket; s = socket.socket(); s.bind(('127.0.0.1', 0)); print(s.getsockname()[1])")
+          nohup python3 -m http.server $port --bind 127.0.0.1 --directory dist > server.log 2>&1 &
+          echo "BASE=http://127.0.0.1:$port" >> $GITHUB_ENV
+          sleep 2
+      - name: Install and run (macOS, Linux)
+        if: runner.os != 'Windows'
+        env:
+          KKRIEGER_YES: '1'
+        run: |
+          if [ "${{ runner.os }}" = Linux ]; then
+            # Stand-in for the player accepting the Microsoft core fonts EULA.
+            echo 'ttf-mscorefonts-installer msttcorefonts/accept-mscorefonts-eula select true' | sudo debconf-set-selections
+          fi
+          curl -fsSL "$BASE/install.sh" | KKRIEGER_BASE_URL="$BASE" sh
+          ~/.local/bin/kkrieger-oxide --bench
+      - name: Install with gzip only (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo mv "$(command -v xz)" /tmp/xz.disabled
+          rm -rf ~/.local/share/kkrieger-oxide/kkrieger-oxide
+          curl -fsSL "$BASE/install.sh" | KKRIEGER_BASE_URL="$BASE" sh 2>&1 | tee install.log
+          grep -q 'downloading kkrieger-oxide-.*\.gz' install.log
+          ~/.local/bin/kkrieger-oxide --bench
+          sudo mv /tmp/xz.disabled /usr/bin/xz
+      - name: Install and run (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:KKRIEGER_BASE_URL = $env:BASE
+          Invoke-RestMethod "$env:BASE/install.ps1" | Invoke-Expression
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\kkrieger-oxide\kkrieger-oxide.exe'
+          & $exe --bench
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if (-not (Test-Path (Join-Path ([Environment]::GetFolderPath('Programs')) 'kkrieger-oxide.lnk'))) { throw 'Start menu entry missing' }
+      - name: Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          Remove-Item -Recurse -Force (Join-Path $env:LOCALAPPDATA 'Programs\kkrieger-oxide')
+          $env:KKRIEGER_BASE_URL = $env:BASE
+          Invoke-RestMethod "$env:BASE/install.ps1" | Invoke-Expression
+          & (Join-Path $env:LOCALAPPDATA 'Programs\kkrieger-oxide\kkrieger-oxide.exe') --bench
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: matrix.os == 'ubuntu-latest'
+        with:
+          name: release
+          path: dist/
+
+  publish:
+    name: publish
+    needs: install
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: dist
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/* --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --generate-notes
