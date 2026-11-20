@@ -24,7 +24,7 @@ frames (`--features ci`).
 | Probe | APIs | Raw | lzma | CI run |
 | --- | --- | ---: | ---: | --- |
 | Windows i686 | Win32, D3D9, WinMM, GDI | 3,072 | 1,099 | D3D9 device, 120 frames |
-| Windows x86_64 | same | 4,096 | 1,331 | loads; see workflow log |
+| Windows x86_64 | same | 4,096 | 1,331 | D3D9 device, 120 frames |
 | Linux x86_64 | Xlib, GLX, ALSA | 6,648 | 2,251 | 120 GLX frames (Xvfb) |
 | macOS arm64 | AppKit, Metal, AudioQueue, CoreText | 51,136 | 2,830 | 120 Metal frames |
 
