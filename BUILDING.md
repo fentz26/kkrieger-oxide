@@ -26,6 +26,7 @@ with immediate-abort panics, `opt-level = "z"` and fat LTO. The Release
 workflow builds them, installs and runs them on each OS, and publishes them for
 `v*` tags.
 
+## Build
 
 Install the Rust toolchain from `rust-toolchain.toml` (1.100.0), then run:
 
