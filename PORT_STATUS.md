@@ -44,10 +44,10 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at 78ef76b passes formatting, all-target Clippy
+The latest full platform CI audit at e3d592c passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 521 checks on macOS and
-522 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+and Windows with Rust 1.100.0. The normal suite passes 523 checks on macOS and
+524 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
 also passes five explicit native ALSA null-device integration checks. macOS and
 Windows pass both the published-menu and beta-layout installed-font integration
 checks. Windows additionally passes the published-source GDI atlas reference
@@ -2628,3 +2628,10 @@ The full local macOS suite passes 523 tests with 36 ignored. All-target Clippy
 with `-D warnings`, formatting and whitespace checks pass, and both explicit
 extracted-beta release checks pass (startup handoff and player-root render
 resource preparation).
+
+Linux, macOS and Windows CI at e3d592c pass the projection capture, their full
+regular suites, all-target Clippy, formatting, platform integrations and
+release builds. CI release sizes are Linux x86_64 1,562,736 bytes (+144),
+macOS ARM64 1,317,152 bytes (unchanged) and Windows x86_64 1,189,888 bytes
+(+512), relative to 78ef76b.
+Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44803358258
