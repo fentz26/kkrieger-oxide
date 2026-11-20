@@ -50,10 +50,12 @@ pub extern "C" fn main() -> i32 {
         let root = XDefaultRootWindow(d);
         let vi = glXChooseVisual(d, 0, [4, 12, 24, 5, 0].as_ptr());
         if vi.is_null() { exit(4) }
+        // XSetWindowAttributes on LP64: border_pixel [3], event_mask [9], colormap [12].
         let mut attrs = [0usize; 15];
-        attrs[13] = XCreateColormap(d, root, (*vi).visual, 0);
-        attrs[10] = 0x3 | 0x4 | 0x40; // key press/release, button press, pointer motion
-        let w = XCreateWindow(d, root, 0, 0, 800, 600, 0, (*vi).depth, 1, (*vi).visual, 0x2000 | 0x800, &mut attrs);
+        attrs[12] = XCreateColormap(d, root, (*vi).visual, 0);
+        attrs[9] = 0x3 | 0x4 | 0x40; // key press/release, button press, pointer motion
+        let mask = 0x2000 | 0x800 | 0x8; // colormap, event mask, border pixel
+        let w = XCreateWindow(d, root, 0, 0, 800, 600, 0, (*vi).depth, 1, (*vi).visual, mask, &mut attrs);
         XMapWindow(d, w);
         let gl = glXCreateContext(d, vi, null_mut(), 1);
         glXMakeCurrent(d, w, gl);

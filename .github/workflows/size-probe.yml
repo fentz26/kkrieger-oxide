@@ -59,7 +59,7 @@ jobs:
         if: runner.os == 'Windows'
         working-directory: size-probe/windows
         env:
-          RUSTFLAGS: -Clinker=rust-lld -Clinker-flavor=lld-link -Clink-arg=/NODEFAULTLIB -Clink-arg=/ENTRY:mainCRTStartup -Clink-arg=/SUBSYSTEM:WINDOWS -Clink-arg=/ALIGN:16 -Clink-arg=/FILEALIGN:16 -Clink-arg=/MERGE:.rdata=.text -Clink-arg=/MERGE:.data=.text -Clink-arg=/SECTION:.text,ERW -Clink-arg=/DYNAMICBASE:NO -Clink-arg=/FIXED -Clink-arg=/DEBUG:NONE -Clink-arg=/SAFESEH:NO -Clink-arg=/NXCOMPAT:NO
+          RUSTFLAGS: -Clinker=rust-lld -Clinker-flavor=lld-link -Clink-arg=/NODEFAULTLIB -Clink-arg=/ENTRY:mainCRTStartup -Clink-arg=/SUBSYSTEM:WINDOWS -Clink-arg=/DYNAMICBASE:NO -Clink-arg=/FIXED -Clink-arg=/DEBUG:NONE -Clink-arg=/SAFESEH:NO -Clink-arg=/NXCOMPAT:NO
         run: |
           for target in i686-pc-windows-msvc x86_64-pc-windows-msvc; do
             cargo +$TOOLCHAIN build --release $BUILD_STD --target $target
