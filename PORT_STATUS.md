@@ -2288,4 +2288,30 @@ A matching baseline has not been rebuilt to isolate the size cost of this change
 The full local macOS ARM64 suite passes 506 tests across 216 result blocks,
 with 35 ignored checks (`cargo test --tests --quiet --no-fail-fast`, Rust
 1.100.0). All-target Clippy with `-D warnings` passes as well.
-Platform-CI results for this change remain pending.
+Linux, macOS and Windows CI passed at 4344f67, including formatting, all-target
+Clippy, the regular suite and release builds. macOS/Windows also passed the
+explicit installed-font check.
+
+
+### Linux native audio output
+
+Linux now routes music and effects through the existing owning audio worker into
+nonblocking ALSA PCM output: stereo PCM16 at 44,100 Hz, approximately 70 ms native
+buffering. `libasound.so.2` is loaded dynamically with a fixed, process-lifetime
+API table; no ALSA development dependency or Rust crate was added. ALSA `default`
+is selected unless `KKRIEGER_AUDIO_DEVICE` supplies another PCM name.
+
+A pump attempts at most three writes and retains pending samples after partial
+writes, EAGAIN, interruptions and zero progress. Underruns prepare the stream;
+suspended streams try resume, defer transient recovery and fall back to prepare.
+The suspend path avoids `snd_pcm_recover`'s sleep/retry loop. Fatal errors and
+renderer panics (in unwind builds) are sticky. Shutdown drops buffered native output and closes the
+PCM; native code never retains a Rust sample pointer or renderer callback.
+
+Nine host driver tests cover partial-write ordering, bounded priming/backpressure,
+recovery, sticky failures, invalid driver counts, panic containment and cleanup.
+All 39 host library checks pass, including 24 direct resume/prepare combinations. A native Linux null-PCM unit check and five
+explicit music/effect/queue integration checks are added to CI. All-target Clippy passes on macOS and for Linux ARM64 and Windows x64 targets;
+formatting and whitespace checks pass. Independent code review found no remaining
+issues. Native Linux CI results remain pending; physical Linux playback, driver waveform/routing parity
+and latency remain unverified. `BUILDING.md` documents runtime prerequisites.

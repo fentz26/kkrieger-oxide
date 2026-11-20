@@ -35,7 +35,7 @@ pub mod vfx;
 
 pub mod sample_playback;
 
-#[cfg(any(target_os = "macos", target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux", test))]
 mod audio_pcm;
 
 #[cfg(target_os = "macos")]
@@ -54,3 +54,11 @@ pub mod music;
 pub mod effects;
 
 pub mod embedded;
+
+#[cfg(all(test, not(target_os = "linux")))]
+#[path = "audio_output_linux.rs"]
+mod linux_audio_tests;
+
+#[cfg(target_os = "linux")]
+#[path = "audio_output_linux.rs"]
+pub mod audio_output;

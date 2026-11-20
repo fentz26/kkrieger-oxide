@@ -25,12 +25,22 @@ jobs:
           persist-credentials: false
       - name: Install pinned toolchain
         run: rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
+      - name: Linux audio runtime
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libasound2t64 libasound2-data
       - name: Format
         run: cargo fmt --check
       - name: Lint
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Tests
         run: cargo test --locked --tests --no-fail-fast
+      - name: Linux native audio integration
+        if: runner.os == 'Linux'
+        env:
+          KKRIEGER_AUDIO_DEVICE: 'null'
+        run: cargo test --locked --test audio_output -- --ignored
       - name: System font integration
         if: runner.os != 'Linux'
         run: cargo test --locked --test font_pages authored_menu_font_packs_real_glyphs_with_windows_line_metrics -- --ignored --exact

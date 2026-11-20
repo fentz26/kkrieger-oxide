@@ -234,7 +234,7 @@ impl Renderer for Bridge {
     }
 }
 pub struct App {
-    #[cfg(any(target_os = "macos", target_os = "windows"))]
+    #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
     music: kkrieger_oxide::music::output::Output,
     doc: Document<'static>,
     root: usize,
@@ -281,11 +281,11 @@ impl App {
             },
             std::array::from_fn(|i| 100 + i as i32),
         ));
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         let music =
             kkrieger_oxide::music::output::Output::open_with_effects(doc.song, doc.samples)?;
         Ok(Self {
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
             music,
             doc,
             root,
@@ -325,14 +325,14 @@ impl App {
             }
             graphics.settings = settings;
         }
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         self.music.tick(tick, frame.time)?;
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+        #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
         let _ = tick;
         Ok(false)
     }
     fn frame(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(any(target_os = "macos", target_os = "windows"))]
+        #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         self.music.check()?;
         let frame = self
             .clock
@@ -362,7 +362,7 @@ impl App {
         }
         let root = self.doc.roots[selection.index].ok_or("selected player root missing")?;
         if selection.index != self.root_slot {
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
             self.music.pause_music()?;
             self.execution.reset_view();
             self.execution.init_frame(0, 0, false);
@@ -383,7 +383,7 @@ impl App {
             std::mem::replace(scene, replacement).delete(&mut **ctx);
             self.root = root;
             self.root_slot = selection.index;
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
             self.music.restart_music()?;
         }
         self.execution.aspect = 2.;
@@ -440,12 +440,12 @@ impl App {
             let result =
                 self.simulation
                     .key(&mut self.execution, key, self.mouse.map(|v| v as i32))?;
-            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
             for sound in result.sounds {
                 self.music
                     .play(sound, self.simulation.motion.collider.position)?;
             }
-            #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+            #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
             let _ = result;
             Ok(())
         })();
