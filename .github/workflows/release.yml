@@ -73,7 +73,6 @@ jobs:
           - { name: debian, os: ubuntu-latest, container: 'debian:stable' }
           - { name: fedora, os: ubuntu-latest, container: 'fedora:latest' }
           - { name: arch, os: ubuntu-latest, container: 'archlinux:latest' }
-          - { name: macos-14, os: macos-14 }
           - { name: macos-15, os: macos-15 }
           - { name: macos-latest, os: macos-latest }
           - { name: macos-intel, os: macos-15-intel }

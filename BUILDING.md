@@ -19,9 +19,13 @@ The installer downloads one compressed executable for the current OS and CPU
 against `SHA256SUMS` and installs it per user: `~/.local/share/kkrieger-oxide`
 with a `~/.local/bin/kkrieger-oxide` launcher, or
 `%LOCALAPPDATA%\Programs\kkrieger-oxide` with a Start menu entry. On Linux it
-links the installed Arial and Times New Roman fonts for the game and offers to
-install missing runtime libraries or the Microsoft core fonts package (which
-shows its EULA). Release executables are built with Rust 1.100, std rebuilt
+offers to install missing X11, GL and ALSA runtime libraries (apt, dnf, pacman
+or zypper) and links installed Arial and Times New Roman fonts for the game.
+Without them it offers Debian's `ttf-mscorefonts-installer` where available,
+otherwise the original Microsoft core fonts downloads, checksum-verified and
+extracted with `cabextract` into the game's own folder after the player
+accepts the EULA. It runs as root without `sudo` where needed.
+`KKRIEGER_YES=1` answers every prompt with yes, including the EULA. Release executables are built with Rust 1.100, std rebuilt
 with immediate-abort panics, `opt-level = "z"` and fat LTO. The Release
 workflow builds them, installs and runs them on each OS, and publishes them for
 `v*` tags.
