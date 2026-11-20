@@ -48,7 +48,7 @@ for case in range(64):
         u.reg_write(UC_X86_REG_ECX, cell)
         u.reg_write(UC_X86_REG_FPCW, 0x143f)
         u.emu_start(0x81c8bb, 0x5000000, count=100000)
-        assert u.reg_read(UC_X86_REG_EIP) == 0x5000000
+        assert u.reg_read(UC_X86_REG_EIP) == 0x5000000 and u.reg_read(UC_X86_REG_ESP) == stack + 16
         u.mem_write(pointers + index * 4, pack(cell))
     u.mem_write(game + 4, pack(pointers, count))
     position = [rng.uniform(-6., 6.), rng.uniform(-3., 3.), rng.uniform(-3., 3.), float(case % 2)]
@@ -88,7 +88,7 @@ for case in range(64):
     u.reg_write(UC_X86_REG_ESP, stack)
     u.reg_write(UC_X86_REG_ECX, hit)
     u.emu_start(0x81a880, 0x5000000, count=30000)
-    assert u.reg_read(UC_X86_REG_EIP) == 0x5000000
+    assert u.reg_read(UC_X86_REG_EIP) == 0x5000000 and u.reg_read(UC_X86_REG_ESP) == stack + 8
     out.extend(u.mem_read(hit + 0x20, 6 * 16))
     out.extend(u.mem_read(hit + 0xe0, 16))
 p = root / 'tests/fixtures/beta-player-placement.bin'

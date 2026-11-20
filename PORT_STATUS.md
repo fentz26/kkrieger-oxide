@@ -44,10 +44,10 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at 22c1d1f passes formatting, all-target Clippy
+The latest full platform CI audit at e34000b passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 517 checks on macOS and
-518 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+and Windows with Rust 1.100.0. The normal suite passes 518 checks on macOS and
+519 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
 also passes five explicit native ALSA null-device integration checks. macOS and
 Windows pass both the published-menu and beta-layout installed-font integration
 checks. Windows additionally passes the published-source GDI atlas reference
@@ -2473,5 +2473,12 @@ scheduling, mixed-world collisions and complete traversal/ending remain open.
 
 Local macOS regular verification passes 518 tests with 36 ignored. All-target
 Clippy with `-D warnings`, formatting and whitespace checks pass. Independent
-review found no material issues. Cross-platform CI and the extracted startup
-check are still pending for this placement change.
+review found no material issues. The explicit extracted-beta release startup
+handoff also passes with the corrected hit box. Linux, macOS and Windows CI at
+e34000b pass their regular suites, all-target Clippy, formatting, platform audio/
+font checks and release builds. Both Windows GDI references remain green.
+CI release sizes are Linux x86_64 1,562,016 bytes (+536), macOS ARM64 1,317,152
+bytes (unchanged) and Windows x86_64 1,188,864 bytes (+512), relative to e752912.
+No FPS or preparation-speed change is claimed. Additional Cell::Init and
+ApplyMatrix stack-cleanup assertions regenerate the native fixture unchanged.
+Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44792174022
