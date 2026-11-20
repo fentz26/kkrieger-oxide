@@ -165,11 +165,12 @@ fn verify_uploads(ctx: &mut dyn RenderingBackend) {
                 let pyramid = Pyramid::from_bitmap(&bitmap).unwrap();
                 let texture = gpu_texture::upload(ctx, &pyramid, flags).unwrap();
                 unsafe {
-                    let raw = match ctx.texture_raw_id(texture) {
-                        RawId::OpenGl(raw) => raw,
-                        #[cfg(target_vendor = "apple")]
-                        RawId::Metal(_) => unreachable!(),
+                    #[cfg(target_vendor = "apple")]
+                    let RawId::OpenGl(raw) = ctx.texture_raw_id(texture) else {
+                        unreachable!()
                     };
+                    #[cfg(not(target_vendor = "apple"))]
+                    let RawId::OpenGl(raw) = ctx.texture_raw_id(texture);
                     let mut previous = 0;
                     glGetIntegerv(0x8069, &mut previous);
                     glBindTexture(GL_TEXTURE_2D, raw);
