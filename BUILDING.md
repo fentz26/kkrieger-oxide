@@ -18,11 +18,12 @@ The `tiny` profile reduces executable size at a measured preparation-time cost.
 
 Runtime text generation needs the requested original Arial and Times New Roman
 font files. They are external dependencies and are not redistributed here.
-macOS and Windows system font directories and
-`/usr/share/fonts/truetype/msttcorefonts` are searched. On Linux, install licensed
+The portable rasterizer searches macOS system font directories and
+`/usr/share/fonts/truetype/msttcorefonts`. On Linux, install licensed
 copies of the Microsoft core fonts, or set `KKRIEGER_FONT_DIR` to a directory
 containing `Arial.ttf` (or `arial.ttf`) and `Times New Roman.ttf`, `times.ttf`,
-or `Times_New_Roman.ttf`. The variable is also supported on macOS and Windows.
+or `Times_New_Roman.ttf`. The variable is also supported on macOS. Windows uses
+installed font faces through GDI and rejects unintended font substitution.
 
 Missing fonts stop uncached atlas generation; no substitute is silently used.
 Precomputed original font blobs do not require installed fonts. Matching font

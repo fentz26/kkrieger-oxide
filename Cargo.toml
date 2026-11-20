@@ -11,6 +11,7 @@ default-run = "kkrieger-oxide"
 # Keep mesh transcendental functions independent of the host C math library.
 libm = { version = "=0.2.16", default-features = false }
 miniquad = "=0.4.11"
+[target.'cfg(not(target_os = "windows"))'.dependencies]
 ttf-parser = { version = "=0.25.1", default-features = false, features = ["std"] }
 
 [profile.release]

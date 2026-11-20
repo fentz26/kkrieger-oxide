@@ -2344,3 +2344,30 @@ inside a disabled `#if 0` block. The separate GenMesh-to-GenMinMesh conversion
 clears bone counts and sets clusters static, while the legacy EngMesh conversion
 builds its own vertex/job buffers. This supports keeping the two paths separate;
 it does not resolve released-binary animated-rendering or pixel parity.
+
+
+### Windows GDI atlas backend and native reference
+
+A Windows reference tool extracts the pinned published FontBegin, glyph-width,
+FontPrint and FontEnd routines plus the original atlas packing and UV loops.
+Seven normalized-body hashes guard the extraction. It captures 24 Arial/Times
+cases using the installed fonts, including clipped positions, range expansion,
+spacing and wrapping. An explicit GdiFlush observation barrier completes native
+drawing before reading the DIB; original batching timing is not reproduced.
+Font files and captured pixels remain outside the repository.
+
+The baseline outline renderer fails this real native reference at the space
+character's ABC metrics (case 0, Rust 0 versus GDI 1). Windows now uses Rust GDI
+bindings with the original CreateFont settings, integer ABC widths and ExtTextOut
+coverage. Owned contexts, fonts and bitmaps are restored and disposed on success
+and failures; selected-face validation rejects unintended font substitution.
+The portable outline backend remains for macOS/Linux, and ttf-parser is no longer
+a Windows dependency. The shared cache, packing, downsampling and blending remain.
+
+Forty host library tests and the installed menu-font check pass. A local 24-case
+portable audit has identical pixels and all metrics before/after extraction
+(FNV-1a 2006a0a52a286c84). All-target Clippy passes on macOS and for Windows x64
+and Linux ARM64. Independent review found no remaining ownership or correctness
+issues. Windows CI requires exact equality for every captured glyph metric and
+pixel; this gate concerns the published source on its current system fonts,
+not complete original-executable rendering or the historical 2004 font files.
