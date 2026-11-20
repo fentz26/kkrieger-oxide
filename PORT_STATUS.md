@@ -2482,3 +2482,30 @@ bytes (unchanged) and Windows x86_64 1,188,864 bytes (+512), relative to e752912
 No FPS or preparation-speed change is claimed. Additional Cell::Init and
 ApplyMatrix stack-cleanup assertions regenerate the native fixture unchanged.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44792174022
+
+
+### Released per-slice camera smoothing
+
+Beta camera smoothing now reproduces the x87 tail at `0x81e527..0x81e564`:
+downward-rounded 24-bit arithmetic, a stored LastCameraY, then camera-offset
+addition using the retained wide-exponent intermediate. The development path
+keeps its existing arithmetic. No process floating-point settings are changed.
+
+`tools/verify_beta_camera.py` executes those original instructions without any
+callee substitution. Its 512 finite-input cases include 144 single edge updates
+(signed zero, subnormals and extreme/overflow stores) and 368 eight-update
+bounded trajectories, including gains 0.25 and 0.24999618530273438, totaling
+3,088 updates. Rust matches every LastCameraY and
+camera-position word exactly. The regression first failed at positive versus
+negative zero; a compiled copy of the old Rust arithmetic also differs in 367
+of the 368 bounded trajectories (268 on the first update). These are numeric
+comparisons, not evidence of a visible camera defect or FPS change.
+The 78,148-byte fixture SHA-256 is
+`1b0bd0ce40efc1f3387a950db46dbfe3cf84bc5081ccb697753bccb7834f6bc6`.
+
+Placement, development movement and checkpoint regressions remain green.
+Independent review found no material issues. The full local suite passes 519
+tests with 36 ignored. After expanding the fixture's ordinary trajectories with
+quarter-scale gains, its focused check also passes. All-target Clippy, formatting
+and whitespace checks pass. Platform CI remains pending for this change. View-matrix generation, complete frame parity
+and full playthrough are outside this camera-tail capture.

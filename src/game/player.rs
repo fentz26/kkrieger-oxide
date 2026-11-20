@@ -244,6 +244,18 @@ impl Motion {
 
     /// Camera smoothing runs after Physic and Zones for every movement slice.
     pub fn update_camera(&mut self, parameters: &Parameters) {
+        if self.document_layout == crate::kx::Layout::Beta2004 {
+            use super::beta_monster::{add, down, mul};
+            let previous = f64::from(self.last_camera_y);
+            let delta = add(f64::from(self.collider.position[1]), -previous);
+            let smooth = add(previous, mul(delta, f64::from(parameters.damp_camera)));
+            self.last_camera_y = down(smooth);
+            self.camera_position = self.collider.position;
+            // Native FST stores LastCameraY without discarding the x87 value.
+            // Keep its wide exponent for the subsequent camera-offset addition.
+            self.camera_position[1] = down(add(smooth, f64::from(parameters.camera_offset)));
+            return;
+        }
         self.last_camera_y +=
             (self.collider.position[1] - self.last_camera_y) * parameters.damp_camera;
         self.camera_position = self.collider.position;
