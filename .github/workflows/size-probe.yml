@@ -1,0 +1,75 @@
+name: Size probe
+on:
+  push:
+    paths:
+      - 'size-probe/**'
+      - '.github/workflows/size-probe.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  TOOLCHAIN: nightly-2026-11-18
+  BUILD_STD: -Zbuild-std=core,compiler_builtins -Zbuild-std-features=compiler-builtins-mem
+jobs:
+  probe:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install pinned nightly
+        run: rustup toolchain install $TOOLCHAIN --profile minimal --component rust-src
+      - name: Linux libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libx11-dev libgl-dev libasound2-dev xvfb xauth libgl1-mesa-dri
+      - name: Linux probe
+        if: runner.os == 'Linux'
+        working-directory: size-probe/linux
+        env:
+          RUSTFLAGS: -Clink-arg=-Wl,--build-id=none -Clink-arg=-Wl,-z,norelro -Clink-arg=-Wl,--hash-style=gnu -Clink-arg=-no-pie -Crelocation-model=static
+        run: |
+          cargo +$TOOLCHAIN build --release $BUILD_STD --target x86_64-unknown-linux-gnu
+          python3 ../measure.py target/x86_64-unknown-linux-gnu/release/probe-linux
+          cargo +$TOOLCHAIN build --release --features ci $BUILD_STD --target x86_64-unknown-linux-gnu
+          xvfb-run -a -s "-screen 0 1024x768x24" timeout 60 target/x86_64-unknown-linux-gnu/release/probe-linux
+          echo "Linux probe presented 120 GLX frames"
+      - name: macOS probe
+        if: runner.os == 'macOS'
+        working-directory: size-probe/macos
+        env:
+          RUSTFLAGS: -Clink-arg=-Wl,-dead_strip -Clink-arg=-Wl,-x
+        run: |
+          cargo +$TOOLCHAIN build --release $BUILD_STD --target aarch64-apple-darwin
+          python3 ../measure.py target/aarch64-apple-darwin/release/probe-macos
+          cargo +$TOOLCHAIN build --release --features ci $BUILD_STD --target aarch64-apple-darwin
+          perl -e 'alarm 60; exec @ARGV' target/aarch64-apple-darwin/release/probe-macos
+          echo "macOS probe presented 120 Metal frames"
+      - name: Windows probe
+        if: runner.os == 'Windows'
+        working-directory: size-probe/windows
+        env:
+          RUSTFLAGS: -Clinker=rust-lld -Clinker-flavor=lld-link -Clink-arg=/NODEFAULTLIB -Clink-arg=/ENTRY:mainCRTStartup -Clink-arg=/SUBSYSTEM:WINDOWS -Clink-arg=/ALIGN:16 -Clink-arg=/FILEALIGN:16 -Clink-arg=/MERGE:.rdata=.text -Clink-arg=/MERGE:.data=.text -Clink-arg=/SECTION:.text,ERW -Clink-arg=/DYNAMICBASE:NO -Clink-arg=/FIXED -Clink-arg=/DEBUG:NONE -Clink-arg=/SAFESEH:NO -Clink-arg=/NXCOMPAT:NO
+        run: |
+          for target in i686-pc-windows-msvc x86_64-pc-windows-msvc; do
+            cargo +$TOOLCHAIN build --release $BUILD_STD --target $target
+            python ../measure.py target/$target/release/probe-windows.exe
+            cargo +$TOOLCHAIN build --release --features ci $BUILD_STD --target $target
+            set +e
+            timeout 60 target/$target/release/probe-windows.exe
+            status=$?
+            set -e
+            # 0: D3D9 device presented; 2: image loaded and ran, but no D3D9 device on this runner.
+            echo "$target exit status $status"
+            test $status -eq 0 -o $status -eq 2
+          done

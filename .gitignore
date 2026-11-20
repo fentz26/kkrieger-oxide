@@ -1,4 +1,5 @@
 /target/
+/size-probe/*/target/
 /artifacts/
 .DS_Store
 ._*
