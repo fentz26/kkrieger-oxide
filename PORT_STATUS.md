@@ -23,7 +23,9 @@ below; those notes record the state when individual subsystems were ported.
   checks. Synth reset and MIDI workspace reuse avoid heap operations in those
   tested paths. Audio output uses the original 44,100 Hz stereo PCM16 format.
 - The authored menu GPU capture shows readable text after correcting OS/2
-  Windows ascent/descent offsets. GDI hinting and exact coverage remain unproven.
+  Windows ascent/descent offsets. Windows now passes both the published-source
+  atlas check and released-beta text initializer check described below; portable
+  outline coverage and complete original-game frames remain unproven.
   Menu navigation and original resolution/shadow options have regression checks.
 - A five-minute simulated movement/firing run passes 30,000 ticks and 60,002
   scene passes, checking actor count, player placement and finite render geometry.
@@ -33,8 +35,8 @@ below; those notes record the state when individual subsystems were ported.
   checker exercises compositing and captures the final target. Shadow disabling
   retains mesh draws and produces no shadow draws in the tested authored frame.
 - Build-time project packing decodes byte for byte to the original export. The
-  latest default macOS ARM64 release executable is 1,300,624 bytes (shared-trig
-  update below). A historical profile comparison measured 1,300,656 bytes for
+  latest default macOS ARM64 CI release executable is 1,317,152 bytes (released
+  text integration below). A historical profile comparison measured 1,300,656 bytes for
   release and 1,154,816 bytes for tiny; tiny has not been rebuilt at this revision.
   In that comparison, three alternating `--bench` samples give median
   asset-preparation times of 4,072.102 ms (release) and 7,075.031 ms (tiny), producing
@@ -42,14 +44,15 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at d4c134d passes formatting, all-target Clippy
+The latest full platform CI audit at 22c1d1f passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 516 checks on macOS, 517 on Windows and 517 on Linux,
-with 35 ignored checks on macOS/Linux and 36 on Windows. Linux also
-passes five explicit native ALSA null-device integration checks; macOS and Windows
-pass their explicit installed-font check; Windows also passes the original GDI
-atlas reference. These checks do not prove physical
-speaker playback or original-game completion.
+and Windows with Rust 1.100.0. The normal suite passes 517 checks on macOS and
+518 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+also passes five explicit native ALSA null-device integration checks. macOS and
+Windows pass both the published-menu and beta-layout installed-font integration
+checks. Windows additionally passes the published-source GDI atlas reference
+and released-beta initializer pixel/UV reference. These checks do not prove
+physical speaker playback or original-game completion.
 
 Remaining completion gates include released-beta ABI/content differences,
 original-executable pixel and full-gameplay comparisons, complete level traversal
@@ -2421,10 +2424,23 @@ GDI calls use the installed Windows fonts through a handle-translating bridge;
 only allocation and bitmap ownership checks are substituted. GdiFlush provides
 an observation barrier before readback. The Rust check compares final 15-bit
 pixels and all 256 UV entries. Captures remain local and font-dependent.
-A synthetic-service smoke check verifies the emulator reaches the original
-return in all cases; actual Windows results remain pending CI for this change.
+The synthetic-service smoke check verifies the emulator reaches the original
+return in all cases. Windows CI at 22c1d1f now passes the actual comparison:
+24 cases, 61,440 final pixels and all captured UV tables, including both Arial
+and Times New Roman, normal text, centered text, ranges, spacing and clipping.
+The 591,202-byte local capture SHA-256 is
+`8a45e9d4fbed7d09976dd3f36da140d0009210db4b362c74df8fc22dc2943ee9`;
+this hash depends on the installed fonts. The existing 24-case published-source
+GDI reference also remains green. No complete frame/GPU parity is implied.
 
 Local macOS checks for the runtime integration: `cargo test --tests
 --no-fail-fast` passes 517 tests with 36 ignored; the explicit beta installed-font
 regression also passes. Formatting and Clippy pass, including Windows MSVC
 cross-checking. No source fixture or parity tolerance was loosened.
+
+The extracted beta's authored player roots also pass the explicit macOS release
+render-resource preparation check after this change. CI release executables at
+22c1d1f are Linux x86_64 1,561,480 bytes, macOS ARM64 1,317,152 bytes and Windows
+x86_64 1,188,352 bytes. Relative to 70d0db6 this parity correction costs 3,200,
+16,528 and 3,584 bytes respectively; no preparation-speed or FPS gain is claimed.
+CI evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44789546004
