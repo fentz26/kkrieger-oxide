@@ -2519,119 +2519,71 @@ relative to e0c5358. These size measurements do not establish a runtime speedup.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44794179270
 
 
-### Released GetCamera orientation and zoom placement
+### Released Euler initializer, camera and player orientation
 
-`tools/verify_beta_get_camera.py` executes the complete released GetCamera
-routine (`0x819e7b`, reached from the main frame at `0x81e9a8`) with its real
-callees: the released Euler initializer at `0x805a9d` and AddScale3 at
-`0x80604f`. Three body hashes guard the extraction and nothing is substituted.
-The 512 cases cover both CamZoomPos branches, signed zero, tiny, quarter-turn
-and large angles, arbitrary w words and extreme positions. Sentinels confirm
-that only CameraSpace, ZoomX, ZoomY and Orthogonal are written.
+The released Euler initializer at `0x805a9d` differs from the published fsincos
+helper. It issues separate fsin and fcos instructions, keeps their results on
+the x87 stack under PC=24/RC=down, and reloads only cos(y), cos(z) and
+sin(z)*sin(y) from single-precision spills. One Rust routine
+(`beta_monster::euler`, built on the in-crate `libm`) reproduces it for every
+beta caller in the game: GetCamera, PlayerMatrix, the player hit cell and the
+monster hit-box decoder. Development paths use the published routine.
 
-The released Euler initializer is not the published fsincos helper. It issues
-separate fsin and fcos instructions, keeps their results on the x87 stack under
-PC=24/RC=down, and reloads only cos(y), cos(z) and sin(z)*sin(y) from
-single-precision spills. Beta `Motion::camera` now follows that operation order
-and rounding, including the zoom-position displacement of -2 along k. The
-development path keeps the published routine. The regression first failed at
-case 0 (negative versus positive zero in the second row); all 512 matrices now
-match bit for bit. The 69,636-byte fixture SHA-256 is
-`e13f11ab991c74653be5f4f5bfdb9a5a6b37ba003310acbbf92dbf6e3a60f31d`.
+| Capture | Released code | Cases | Fixture SHA-256 |
+| --- | --- | ---: | --- |
+| `verify_beta_get_camera.py` | GetCamera `0x819e7b` with Euler and AddScale3 `0x80604f` | 512 | `e13f11ab991c74653be5f4f5bfdb9a5a6b37ba003310acbbf92dbf6e3a60f31d` |
+| `verify_beta_tick_orientation.py` | OnTick `0x81de61..0x81dea1` and `0x81e4a1..0x81e4f3` | 512 | `05bfe991730598c737b9d674c123f2a411a9d8db07a1fc892be3a6286490822d` |
 
-Limits of this evidence: the emulator evaluates fsin/fcos in double precision
-through its host library, as in the existing fsincos fixture, so this is not a
-bit-level claim about physical x87 transcendental results. The same released
-initializer has six further call sites outside GetCamera (`0x813092`,
-`0x8136c1`, `0x813c6e`, `0x81d8ef`, `0x81de9c` and `0x81e4bf`); the two tick
-callers are covered below, the other four remain open.
-Viewport projection, complete frame parity and a full playthrough are outside
-this capture.
+Body hashes guard each extraction and no callee is substituted. Cases cover
+both CamZoomPos branches, fly-switch values, signed zero, tiny, quarter-turn and
+large angles, arbitrary w words, and extreme or cancelling positions. Sentinels
+confirm that GetCamera writes only CameraSpace, ZoomX, ZoomY and Orthogonal.
+All camera, PlayerMatrix and hit-cell matrices match bit for bit, including the
+zoom-position displacement of -2 along k and the 0.85 hit-cell height offset.
+The monster geometry and spawn fixtures also match.
 
-The full local macOS suite passes 520 tests with 36 ignored. All-target Clippy
-with `-D warnings`, formatting and whitespace checks pass, and the explicit
-extracted-beta release startup handoff passes.
-
-
-### Released tick player matrix and hit-cell orientation
-
-`tools/verify_beta_tick_orientation.py` captures two straight-line OnTick spans
-with the real Euler callee: `0x81de61..0x81dea1` builds PlayerMatrix from the
-fly switch, look and direction, and `0x81e4a1..0x81e4f3` builds the hit-cell
-matrix, copies the player position and adds 0.85 to its height. Three body
-hashes guard the extraction. The 512 cases reuse the GetCamera angle classes
-and add fly-switch values and extreme, signed-zero and cancelling heights.
-
-Beta `Motion::set_orientation` and the hit-cell update in `prepare_released`
-previously used the published fsincos arithmetic; both now use the released
-initializer. The regression first failed at case 0 (signed zero in the second
-PlayerMatrix row) and now matches all 1,024 matrices bit for bit. Development
-paths are unchanged. The 79,876-byte fixture SHA-256 is
-`05bfe991730598c737b9d674c123f2a411a9d8db07a1fc892be3a6286490822d`.
-
-The same emulator-transcendental limit applies. PlayerMatrix feeds released
-movement directions, so this changes beta movement arithmetic; no visible or
-gameplay difference has been measured. Input handling, physics, the following
-cell update, the four remaining Euler callers and full-game parity remain open.
-
-The monster hit-box decoder already carried a private copy of this initializer
-(the `0x81d8ef` caller) that used the platform sine and cosine. Player, camera
-and monster code now share one routine built on the in-crate `libm`, so these
-released matrices no longer depend on the host math library. The existing
-monster geometry and spawn fixtures still match bit for bit. The three
-remaining callers (`0x813092`, `0x8136c1`, `0x813c6e`) are mesh generators.
-
-The full local macOS suite passes 521 tests with 36 ignored. All-target Clippy
-with `-D warnings`, formatting and whitespace checks pass, and the explicit
-extracted-beta release startup handoff passes.
-
-Linux, macOS and Windows CI at 78ef76b pass both new capture tests, their full
-regular suites (522, 521 and 522 checks), all-target Clippy, formatting,
-platform audio/font integrations and release builds. CI release sizes are Linux
-x86_64 1,562,592 bytes (+144), macOS ARM64 1,317,152 bytes (unchanged) and
-Windows x86_64 1,189,376 bytes (+512), relative to 5ec302f. No FPS or
-preparation-speed change is claimed.
-Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44801243678
-
+The emulator evaluates fsin/fcos in double precision through its host library,
+so these captures are not bit-level claims about physical x87 transcendentals.
+The remaining released Euler callers (`0x813092` Grid, `0x8136c1` Bend and
+`0x813c6e` Color) are mesh generators, whose Rust arithmetic follows the
+published source within the mesh reference tolerance.
 
 ### Released projection matrix
 
 `tools/verify_beta_projection.py` executes the complete released
-`sMaterialEnv::MakeProjectionMatrix` at `0x8022a7`, reached through the main
-frame's environment setup, with the system viewport read through the original
-global at `0x83f868`. A body hash guards the extraction and nothing is
-substituted. The 512 cases cover modes 0, 1, 2, 3 and -1, signed zero and
-extreme fields, and zero, one, negative and maximum viewport sizes. Destination
-words are pre-filled with sentinels.
+`sMaterialEnv::MakeProjectionMatrix` at `0x8022a7`, with the system viewport
+read through the original global at `0x83f868`. A body hash guards the
+extraction. The 512 cases cover modes 0, 1, 2, 3 and -1, signed zero and extreme
+fields, and zero, one, negative and maximum viewport sizes. Destination words
+are pre-filled with sentinels. The fixture SHA-256 is
+`e384f86e34f7b0d34d4d8999dfe46bccb4d43a54c3bf10747533d49623821426`.
 
-The released routine differs from the published intro build. Perspective
-(mode 0, which GetCamera selects) has no half-pixel offset: the translation row
-is `(0, 0, -NearClip, 0)` instead of `(-1/ViewportX, 1/ViewportY, -NearClip, 0)`.
-Mode 2 maps pixels as `2/ViewportX`, `-2/ViewportY` with a fixed `(-1, 1)`
-translation and no center terms, rounded downward. Mode 1 and unknown modes
-leave the destination unchanged. Rust adds
-`Environment::released_projection_into`, which matches all 512 cases bit for
-bit, including untouched destinations.
+The released routine differs from the published intro build:
 
-Execution cameras now carry a `released_projection` flag set from the
-document layout, and viewport cameras inherit it from the game camera. Beta
-perspective projection therefore drops the half-pixel shift for portal culling
-and shader constants. Development projection is unchanged. The 51,204-byte
-fixture SHA-256 is `e384f86e34f7b0d34d4d8999dfe46bccb4d43a54c3bf10747533d49623821426`.
+- Perspective (mode 0, selected by GetCamera) has no half-pixel offset; the
+  translation row is `(0, 0, -NearClip, 0)`.
+- Mode 2 maps pixels as `2/ViewportX`, `-2/ViewportY` with a fixed `(-1, 1)`
+  translation and no center terms, rounded downward.
+- Mode 1 and unknown modes leave the destination unchanged.
 
-Overlay draws still use the published mode-1 projection. Because the released
-routine ignores mode 1, released overlays must obtain their matrices another
-way. That path is not yet traced, so beta overlay projection is not claimed to
-match. GPU pixel comparison and complete frame parity remain open.
+`Environment::released_projection_into` matches all 512 cases bit for bit,
+including untouched destinations. Execution cameras carry a
+`released_projection` flag derived from the document layout, and viewport
+cameras inherit it from the game camera, so beta perspective projection drives
+portal culling and shader constants without the half-pixel shift. Development
+projection follows the published routine.
 
-The full local macOS suite passes 523 tests with 36 ignored. All-target Clippy
-with `-D warnings`, formatting and whitespace checks pass, and both explicit
-extracted-beta release checks pass (startup handoff and player-root render
-resource preparation).
+Beta overlay draws use the published mode-1 projection. The released routine
+ignores mode 1, so released overlays obtain their matrices elsewhere; that path
+is untraced and beta overlay projection is not claimed to match. GPU pixel
+comparison and complete frame parity remain open.
 
-Linux, macOS and Windows CI at e3d592c pass the projection capture, their full
-regular suites, all-target Clippy, formatting, platform integrations and
-release builds. CI release sizes are Linux x86_64 1,562,736 bytes (+144),
-macOS ARM64 1,317,152 bytes (unchanged) and Windows x86_64 1,189,888 bytes
-(+512), relative to 78ef76b.
+### Verification
+
+The regular suite passes 523 tests on macOS and 524 on Linux and Windows, with
+all-target Clippy (`-D warnings`), formatting, platform audio/font integrations
+and release builds. The explicit extracted-beta release checks (startup handoff
+and player-root render resource preparation) pass. CI release executables are
+Linux x86_64 1,562,736 bytes, macOS ARM64 1,317,152 bytes and Windows x86_64
+1,189,888 bytes.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44803358258

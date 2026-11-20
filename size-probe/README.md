@@ -1,82 +1,69 @@
-# 96 KB per-OS feasibility probe
+# Size probes
 
-Question: can kkrieger-oxide ship as one executable of at most 96 KB on each of
-Windows, macOS and Linux? Measured 2026-11-20. "lzma" sizes come from
-`measure.py` (LZMA, preset 9e), used as a stand-in for an executable packer.
+Minimal programs that provide the platform services the game needs on each
+OS, with no std and no windowing library: window, input, GPU clear and present,
+44.1 kHz stereo PCM16 audio and, where the OS provides it, system font
+rasterization. They measure the cost of a native platform layer for a
+single-file build of at most 96 KB per OS. `measure.py` reports raw size and
+LZMA size, a stand-in for an executable packer. The `ci` feature exits after
+120 presented frames; the Size probe workflow builds, measures and runs every
+probe on its native runner.
 
-## Original budget
+## Budget
 
-| Part of the released beta (`pno0001.exe`, 97,280 bytes, kkrunchy) | Raw | lzma |
+| Released beta (`pno0001.exe`, 97,280 bytes, kkrunchy) | Raw | LZMA |
 | --- | ---: | ---: |
-| Game code `0x801000..0x81f100` from the unpacked image | 123,136 | 68,447 |
+| Game code `0x801000..0x81f100` in the unpacked image | 123,136 | 68,447 |
 | Content, `verified-beta.kx` | 121,767 | 30,800 |
 
-Content is fixed at about 31 KB. Code therefore has about 65 KB compressed,
-about 120 KB raw 32-bit x86, including the platform layer.
+Content is fixed at about 31 KB compressed, which leaves about 65 KB compressed
+(about 120 KB of 32-bit x86) for all code, including the platform layer.
 
-## Platform layer (this directory)
+## Platform layer
 
-Each probe uses no std and calls the OS directly: window, input, GPU
-clear/present, 44.1 kHz stereo PCM16 audio and, where the OS provides it,
-system font rasterization. CI builds, measures and runs each probe for 120
-frames (`--features ci`).
-
-| Probe | APIs | Raw | lzma | CI run |
+| Probe | APIs | Raw | LZMA | Runner result |
 | --- | --- | ---: | ---: | --- |
 | Windows i686 | Win32, D3D9, WinMM, GDI | 3,072 | 1,099 | D3D9 device, 120 frames |
-| Windows x86_64 | same | 4,096 | 1,331 | D3D9 device, 120 frames |
-| Linux x86_64 | Xlib, GLX, ALSA | 6,648 | 2,251 | 120 GLX frames (Xvfb) |
+| Windows x86_64 | Win32, D3D9, WinMM, GDI | 4,096 | 1,331 | D3D9 device, 120 frames |
+| Linux x86_64 | Xlib, GLX, ALSA | 6,648 | 2,251 | 120 GLX frames under Xvfb |
 | macOS arm64 | AppKit, Metal, AudioQueue, CoreText | 51,136 | 2,830 | 120 Metal frames |
 
-The macOS raw size is mostly 16 KB page padding. The platform layer costs
-1-3 KB compressed and is not the obstacle. miniquad currently costs about
-40 KB raw on macOS.
+The macOS raw size is mostly 16 KB page padding.
 
 ## Packing
 
-- Windows: a kkrunchy-class packer. Alignment below 4 KB is rejected by the
-  loader (`/ALIGN:16` failed with "Exec format error"), so the packer must emit
-  its own valid PE.
-- macOS: verified locally. A 94-byte `/bin/sh` header plus a
-  `compression_tool -a lzma` payload (2,998 bytes total) unpacks the
-  linker-signed probe to `$TMPDIR` and runs it to a clean exit. Gatekeeper
-  handling of a quarantined download is untested.
-- Linux: the same shell-dropper approach applies with `xz`/`gzip`; ELF-native
-  unpackers are an alternative.
+- Windows needs a kkrunchy-class packer that emits a valid PE; the loader
+  rejects section alignment below 4 KB.
+- macOS: a 94-byte `/bin/sh` header and a `compression_tool -a lzma` payload
+  (2,998 bytes in total for the macOS probe) unpack the linker-signed program to
+  `$TMPDIR` and run it. Gatekeeper handling of a quarantined download is
+  untested; files fetched with `curl` carry no quarantine attribute.
+- Linux uses the same shell-dropper approach with `xz` or `gzip`.
 
-## Current game
+## Game code
 
-| Build | Raw | lzma/xz |
+| Build | Raw | Compressed |
 | --- | ---: | ---: |
-| Release, macOS arm64 (CI) | 1,317,152 | 541,084 (xz) |
-| Same code, build-std, immediate-abort panics, opt-level z, fat LTO | 821,744 | 408,588 (xz) |
-| Same, x86_64 Linux, gc-linked `.text` only | 839,750 | - |
-| Same, i686 Linux, gc-linked `.text` only | 857,114 | - |
+| macOS arm64 release | 1,317,152 | 541,084 (xz) |
+| macOS arm64, build-std, immediate-abort panics, opt-level z, fat LTO | 821,744 | 408,588 (xz) |
+| i686 Linux, same settings, gc-linked, without `.eh_frame` | 1,159,644 | 458,088 (xz, x86 filter) |
 
-Our code is about 7x the original's 123 KB of code on x86 and about 6x over
-the compressed code budget. Making the x87-rounding helpers non-inlined left
-the size unchanged, so emulated x87 arithmetic is not the main cost. The
-excess is spread across scene execution, game simulation, mesh/texture
-generation, the GPU paths, dual development/beta support and std.
+Stronger general-purpose compressors (zstd 22, brotli 11) do not beat xz on
+this code. Context-mixing packers typically gain 10-20% over LZMA, which does
+not close the gap: the game code is about 7x the original's code. Non-inlined
+x87 rounding helpers leave the size unchanged; the excess is spread across
+scene execution, game simulation, mesh and texture generation, GPU paths,
+dual development/beta support and std.
 
-## Conclusion
+## Requirements for a 96 KB player build
 
-The platform layer, packing and content are solved or measured for all three
-OSes. The open question is the game code: it has to reach about 120-150 KB
-raw (about 65 KB compressed) per OS. That needs a size-first player build,
-not a library swap:
-
-1. Compile-time content selection: beta only, removing development and
-   published-source variants from the player.
-2. no_std + alloc; errors abort instead of carrying strings.
-3. Native platform modules replacing miniquad (measured above).
-4. Coverage-guided pruning of code the shipped content never reaches (the
-   original used "lekktor" for this).
-5. Size-oriented code: no generic duplication or closure-heavy hot paths;
-   x87 instructions directly on Windows x86.
-6. Fonts: GDI on Windows and CoreText on macOS cost nothing. Linux has no Arial
-   by default, so it needs fontconfig/FreeType with an installed font; the
-   glyphs are not identical unless Arial is installed.
-
-Whether step 5 reaches the budget is not yet proven. The next measurement is
-one subsystem rewritten size-first, compared before and after.
+1. Compile-time content selection: beta only, without development or
+   published-source variants.
+2. no_std with alloc; errors abort instead of carrying strings.
+3. These native platform modules instead of miniquad.
+4. Removal of code the shipped content never reaches, as the original did with
+   coverage-guided pruning.
+5. Size-oriented code: no generic duplication or closure-heavy paths, and native
+   x87 instructions on Windows x86.
+6. Fonts from GDI on Windows and CoreText on macOS. Linux has no Arial by
+   default and needs FreeType with an installed font.
