@@ -124,11 +124,14 @@ if [ "$os" = Linux ]; then
             sudo apt-get update -qq || true
             # The package asks the player to accept the EULA on the terminal,
             # not on the piped script.
+            # sudo resets the environment; keep a caller-selected debconf frontend.
+            frontend=${DEBIAN_FRONTEND:+DEBIAN_FRONTEND=$DEBIAN_FRONTEND}
             if tty; then
-                # shellcheck disable=SC2024 # apt reads the EULA answer from the terminal
-                sudo apt-get install -y ttf-mscorefonts-installer </dev/tty || true
+                # shellcheck disable=SC2024,SC2086 # apt reads the EULA answer from the terminal
+                sudo $frontend apt-get install -y ttf-mscorefonts-installer </dev/tty || true
             else
-                sudo apt-get install -y ttf-mscorefonts-installer || true
+                # shellcheck disable=SC2086
+                sudo $frontend apt-get install -y ttf-mscorefonts-installer || true
             fi
         elif has dnf; then
             say "install the Microsoft core fonts (msttcore-fonts), then run this installer again"
