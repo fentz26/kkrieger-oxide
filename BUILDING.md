@@ -1,5 +1,32 @@
 # Building and checking
 
+## Install
+
+macOS and Linux:
+
+```sh
+curl -fsSL https://github.com/fentz26/kkrieger-oxide/releases/latest/download/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+irm https://github.com/fentz26/kkrieger-oxide/releases/latest/download/install.ps1 | iex
+```
+
+The installer downloads one compressed executable for the current OS and CPU
+(xz on macOS and Linux, gzip on Linux without xz and on Windows), checks it
+against `SHA256SUMS` and installs it per user: `~/.local/share/kkrieger-oxide`
+with a `~/.local/bin/kkrieger-oxide` launcher, or
+`%LOCALAPPDATA%\Programs\kkrieger-oxide` with a Start menu entry. On Linux it
+links the installed Arial and Times New Roman fonts for the game and offers to
+install missing runtime libraries or the Microsoft core fonts package (which
+shows its EULA). Release executables are built with Rust 1.100, std rebuilt
+with immediate-abort panics, `opt-level = "z"` and fat LTO. The Release
+workflow builds them, installs and runs them on each OS, and publishes them for
+`v*` tags.
+
+
 Install the Rust toolchain from `rust-toolchain.toml` (1.100.0), then run:
 
 ```sh
