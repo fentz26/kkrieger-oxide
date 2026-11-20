@@ -15,6 +15,12 @@ say() { printf 'kkrieger-oxide: %s\n' "$*" >&2; }
 die() { say "$*"; exit 1; }
 has() { command -v "$1" >/dev/null 2>&1; }
 tty() { (exec </dev/tty) 2>/dev/null; }
+as_root() {
+    if [ "$(id -u)" = 0 ]; then "$@"
+    elif has sudo; then sudo "$@"
+    elif has doas; then doas "$@"
+    else say "root access is needed for: $*"; return 1; fi
+}
 ask() {
     [ "${KKRIEGER_YES:-}" = 1 ] && return 0
     tty || return 1
@@ -79,21 +85,26 @@ if [ "$os" = Linux ]; then
             missing="$missing $lib"
         fi
     done
+    # Package manager: install command and package names per distribution family.
+    if has apt-get; then pm=apt; install_cmd="apt-get install -y"; libs="libx11-6 libxi6 libgl1 libasound2t64"
+    elif has dnf; then pm=dnf; install_cmd="dnf install -y"; libs="libX11 libXi mesa-libGL alsa-lib"
+    elif has pacman; then pm=pacman; install_cmd="pacman -S --needed --noconfirm"; libs="libx11 libxi libglvnd alsa-lib"
+    elif has zypper; then pm=zypper; install_cmd="zypper --non-interactive install"; libs="libX11-6 libXi6 libGL1 libasound2"
+    else pm=; install_cmd=; libs=; fi
+    # shellcheck disable=SC2086 # command and package lists split into words
+    pkg_install() {
+        [ "$pm" = apt ] && { as_root apt-get update -qq || true; }
+        as_root $install_cmd "$@"
+    }
     if [ -n "$missing" ]; then
-        if has apt-get; then pkgs="libx11-6 libxi6 libgl1 libasound2t64"; inst="apt-get install -y"; sudo_update() { sudo apt-get update -qq; }
-        elif has dnf; then pkgs="libX11 libXi mesa-libGL alsa-lib"; inst="dnf install -y"; sudo_update() { :; }
-        elif has pacman; then pkgs="libx11 libxi libglvnd alsa-lib"; inst="pacman -S --needed --noconfirm"; sudo_update() { :; }
-        elif has zypper; then pkgs="libX11-6 libXi6 libGL1 libasound2"; inst="zypper install -y"; sudo_update() { :; }
-        else pkgs=; inst=; fi
         say "missing runtime libraries:$missing"
-        if [ -n "$inst" ] && ask "install $pkgs with sudo?"; then
-            # Debian renamed libasound2 to libasound2t64; fall back to the older name.
-            sudo_update || true
-            # shellcheck disable=SC2086 # command and package lists split into words
-            sudo $inst $pkgs || { [ "${inst%% *}" = apt-get ] && sudo $inst libx11-6 libxi6 libgl1 libasound2; } ||
+        if [ -n "$pm" ] && ask "install $libs?"; then
+            # shellcheck disable=SC2086
+            pkg_install $libs ||
+                { [ "$pm" = apt ] && pkg_install libx11-6 libxi6 libgl1 libasound2; } ||
                 say "package install failed; install the libraries above manually"
-        elif [ -n "$inst" ]; then
-            say "install them with: sudo $inst $pkgs"
+        elif [ -n "$pm" ]; then
+            say "install them with: $install_cmd $libs"
         fi
     fi
 
@@ -118,27 +129,45 @@ if [ "$os" = Linux ]; then
         ln -sf "$arial" "$home/fonts/Arial.ttf"
         ln -sf "$times" "$home/fonts/Times New Roman.ttf"
     }
+    # Original Microsoft core fonts installers, as listed by Debian's
+    # ttf-mscorefonts-installer, with the checksums of the extracted faces.
+    corefonts() {
+        has cabextract || { [ -n "$pm" ] && pkg_install cabextract >/dev/null 2>&1; } || return 1
+        mkdir -p "$home/fonts"
+        while read -r cab cab_sum ttf ttf_sum name; do
+            fetch "https://downloads.sourceforge.net/corefonts/$cab" "$tmp/$cab" || return 1
+            [ "$(sha256 "$tmp/$cab")" = "$cab_sum" ] || { say "checksum mismatch for $cab"; return 1; }
+            cabextract -q -L -d "$tmp" -F "$ttf" "$tmp/$cab" || return 1
+            [ "$(sha256 "$tmp/$ttf")" = "$ttf_sum" ] || { say "checksum mismatch for $ttf"; return 1; }
+            mv -f "$tmp/$ttf" "$home/fonts/$name"
+        done <<'FONTS'
+arial32.exe 85297a4d146e9c87ac6f74822734bdee5f4b2a722d7eaa584b7f2cbf76f478f6 arial.ttf 35c0f3559d8db569e36c31095b8a60d441643d95f59139de40e23fada819b833 Arial.ttf
+times32.exe db56595ec6ef5d3de5c24994f001f03b2a13e37cee27bc25c58f6f43e8f807ab times.ttf 4e98adeff8ccc8ef4e3ece8d4547e288ff85fdc9c7ca711a4599c234874bbe86 Times New Roman.ttf
+FONTS
+    }
     if ! link_fonts; then
         say "Arial and Times New Roman are not installed"
-        if has apt-get && ask "install ttf-mscorefonts-installer with sudo (shows the Microsoft EULA)?"; then
-            sudo apt-get update -qq || true
-            # The package asks the player to accept the EULA on the terminal,
-            # not on the piped script.
+        if [ "$pm" = apt ] && ask "install ttf-mscorefonts-installer (shows the Microsoft EULA)?"; then
             # sudo resets the environment; keep a caller-selected debconf frontend.
             frontend=${DEBIAN_FRONTEND:+DEBIAN_FRONTEND=$DEBIAN_FRONTEND}
+            as_root apt-get update -qq || true
             if tty; then
                 # shellcheck disable=SC2024,SC2086 # apt reads the EULA answer from the terminal
-                sudo $frontend apt-get install -y ttf-mscorefonts-installer </dev/tty || true
+                as_root env $frontend apt-get install -y ttf-mscorefonts-installer </dev/tty || true
             else
                 # shellcheck disable=SC2086
-                sudo $frontend apt-get install -y ttf-mscorefonts-installer || true
+                as_root env $frontend apt-get install -y ttf-mscorefonts-installer || true
             fi
-        elif has dnf; then
-            say "install the Microsoft core fonts (msttcore-fonts), then run this installer again"
-        elif has pacman; then
-            say "install ttf-ms-fonts from the AUR, then run this installer again"
+            link_fonts || true
         fi
-        link_fonts || say "text needs Arial and Times New Roman; set KKRIEGER_FONT_DIR to their folder"
+        if [ ! -e "$home/fonts/Arial.ttf" ]; then
+            say "the Microsoft core fonts EULA: https://corefonts.sourceforge.net/eula.htm"
+            if ask "accept the EULA and download Arial and Times New Roman for kkrieger-oxide?"; then
+                corefonts || say "font download failed"
+            fi
+        fi
+        [ -e "$home/fonts/Arial.ttf" ] && [ -e "$home/fonts/Times New Roman.ttf" ] ||
+            say "text needs Arial and Times New Roman; set KKRIEGER_FONT_DIR to their folder"
     fi
     cat >"$bin/kkrieger-oxide" <<EOF
 #!/bin/sh

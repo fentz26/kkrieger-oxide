@@ -61,18 +61,41 @@ jobs:
           if-no-files-found: error
 
   install:
-    name: install ${{ matrix.os }}
+    name: install ${{ matrix.name }}
     needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        include:
+          - { name: ubuntu-22.04, os: ubuntu-22.04 }
+          - { name: ubuntu-latest, os: ubuntu-latest }
+          - { name: ubuntu-arm, os: ubuntu-24.04-arm }
+          - { name: debian, os: ubuntu-latest, container: 'debian:stable' }
+          - { name: fedora, os: ubuntu-latest, container: 'fedora:latest' }
+          - { name: arch, os: ubuntu-latest, container: 'archlinux:latest' }
+          - { name: macos-14, os: macos-14 }
+          - { name: macos-15, os: macos-15 }
+          - { name: macos-latest, os: macos-latest }
+          - { name: macos-intel, os: macos-15-intel }
+          - { name: windows-latest, os: windows-latest }
+          - { name: windows-11-arm, os: windows-11-arm }
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    container: ${{ matrix.container }}
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
     steps:
+      - name: Container prerequisites
+        if: matrix.container != ''
+        run: |
+          if command -v apt-get >/dev/null; then
+            apt-get update -qq && apt-get install -y -qq curl python3 xz-utils ca-certificates
+          elif command -v dnf >/dev/null; then
+            dnf install -y -q python3 curl xz
+          elif command -v pacman >/dev/null; then
+            pacman -Syu --noconfirm --needed python curl xz
+          fi
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
@@ -99,27 +122,33 @@ jobs:
       - name: Install and run (macOS, Linux)
         if: runner.os != 'Windows'
         env:
+          # Stand-in for the player answering yes, including the Microsoft core fonts EULA.
           KKRIEGER_YES: '1'
         run: |
-          if [ "${{ runner.os }}" = Linux ]; then
-            # Stand-in for the player accepting the Microsoft core fonts EULA.
-            echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true' | sudo debconf-set-selections
+          root=sudo; [ "$(id -u)" = 0 ] && root=
+          if command -v debconf-set-selections >/dev/null; then
+            echo 'ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula boolean true' | $root debconf-set-selections
           fi
+          sw_vers 2>/dev/null || cat /etc/os-release | head -n 2
           curl -fsSL "$BASE/install.sh" | KKRIEGER_BASE_URL="$BASE" sh
           ~/.local/bin/kkrieger-oxide --bench
       - name: Install with gzip only (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo mv "$(command -v xz)" /tmp/xz.disabled
-          rm -rf ~/.local/share/kkrieger-oxide/kkrieger-oxide
+          root=sudo; [ "$(id -u)" = 0 ] && root=
+          xz=$(command -v xz)
+          $root mv "$xz" /tmp/xz.disabled
+          rm -f ~/.local/share/kkrieger-oxide/kkrieger-oxide
           curl -fsSL "$BASE/install.sh" | KKRIEGER_BASE_URL="$BASE" sh 2>&1 | tee install.log
           grep -q 'downloading kkrieger-oxide-.*\.gz' install.log
           ~/.local/bin/kkrieger-oxide --bench
-          sudo mv /tmp/xz.disabled /usr/bin/xz
+          $root mv /tmp/xz.disabled "$xz"
       - name: Install and run (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          [Environment]::OSVersion.VersionString
+          $env:PROCESSOR_ARCHITECTURE
           $env:KKRIEGER_BASE_URL = $env:BASE
           Invoke-RestMethod "$env:BASE/install.ps1" | Invoke-Expression
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\kkrieger-oxide\kkrieger-oxide.exe'
@@ -136,7 +165,7 @@ jobs:
           & (Join-Path $env:LOCALAPPDATA 'Programs\kkrieger-oxide\kkrieger-oxide.exe') --bench
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.name == 'ubuntu-latest'
         with:
           name: release
           path: dist/
