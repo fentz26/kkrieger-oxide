@@ -5,13 +5,15 @@
 use core::{ffi::c_void, ptr::null_mut};
 type H = *mut c_void;
 
-#[link(name = "kernel32", kind = "raw-dylib")]
+#[cfg_attr(target_arch = "x86", link(name = "kernel32", kind = "raw-dylib", import_name_type = "undecorated"))]
+#[cfg_attr(not(target_arch = "x86"), link(name = "kernel32", kind = "raw-dylib"))]
 unsafe extern "system" {
     fn GetModuleHandleA(n: *const u8) -> H;
     fn ExitProcess(code: u32) -> !;
     fn Sleep(ms: u32);
 }
-#[link(name = "user32", kind = "raw-dylib")]
+#[cfg_attr(target_arch = "x86", link(name = "user32", kind = "raw-dylib", import_name_type = "undecorated"))]
+#[cfg_attr(not(target_arch = "x86"), link(name = "user32", kind = "raw-dylib"))]
 unsafe extern "system" {
     fn RegisterClassA(c: *const WndClass) -> u16;
     fn CreateWindowExA(ex: u32, class: *const u8, title: *const u8, style: u32, x: i32, y: i32, w: i32, h: i32, parent: H, menu: H, inst: H, param: H) -> H;
@@ -23,7 +25,8 @@ unsafe extern "system" {
     fn SetCursorPos(x: i32, y: i32) -> i32;
     fn ShowCursor(show: i32) -> i32;
 }
-#[link(name = "gdi32", kind = "raw-dylib")]
+#[cfg_attr(target_arch = "x86", link(name = "gdi32", kind = "raw-dylib", import_name_type = "undecorated"))]
+#[cfg_attr(not(target_arch = "x86"), link(name = "gdi32", kind = "raw-dylib"))]
 unsafe extern "system" {
     fn CreateCompatibleDC(dc: H) -> H;
     fn CreateFontA(h: i32, w: i32, e: i32, o: i32, wt: i32, i: u32, u: u32, s: u32, cs: u32, op: u32, cp: u32, q: u32, pf: u32, face: *const u8) -> H;
@@ -32,14 +35,16 @@ unsafe extern "system" {
     fn CreateDIBSection(dc: H, bmi: *const [u32; 11], usage: u32, bits: *mut *mut u32, sec: H, off: u32) -> H;
     fn GetCharABCWidthsA(dc: H, first: u32, last: u32, abc: *mut [i32; 3]) -> i32;
 }
-#[link(name = "winmm", kind = "raw-dylib")]
+#[cfg_attr(target_arch = "x86", link(name = "winmm", kind = "raw-dylib", import_name_type = "undecorated"))]
+#[cfg_attr(not(target_arch = "x86"), link(name = "winmm", kind = "raw-dylib"))]
 unsafe extern "system" {
     fn waveOutOpen(h: *mut H, dev: u32, fmt: *const [u16; 9], cb: usize, inst: usize, flags: u32) -> u32;
     fn waveOutPrepareHeader(h: H, hdr: *mut WaveHdr, size: u32) -> u32;
     fn waveOutWrite(h: H, hdr: *mut WaveHdr, size: u32) -> u32;
     fn timeGetTime() -> u32;
 }
-#[link(name = "d3d9", kind = "raw-dylib")]
+#[cfg_attr(target_arch = "x86", link(name = "d3d9", kind = "raw-dylib", import_name_type = "undecorated"))]
+#[cfg_attr(not(target_arch = "x86"), link(name = "d3d9", kind = "raw-dylib"))]
 unsafe extern "system" {
     fn Direct3DCreate9(version: u32) -> *mut *const usize;
 }
