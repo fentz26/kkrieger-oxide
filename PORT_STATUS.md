@@ -42,12 +42,13 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at 1b02c51 passes formatting, all-target Clippy
+The latest full platform CI audit at d4c134d passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 515 checks on macOS and
-Windows, and 516 on Linux, with 35 ignored checks on each platform. Linux also
+and Windows with Rust 1.100.0. The normal suite passes 516 checks on macOS, 517 on Windows and 517 on Linux,
+with 35 ignored checks on macOS/Linux and 36 on Windows. Linux also
 passes five explicit native ALSA null-device integration checks; macOS and Windows
-pass their explicit installed-font check. These checks do not prove physical
+pass their explicit installed-font check; Windows also passes the original GDI
+atlas reference. These checks do not prove physical
 speaker playback or original-game completion.
 
 Remaining completion gates include released-beta ABI/content differences,
@@ -2371,3 +2372,18 @@ and Linux ARM64. Independent review found no remaining ownership or correctness
 issues. Windows CI requires exact equality for every captured glyph metric and
 pixel; this gate concerns the published source on its current system fonts,
 not complete original-executable rendering or the historical 2004 font files.
+
+
+### Verified GDI reference and platform release sizes
+
+At d4c134d, all platform CI checks pass, including the full regular suites,
+release builds, Linux native null-audio checks and installed-font checks. Windows
+also passes the original-source GDI reference: all 24 cases, 6,144 metric slots
+and 196,608 pixels agree exactly. The unavailable-face rejection test passes.
+These comparisons use the same installed fonts for both implementations.
+
+CI release executables measure 1,184,768 bytes on Windows, 1,300,624 bytes on
+macOS and 1,558,280 bytes on Linux. Compared with the preceding 4fcf334 CI build,
+Windows saves 77,824 bytes after replacing its outline/parser path with GDI.
+The portable refactor adds 1,328 bytes on Linux; its local 24-case pixel/metric
+audit remains byte-identical. No gameplay FPS claim follows from these results.
