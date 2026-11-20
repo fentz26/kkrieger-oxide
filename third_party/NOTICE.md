@@ -22,3 +22,6 @@ Reference-only files and the independently unpacked original release remain
 under `.reference/`, outside the distributed application. Original .kkrieger
 content and authorship are credited to .theprodukkt; the beta archive's
 freeware terms remain applicable to that archive and its contents.
+
+Mesh transcendental functions use libm 0.2.16, a pure Rust math implementation.
+Its MIT license and upstream notices are preserved in `libm-LICENSE.txt`.

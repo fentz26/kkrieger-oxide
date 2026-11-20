@@ -8,6 +8,8 @@ description = "A Rust rewrite of .kkrieger focused on procedural generation, com
 default-run = "kkrieger-oxide"
 
 [dependencies]
+# Keep mesh transcendental functions independent of the host C math library.
+libm = { version = "=0.2.16", default-features = false }
 miniquad = "=0.4.11"
 ttf-parser = { version = "=0.25.1", default-features = false, features = ["std"] }
 

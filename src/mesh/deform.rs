@@ -121,8 +121,8 @@ impl Mesh {
                 position[1] -= y.min(length);
             }
             let t = (y / length).clamp(0., 1.) * angle;
-            let sin = t.sin();
-            let cos = t.cos();
+            let sin = libm::sin(f64::from(t)) as f32;
+            let cos = libm::cos(f64::from(t)) as f32;
             let x = position[0];
             let y = position[1];
             position[0] = cos * x - sin * y;

@@ -40,11 +40,11 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The last full local macOS ARM64 audit (through f48989c) passes 506 tests across
-215 test-binary result blocks, with 34 ignored checks
+The latest full local macOS ARM64 audit (mesh math update) passes 506 tests
+across 216 test-binary result blocks, with 35 ignored checks
 (`cargo test --tests --quiet --no-fail-fast`, Rust 1.100.0).
-The external-font test is subsequently opt-in; this moves one check from passed
-to ignored in the normal suite, without adding font parity evidence.
+The installed-font integration test is opt-in; its coverage remains separate
+from the normal suite.
 `cargo fmt --check` and Clippy across all targets with `-D warnings` pass.
 Ignored GPU/native/long-running checks require explicit execution; the count
 does not imply their requirements are complete.
@@ -2255,3 +2255,37 @@ generation with an actionable error. No substitute font is bundled. Cached font
 checks remain in the normal suite. CI now defines Linux, macOS and Windows
 format/lint/test/release jobs and explicit macOS/Windows font integration checks.
 Workflow definition alone is not evidence that those jobs have passed.
+
+### Mesh transcendental precision and host math independence
+
+The composed-geometry source oracle used float-return `sinf`/`cosf` substitutes
+for `_types.hpp`'s double-argument/double-return `sFSin`/`sFCos`. Its projection
+adapters similarly narrowed `sFATan2`/`sFSqrt`. These adapters now preserve the
+published helper signatures. Rust ring generation keeps the radius product in
+double precision until its attribute store; bending, cylindrical collision
+vertices and UV projection preserve the corresponding source conversion points.
+
+Mesh sine/cosine, Euler sine/cosine, atan2 and power now use pinned pure-Rust
+`libm` 0.2.16 with default architecture shortcuts disabled. This removes host C
+math calls from these mesh paths. It does not establish bitwise determinism for
+the entire runtime, all targets, special values or the released round-down FPU
+mode. The 512-case source-nearest x87 ring capture detects a one-ULP failure
+before the fix and passes after it, alongside the existing Euler capture.
+
+The composed reference was regenerated from the pinned published C++ with the
+corrected adapters. Its 129,806,496 decoded bytes retain every topology and
+metadata word; 654,739 attribute words across 45 roots change (maximum absolute
+delta about 1.103e-5). The 2e-6 Rust comparison tolerance is unchanged. The new
+packed fixture is 31,660,052 bytes, SHA-256
+`eccb3d2248e58ce84be764577468e8f3c447a81ac3646cb75f3875018bffe6ce`.
+The 8,196-byte ring capture is SHA-256
+`7b385c59977c3a98bc63180bfa1ed7fa9fd1bde6488866bcb3c9dcff4513f17e`.
+The focused mesh-reference, ring and Euler targets pass 15 checks with four
+explicitly ignored external-data checks. Formatting and whitespace checks pass.
+The default macOS ARM64 release build succeeds at 1,317,152 bytes, SHA-256
+`6ba336da66f1bbca71b132ee9bbd33f167970fe3e52575b8feaf465fa1637391`.
+A matching baseline has not been rebuilt to isolate the size cost of this change.
+The full local macOS ARM64 suite passes 506 tests across 216 result blocks,
+with 35 ignored checks (`cargo test --tests --quiet --no-fail-fast`, Rust
+1.100.0). All-target Clippy with `-D warnings` passes as well.
+Platform-CI results for this change remain pending.

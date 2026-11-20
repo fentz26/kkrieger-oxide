@@ -245,7 +245,7 @@ pub fn srt_matrix(srt: &[f32; 9]) -> Matrix {
 // Original fsincos evaluates before storing its two single-precision results.
 pub fn euler_matrix_fsincos(angles: [f32; 3]) -> Matrix {
     let pairs = angles.map(|a| {
-        let (s, c) = f64::from(a).sin_cos();
+        let (s, c) = libm::sincos(f64::from(a));
         (s as f32, c as f32)
     });
     let [(sx, cx), (sy, cy), (sz, cz)] = pairs;
@@ -945,10 +945,10 @@ impl Mesh {
             let position = &mut mesh.vertices[i].attributes[0];
             if i != count - 1 || arc == 0 {
                 let angle = phase + i as f32 * std::f32::consts::TAU / segments as f32;
-                position[0] = angle.sin() * radius;
-                // Evaluate cosine in double precision before storing the single
-                // result; host cosf implementations can differ by one ulp.
-                position[1] = -(f64::from(angle).cos() as f32) * radius;
+                // Source sFSin/sFCos return double. Keep the radius multiply
+                // in that precision until the vertex attribute store.
+                position[0] = (libm::sin(f64::from(angle)) * f64::from(radius)) as f32;
+                position[1] = (-libm::cos(f64::from(angle)) * f64::from(radius)) as f32;
             }
             position[3] = 1.;
             mesh.vertices[i].attributes[4][0] = i as f32 / count as f32;

@@ -34,7 +34,8 @@ using sInt=int;using sU32=uint32_t;using sU8=uint8_t;using sF32=float;using sBoo
 #define sVERIFY assert
 #define sGMI_UV0 4
 const float sPI2F=6.2831853071795864769f;
-float sFSin(float f){return sinf(f);}float sFCos(float f){return cosf(f);}
+// Match _types.hpp: these helpers take and return sF64.
+double sFSin(double f){return sin(f);}double sFCos(double f){return cos(f);}
 struct sVector{float x=0,y=0,z=0,w=0;};
 struct GenMeshElem{sU8 Mask,Id,Select,Used;void InitElem();void SelElem(sU32,sBool,sInt);};
 struct GenMeshVert:GenMeshElem{int Next,First,Temp,Temp2,ReIndex;sU8 Weight[4],Matrix[4];void Init();void Sel(sU32 m,bool s,int mode){SelElem(m>>16,s,mode);}};

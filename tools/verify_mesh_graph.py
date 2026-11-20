@@ -91,7 +91,7 @@ support+='\nstruct sAABox{sVector Min,Max;};\n'
 support=support.replace('void Init(float a,float b,float c,float d)','void Mul3(const sVector&a){x*=a.x;y*=a.y;z*=a.z;}void InitColor(uint32_t c){x=((c>>16)&255)/255.0f;y=((c>>8)&255)/255.0f;z=(c&255)/255.0f;w=((c>>24)&255)/255.0f;}void Init(float a,float b,float c,float d)')
 support+='\nfloat sFInvSqrt(float f){return 1.0f/sqrtf(f); }\n'
 support=support.replace('void Mask2Sel(sU32);','void CalcNormal(sVector&,int,int,int);void CalcFaceNormal(sVector&,int);void CubicProjection(const sMatrix&,int,int,bool);void Mask2Sel(sU32);')
-support+='\nfloat sFATan2(float a,float b){return atan2f(a,b);}float sFSqrt(float f){return sqrtf(f);}const float sPIF=3.14159265358979323846f;\n'
+support+='\ndouble sFATan2(double a,double b){return atan2(a,b);}double sFSqrt(double f){return sqrt(f);}const float sPIF=3.14159265358979323846f;\n'
 support=support.replace('struct Triple{float x,y,z;};','struct Triple{float x,y,z;float&operator[](int i){return (&x)[i];}};')
 support+='\ndouble sFPow(double a,double b){return pow(a,b); }\n'
 support=support.replace('void SelElem(sU32,sBool,sInt);','void SelElem(sU32,sBool,sInt);void SelLogic(sU32,sU32,sU32,int);')

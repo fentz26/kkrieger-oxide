@@ -60,7 +60,7 @@ impl Mesh {
         }
         let inverse = 1. / count as f32;
         for axis in 0..3 {
-            scale[axis] = (f64::from(scale[axis].abs()).powf(f64::from(inverse))
+            scale[axis] = (libm::pow(f64::from(scale[axis].abs()), f64::from(inverse))
                 * if scale[axis] < 0. { -1. } else { 1. }) as f32;
             rotation[axis] *= inverse;
             distance[axis] *= inverse;

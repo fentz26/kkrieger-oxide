@@ -76,11 +76,14 @@ impl Mesh {
                         + matrix[3][axis]
                 });
                 let horizontal = point[0] * point[0] + point[2] * point[2];
-                vertex.attributes[4][0] = 0.5 - point[0].atan2(point[2]) / std::f32::consts::TAU;
+                vertex.attributes[4][0] =
+                    (0.5 - libm::atan2(f64::from(point[0]), f64::from(point[2]))
+                        / f64::from(std::f32::consts::TAU)) as f32;
                 vertex.attributes[4][1] = if kind == 1 {
                     -point[1]
                 } else {
-                    0.5 - point[1].atan2(horizontal.sqrt()) / std::f32::consts::PI
+                    (0.5 - libm::atan2(f64::from(point[1]), f64::from(horizontal).sqrt())
+                        / f64::from(std::f32::consts::PI)) as f32
                 };
             }
         }

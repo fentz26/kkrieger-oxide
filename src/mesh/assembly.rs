@@ -242,11 +242,17 @@ impl Mesh {
                         *index = mesh.add_vertex();
                         let position = if mode & 16 != 0 {
                             [
-                                origin[0]
-                                    + angles[i & 1].sin() * scale[0] * (ix + ((i >> 2) & 1)) as f32,
+                                (f64::from(origin[0])
+                                    + libm::sin(f64::from(angles[i & 1]))
+                                        * f64::from(scale[0])
+                                        * (ix + ((i >> 2) & 1)) as f64)
+                                    as f32,
                                 origin[1] + scale[1] * (iy + ((i >> 1) & 1)) as f32,
-                                origin[2]
-                                    + angles[i & 1].cos() * scale[2] * (ix + ((i >> 2) & 1)) as f32,
+                                (f64::from(origin[2])
+                                    + libm::cos(f64::from(angles[i & 1]))
+                                        * f64::from(scale[2])
+                                        * (ix + ((i >> 2) & 1)) as f64)
+                                    as f32,
                                 1.,
                             ]
                         } else {
