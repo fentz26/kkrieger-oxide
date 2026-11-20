@@ -109,7 +109,7 @@ impl Motion {
         self.step_timer = control.step_timer;
         self.step_foot = control.step_foot;
         let mut hit = self.hit_cell.borrow_mut();
-        hit.matrix1 = orientation([0., self.direction, 0.]);
+        hit.matrix1 = released_orientation([0., self.direction, 0.]);
         hit.matrix1[3] = self.collider.position;
         hit.matrix1[3][1] = super::beta_monster::down(super::beta_monster::add(
             f64::from(hit.matrix1[3][1]),
@@ -303,7 +303,12 @@ impl Motion {
 
     pub fn set_orientation(&mut self, look: f32, fly: bool) {
         self.look = look;
-        self.matrix = orientation([if fly { look } else { 0. }, self.direction, 0.]);
+        let angles = [if fly { look } else { 0. }, self.direction, 0.];
+        self.matrix = if self.document_layout == crate::kx::Layout::Beta2004 {
+            released_orientation(angles)
+        } else {
+            orientation(angles)
+        };
     }
 
     /// Execute the movement prefix of one source slice. The caller subsequently

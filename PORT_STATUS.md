@@ -2542,13 +2542,40 @@ match bit for bit. The 69,636-byte fixture SHA-256 is
 Limits of this evidence: the emulator evaluates fsin/fcos in double precision
 through its host library, as in the existing fsincos fixture, so this is not a
 bit-level claim about physical x87 transcendental results. The same released
-initializer has seven further call sites (`0x813092`, `0x8136c1`, `0x813c6e`,
-`0x81d8ef`, `0x81de9c`, `0x81e4bf` and the second GetCamera branch); the scene
-and tick callers still use the published arithmetic in Rust and remain open.
+initializer has six further call sites outside GetCamera (`0x813092`,
+`0x8136c1`, `0x813c6e`, `0x81d8ef`, `0x81de9c` and `0x81e4bf`); the two tick
+callers are covered below, the other four remain open.
 Viewport projection, complete frame parity and a full playthrough are outside
 this capture.
 
 The full local macOS suite passes 520 tests with 36 ignored. All-target Clippy
+with `-D warnings`, formatting and whitespace checks pass, and the explicit
+extracted-beta release startup handoff passes. Platform CI remains pending for
+this change.
+
+
+### Released tick player matrix and hit-cell orientation
+
+`tools/verify_beta_tick_orientation.py` captures two straight-line OnTick spans
+with the real Euler callee: `0x81de61..0x81dea1` builds PlayerMatrix from the
+fly switch, look and direction, and `0x81e4a1..0x81e4f3` builds the hit-cell
+matrix, copies the player position and adds 0.85 to its height. Three body
+hashes guard the extraction. The 512 cases reuse the GetCamera angle classes
+and add fly-switch values and extreme, signed-zero and cancelling heights.
+
+Beta `Motion::set_orientation` and the hit-cell update in `prepare_released`
+previously used the published fsincos arithmetic; both now use the released
+initializer. The regression first failed at case 0 (signed zero in the second
+PlayerMatrix row) and now matches all 1,024 matrices bit for bit. Development
+paths are unchanged. The 79,876-byte fixture SHA-256 is
+`05bfe991730598c737b9d674c123f2a411a9d8db07a1fc892be3a6286490822d`.
+
+The same emulator-transcendental limit applies. PlayerMatrix feeds released
+movement directions, so this changes beta movement arithmetic; no visible or
+gameplay difference has been measured. Input handling, physics, the following
+cell update, the four remaining Euler callers and full-game parity remain open.
+
+The full local macOS suite passes 521 tests with 36 ignored. All-target Clippy
 with `-D warnings`, formatting and whitespace checks pass, and the explicit
 extracted-beta release startup handoff passes. Platform CI remains pending for
 this change.
