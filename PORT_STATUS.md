@@ -2615,5 +2615,16 @@ native IPP parameter/UV preparation, custom Layer2D behavior, material shaders,
 GPU output or complete-frame parity. Published-source overlay regressions pass;
 the final local suite passes 525 tests with 36 ignored. All-target Clippy,
 formatting and whitespace checks pass. Independent review found no material
-issues after adopting wrapping viewport sizes. Platform CI and the explicit
-extracted-beta startup check are pending for this change.
+issues after adopting wrapping viewport sizes. The explicit extracted-beta
+release startup handoff passes using the layout-aware pool. Linux, macOS and
+Windows CI at 2c78c53 pass the full regular suites, all-target Clippy, formatting,
+platform integrations and release builds, including both Windows GDI references.
+Regular counts are 525 on macOS and 526 on Linux/Windows, with 36 ignored on
+macOS/Linux and 38 on Windows.
+
+Default-profile CI release executables are Linux x86_64 1,563,984 bytes,
+macOS ARM64 1,317,152 bytes and Windows x86_64 1,190,912 bytes. Relative to the
+preceding camera/projection audit, the changes are +1,248, zero and +1,024 bytes.
+These are distinct from the size-tuned distribution builds in the release
+workflow; no FPS change is claimed.
+Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44850646895
