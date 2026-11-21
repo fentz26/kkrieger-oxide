@@ -18,7 +18,7 @@ pub struct Environment {
     pub near_clip: f32,
     pub far_clip: f32,
     pub orthogonal: i32,
-    /// Select the released beta MakeProjectionMatrix for perspective cameras.
+    /// Select the released beta projection for perspective and pixel-space cameras.
     pub released_projection: bool,
 }
 impl Default for Environment {
@@ -124,7 +124,7 @@ impl Environment {
     /// Original intro-build projection. The renderer applies API clip-space
     /// conversion separately; these values also drive engine portal culling.
     pub fn projection(&self, viewport: [i32; 2]) -> Result<Matrix, &'static str> {
-        if self.released_projection && self.orthogonal == 0 {
+        if self.released_projection && matches!(self.orthogonal, 0 | 2) {
             let mut matrix = identity();
             self.released_projection_into(viewport, &mut matrix);
             return Ok(matrix);

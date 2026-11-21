@@ -195,13 +195,14 @@ fn released_beta_player_startup_initializes_native_simulation() {
                     .unwrap();
 
             execution.switches[1] = 8;
-            execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new(
+            execution.overlay = Some(kkrieger_oxide::scene::overlay::Pool::new_for_layout(
                 kkrieger_oxide::scene::overlay::Viewport {
                     screen: 0,
                     render_target: -1,
                     window: [0, 0, 800, 600],
                 },
                 std::array::from_fn(|i| 100 + i as i32),
+                doc.layout,
             ));
             simulation
                 .prepare_scene(&mut execution, 0, 0, 1., false)

@@ -19,13 +19,22 @@ pub struct Target {
     pub texture: Option<i32>,
 }
 pub struct Pool {
+    released: bool,
     pub targets: [Target; COUNT + 1],
     pub master: Viewport,
     pub last_output: Option<usize>,
 }
 impl Pool {
     pub fn new(master: Viewport, textures: [i32; COUNT]) -> Self {
+        Self::new_for_layout(master, textures, crate::kx::Layout::Current)
+    }
+    pub fn new_for_layout(
+        master: Viewport,
+        textures: [i32; COUNT],
+        layout: crate::kx::Layout,
+    ) -> Self {
         let mut pool = Self {
+            released: layout == crate::kx::Layout::Beta2004,
             targets: std::array::from_fn(|i| Target {
                 owner: None,
                 size: if i == SCREEN { SIZES } else { i / PER_SIZE },
@@ -177,6 +186,32 @@ pub fn fx_quad(
         ]
     })
 }
+/// Layout-aware postprocessing quad; viewport dimensions are destination pixels.
+pub fn fx_quad_for_layout(
+    layout: crate::kx::Layout,
+    viewport: [i32; 2],
+    scale0: Option<[f32; 2]>,
+    uv0: Option<[f32; 4]>,
+    scale1: Option<[f32; 2]>,
+    uv1: Option<[f32; 4]>,
+) -> [[f32; 8]; 4] {
+    let mut vertices = fx_quad(scale0, uv0, scale1, uv1);
+    if layout == crate::kx::Layout::Beta2004 {
+        for vertex in &mut vertices {
+            vertex[0] = if vertex[0] < 0. {
+                -0.5
+            } else {
+                crate::game::beta_monster::down(f64::from(viewport[0]) - 0.5)
+            };
+            vertex[1] = if vertex[1] > 0. {
+                -0.5
+            } else {
+                crate::game::beta_monster::down(f64::from(viewport[1]) - 0.5)
+            };
+        }
+    }
+    vertices
+}
 #[derive(Clone, Debug)]
 pub struct Draw {
     pub viewport: Viewport,
@@ -190,6 +225,35 @@ pub struct Draw {
     pub vertices: [[f32; 8]; 4],
 }
 impl Pool {
+    fn environment(&self) -> super::camera::Environment {
+        super::camera::Environment {
+            orthogonal: if self.released { 2 } else { 1 },
+            released_projection: self.released,
+            ..Default::default()
+        }
+    }
+    fn quad(
+        &self,
+        viewport: Viewport,
+        scale0: Option<[f32; 2]>,
+        uv0: Option<[f32; 4]>,
+        scale1: Option<[f32; 2]>,
+        uv1: Option<[f32; 4]>,
+    ) -> [[f32; 8]; 4] {
+        let [x0, y0, x1, y1] = viewport.window;
+        fx_quad_for_layout(
+            if self.released {
+                crate::kx::Layout::Beta2004
+            } else {
+                crate::kx::Layout::Current
+            },
+            [x1.wrapping_sub(x0), y1.wrapping_sub(y0)],
+            scale0,
+            uv0,
+            scale1,
+            uv1,
+        )
+    }
     pub fn copy(
         &self,
         source: usize,
@@ -214,17 +278,14 @@ impl Pool {
         let uv = [0.5 - zoom, 0.5 - zoom, 0.5 + zoom, 0.5 + zoom];
         Ok(Some(Draw {
             viewport,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            environment: self.environment(),
             material,
             texture,
             texture1: None,
             texture2: None,
             color,
             color2: None,
-            vertices: fx_quad(Some(source.scale_uv), Some(uv), None, None),
+            vertices: self.quad(viewport, Some(source.scale_uv), Some(uv), None, None),
         }))
     }
     /// Exec_IPP_Copy after its input operators have executed. Source references
@@ -294,19 +355,17 @@ impl Pool {
             .filter(|&index| index < 36)
             .ok_or("overlay color material out of range")?;
         let destination = self.allocate(Some(owner), size, count);
+        let viewport = self.viewport(destination)?;
         let draw = Draw {
-            viewport: self.viewport(destination)?,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            viewport,
+            environment: self.environment(),
             material,
             texture,
             texture1: None,
             texture2: None,
             color,
             color2: Some(amplify),
-            vertices: fx_quad(Some(scale), None, None, None),
+            vertices: self.quad(viewport, Some(scale), None, None, None),
         };
         self.free(source)?;
         self.last_output = Some(destination);
@@ -356,19 +415,17 @@ impl Pool {
             .filter(|&index| index < 36)
             .ok_or("overlay merge material out of range")?;
         let output = self.allocate(Some(owner), size, parameters.count);
+        let viewport = self.viewport(output)?;
         let draw = Draw {
-            viewport: self.viewport(output)?,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            viewport,
+            environment: self.environment(),
             material,
             texture: textures[0],
             texture1: Some(textures[1]),
             texture2: None,
             color: (parameters.alpha as u32).wrapping_shl(24),
             color2: Some(parameters.amplify),
-            vertices: fx_quad(Some(scales[0]), None, Some(scales[1]), None),
+            vertices: self.quad(viewport, Some(scales[0]), None, Some(scales[1]), None),
         };
         for source in sources {
             self.free(source)?;
@@ -411,31 +468,25 @@ impl Pool {
         let viewport = self.viewport(output)?;
         let first = Draw {
             viewport,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            environment: self.environment(),
             material: 25,
             texture: textures[2],
             texture1: Some(textures[1]),
             texture2: None,
             color: 0x408040,
             color2: Some(u32::MAX),
-            vertices: fx_quad(Some(scales[2]), None, Some(scales[1]), None),
+            vertices: self.quad(viewport, Some(scales[2]), None, Some(scales[1]), None),
         };
         let second = Draw {
             viewport,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            environment: self.environment(),
             material: 26,
             texture: textures[2],
             texture1: None,
             texture2: Some(textures[0]),
             color: 0x408040,
             color2: Some(0xffffff),
-            vertices: fx_quad(Some(scales[2]), None, Some(scales[0]), None),
+            vertices: self.quad(viewport, Some(scales[2]), None, Some(scales[0]), None),
         };
         for source in sources {
             self.free(source)?;
@@ -496,17 +547,15 @@ impl Pool {
         Ok((0..2)
             .map(|pass| Draw {
                 viewport,
-                environment: super::camera::Environment {
-                    orthogonal: 1,
-                    ..Default::default()
-                },
+                environment: self.environment(),
                 material: 4 + pass,
                 texture,
                 texture1: Some(texture),
                 texture2: None,
                 color,
                 color2: Some(u32::MAX),
-                vertices: fx_quad(
+                vertices: self.quad(
+                    viewport,
                     Some(source.scale_uv),
                     Some(rects[pass * 2]),
                     Some(source.scale_uv),
@@ -665,19 +714,18 @@ impl Pool {
             size
         };
         let output = self.allocate(Some(owner), size, count);
+        let viewport = self.viewport(output)?;
         draws.push(Draw {
-            viewport: self.viewport(output)?,
-            environment: super::camera::Environment {
-                orthogonal: 1,
-                ..Default::default()
-            },
+            viewport,
+            environment: self.environment(),
             material: 7,
             texture,
             texture1: self.targets[input].texture,
             texture2: None,
             color: 0x00ffffff,
             color2: Some(amplify),
-            vertices: fx_quad(
+            vertices: self.quad(
+                viewport,
                 Some(self.targets[blurred].scale_uv),
                 None,
                 Some(self.targets[input].scale_uv),

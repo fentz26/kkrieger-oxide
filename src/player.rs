@@ -273,13 +273,14 @@ impl App {
         }));
         execution.renderer = Some(Box::new(Bridge(Rc::clone(&graphics))));
         let (width, height) = window::screen_size();
-        execution.overlay = Some(Pool::new(
+        execution.overlay = Some(Pool::new_for_layout(
             Viewport {
                 screen: 0,
                 render_target: -1,
                 window: [0, 0, width as i32, height as i32],
             },
             std::array::from_fn(|i| 100 + i as i32),
+            doc.layout,
         ));
         #[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
         let music =

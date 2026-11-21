@@ -2573,10 +2573,9 @@ cameras inherit it from the game camera, so beta perspective projection drives
 portal culling and shader constants without the half-pixel shift. Development
 projection follows the published routine.
 
-Beta overlay draws use the published mode-1 projection. The released routine
-ignores mode 1, so released overlays obtain their matrices elsewhere; that path
-is untraced and beta overlay projection is not claimed to match. GPU pixel
-comparison and complete frame parity remain open.
+The common beta FXQuad postprocessing path now uses released pixel-space
+vertices and mode-2 projection, as verified below. Other overlay handler ABIs,
+UV preparation and GPU pixel comparisons remain separate completion gates.
 
 ### Verification
 
@@ -2587,3 +2586,34 @@ and player-root render resource preparation) pass. CI release executables are
 Linux x86_64 1,562,736 bytes, macOS ARM64 1,317,152 bytes and Windows x86_64
 1,189,888 bytes.
 Evidence: https://github.com/fentz26/kkrieger-oxide/actions/runs/44803358258
+
+
+### Released postprocessing quad and projection
+
+`verify_beta_overlay_quad.py` executes released FXQuad `0x81439e`, environment
+initialization and MakeProjectionMatrix `0x8022a7`. Only material/geometry device
+submissions are intercepted; the capture checks their call order, arguments,
+return addresses and stack cleanup. Sixty-four cases cover default and supplied
+UV rectangles and ordinary, zero, negative and extreme viewport dimensions.
+The 15,620-byte fixture SHA-256 is
+`3c97d2e23a1f48fe42cb2eee1ad29fc284e6be1caa990068f087f9d02b7d0863`.
+
+The released routine selects projection mode 2 and writes pixel-space corners
+at -0.5 and width/height -0.5, with z = 1. The published helper instead emits
+normalized corners and mode 1, whose depth scale is 1/FarClip. Beta overlay pools
+now select the released representation for common FXQuad builders; development
+pools retain their original representation and fixtures. The player and extracted
+beta startup check construct pools using the document layout. The existing
+OpenGL pixel-center conversion stays at GPU submission.
+
+Rust matches every captured vertex and projection word. An integration check
+verifies pool-generated beta draws select pixel space while development draws
+remain normalized. The regression first failed at -1 versus native -0.5.
+Viewport endpoint subtraction follows the pool's existing wrapping convention.
+This verifies the FXQuad geometry/projection boundary; it does not establish
+native IPP parameter/UV preparation, custom Layer2D behavior, material shaders,
+GPU output or complete-frame parity. Published-source overlay regressions pass;
+the final local suite passes 525 tests with 36 ignored. All-target Clippy,
+formatting and whitespace checks pass. Independent review found no material
+issues after adopting wrapping viewport sizes. Platform CI and the explicit
+extracted-beta startup check are pending for this change.
