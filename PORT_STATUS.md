@@ -44,10 +44,10 @@ below; those notes record the state when individual subsystems were ported.
   bytes). This is an asset-preparation measurement, not gameplay frame timing
   or a released-beta content benchmark. Further size optimization remains open.
 
-The latest full platform CI audit at e3d592c passes formatting, all-target Clippy
+The latest full platform CI audit at 2c78c53 passes formatting, all-target Clippy
 with `-D warnings`, the regular test suite and release builds on Linux, macOS
-and Windows with Rust 1.100.0. The normal suite passes 523 checks on macOS and
-524 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
+and Windows with Rust 1.100.0. The normal suite passes 525 checks on macOS and
+526 on Windows/Linux, with 36 ignored on macOS/Linux and 38 on Windows. Linux
 also passes five explicit native ALSA null-device integration checks. macOS and
 Windows pass both the published-menu and beta-layout installed-font integration
 checks. Windows additionally passes the published-source GDI atlas reference
